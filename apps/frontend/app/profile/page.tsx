@@ -1,6 +1,12 @@
 import Link from "next/link";
 
 // Placeholder data — replace with real user data once auth is set up
+const friends = [
+  { id: "u1", username: "alice", online: true },
+  { id: "u2", username: "bob", online: false },
+  { id: "u3", username: "charlie", online: true },
+];
+
 const user = {
   username: "johndoe",
   email: "johndoe@example.com",
@@ -57,6 +63,30 @@ export default function ProfilePage() {
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 text-center">
             <p className="text-2xl font-bold text-gray-900">{user.stats.wins}</p>
             <p className="text-xs text-gray-500 mt-1">Wins</p>
+          </div>
+        </div>
+
+        {/* Friends */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-base font-semibold text-gray-800">
+              Friends <span className="text-gray-400 font-normal">({friends.length})</span>
+            </h2>
+            <Link href="/friends" className="text-xs text-blue-600 hover:underline">View all</Link>
+          </div>
+          <div className="flex flex-col gap-2">
+            {friends.map((f) => (
+              <div key={f.id} className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-50">
+                <div className="relative">
+                  <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-600">
+                    {f.username[0].toUpperCase()}
+                  </div>
+                  <span className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-white ${f.online ? "bg-green-500" : "bg-gray-300"}`} />
+                </div>
+                <span className="text-sm text-gray-800">{f.username}</span>
+                {f.online && <span className="text-xs text-gray-400">Online</span>}
+              </div>
+            ))}
           </div>
         </div>
 
