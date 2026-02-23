@@ -2,17 +2,17 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import type { Tournament, TournamentStatus } from "@/types";
 
-type Status = "upcoming" | "active" | "past";
-type Filter = "all" | Status;
+type Filter = "all" | TournamentStatus;
 
-const tournaments = [
-  { id: "1", name: "Spring Open 2025", status: "upcoming" as Status, date: "Mar 15, 2025", participants: 12, max: 16, game: "Chess" },
-  { id: "2", name: "Weekly Blitz #42", status: "active" as Status, date: "Feb 23, 2025", participants: 8, max: 8, game: "Chess" },
-  { id: "3", name: "City Chess Cup", status: "past" as Status, date: "Jan 10, 2025", participants: 32, max: 32, game: "Chess" },
-  { id: "4", name: "Winter Championship", status: "past" as Status, date: "Dec 5, 2024", participants: 16, max: 16, game: "Chess" },
-  { id: "5", name: "Easter Invitational", status: "upcoming" as Status, date: "Apr 20, 2025", participants: 4, max: 16, game: "Chess" },
-  { id: "6", name: "Club Night #7", status: "active" as Status, date: "Feb 23, 2025", participants: 6, max: 8, game: "Chess" },
+const tournaments: Tournament[] = [
+  { id: "1", name: "Spring Open 2025", status: "upcoming" as TournamentStatus, date: "Mar 15, 2025", participants: 12, max: 16, game: "Chess" },
+  { id: "2", name: "Weekly Blitz #42", status: "active" as TournamentStatus, date: "Feb 23, 2025", participants: 8, max: 8, game: "Chess" },
+  { id: "3", name: "City Chess Cup", status: "past" as TournamentStatus, date: "Jan 10, 2025", participants: 32, max: 32, game: "Chess" },
+  { id: "4", name: "Winter Championship", status: "past" as TournamentStatus, date: "Dec 5, 2024", participants: 16, max: 16, game: "Chess" },
+  { id: "5", name: "Easter Invitational", status: "upcoming" as TournamentStatus, date: "Apr 20, 2025", participants: 4, max: 16, game: "Chess" },
+  { id: "6", name: "Club Night #7", status: "active" as TournamentStatus, date: "Feb 23, 2025", participants: 6, max: 8, game: "Chess" },
 ];
 
 const filters: { label: string; value: Filter }[] = [

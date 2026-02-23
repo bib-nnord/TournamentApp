@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { TeamRole } from "@/types";
 
 // Placeholder data — replace with real user data once auth is set up
 const friends = [
@@ -11,11 +12,24 @@ const user = {
   username: "johndoe",
   email: "johndoe@example.com",
   joinedAt: "January 2025",
+  bio: "Competitive chess player and tournament organiser. Always looking for a good game.",
+  location: "Stockholm, Sweden",
   stats: {
     tournamentsJoined: 8,
     tournamentsCreated: 3,
     wins: 2,
   },
+};
+
+const myTeams = [
+  { id: "t1", name: "The Knights", role: "lead" as TeamRole },
+  { id: "t2", name: "Storm Squad", role: "member" as TeamRole },
+];
+
+const teamRoleColors: Record<TeamRole, string> = {
+  lead: "bg-yellow-100 text-yellow-700",
+  moderator: "bg-blue-100 text-blue-700",
+  member: "bg-gray-100 text-gray-600",
 };
 
 const myTournaments = [
@@ -48,6 +62,15 @@ export default function ProfilePage() {
           <button className="text-sm px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
             Edit profile
           </button>
+        </div>
+
+        {/* About */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+          <h2 className="text-base font-semibold text-gray-800 mb-3">About</h2>
+          <p className="text-sm text-gray-600 mb-3">{user.bio}</p>
+          {user.location && (
+            <p className="text-xs text-gray-400">📍 {user.location}</p>
+          )}
         </div>
 
         {/* Stats */}
@@ -86,6 +109,25 @@ export default function ProfilePage() {
                 <span className="text-sm text-gray-800">{f.username}</span>
                 {f.online && <span className="text-xs text-gray-400">Online</span>}
               </div>
+            ))}
+          </div>
+        </div>
+
+        {/* My teams */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+          <h2 className="text-base font-semibold text-gray-800 mb-4">My teams</h2>
+          <div className="flex flex-col gap-2">
+            {myTeams.map((t) => (
+              <Link
+                key={t.id}
+                href={`/teams/${t.id}`}
+                className="flex items-center justify-between px-4 py-3 rounded-lg border border-gray-100 hover:bg-gray-50"
+              >
+                <span className="text-sm font-medium text-gray-800">{t.name}</span>
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${teamRoleColors[t.role]}`}>
+                  {t.role}
+                </span>
+              </Link>
             ))}
           </div>
         </div>

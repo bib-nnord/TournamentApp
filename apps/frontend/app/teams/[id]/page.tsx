@@ -1,6 +1,5 @@
 import Link from "next/link";
-
-type TeamRole = "lead" | "moderator" | "member" | "none";
+import type { TeamRelation as TeamRole } from "@/types";
 
 // Placeholder — replace with real data + role derived from auth once backend is ready
 const team = {
@@ -56,12 +55,20 @@ export default function TeamPage() {
               <p className="text-sm text-gray-500 mt-1">{team.description}</p>
             </div>
 
-            {/* Role badge for members */}
-            {!isUnrelated && (
-              <span className={`text-xs px-2 py-1 rounded-full font-medium ${roleBadge[currentUserRole]}`}>
-                {roleLabel[currentUserRole]}
-              </span>
-            )}
+            <div className="flex items-center gap-2">
+              {/* Role badge for members */}
+              {!isUnrelated && (
+                <span className={`text-xs px-2 py-1 rounded-full font-medium ${roleBadge[currentUserRole]}`}>
+                  {roleLabel[currentUserRole]}
+                </span>
+              )}
+              {/* Settings — lead and moderator only */}
+              {canManage && (
+                <Link href={`/teams/${team.id}/settings`} className="text-sm px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-500" title="Team settings">
+                  ⚙
+                </Link>
+              )}
+            </div>
           </div>
 
           <div className="flex gap-2 mt-4 flex-wrap">

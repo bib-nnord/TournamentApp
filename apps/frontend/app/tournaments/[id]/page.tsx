@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { TournamentParticipant } from "@/types";
 
 // Placeholder — replace with real fetch by id once backend is ready
 const tournament = {
@@ -14,7 +15,7 @@ const tournament = {
     { id: "u2", username: "bob" },
     { id: "u3", username: "charlie" },
     { id: "u4", username: "diana" },
-  ],
+  ] as TournamentParticipant[],
   maxParticipants: 16,
 };
 

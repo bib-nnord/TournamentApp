@@ -40,9 +40,12 @@ export default function Navbar() {
                 </Link>
               </>
             )}
+            <Link href="/settings" className="text-gray-400 hover:text-gray-600 px-1.5 py-1 rounded hover:bg-gray-100" title="Settings">
+              ⚙
+            </Link>
             <button
               onClick={() => setCollapsed(true)}
-              className="ml-2 text-gray-400 hover:text-gray-600 text-xs px-1.5 py-1 rounded hover:bg-gray-100"
+              className="text-gray-400 hover:text-gray-600 text-xs px-1.5 py-1 rounded hover:bg-gray-100"
               title="Collapse navbar"
             >
               ▲
