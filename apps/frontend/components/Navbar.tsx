@@ -11,6 +11,10 @@ export default function Navbar() {
           Tournament App
         </Link>
         <div className="flex items-center space-x-2">
+          {/* TODO: remove once real auth is wired up */}
+          <Link href="/profile" className="text-xs px-2 py-1 rounded border border-dashed border-orange-300 text-orange-500 hover:bg-orange-50">
+            Debug: profile
+          </Link>
           {isLoggedIn ? (
             <Link href="/profile" className="text-sm px-3 py-1 rounded border border-gray-300 hover:bg-gray-100">
               Profile
