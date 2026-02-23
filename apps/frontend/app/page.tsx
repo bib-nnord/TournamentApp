@@ -3,20 +3,6 @@ import Link from "next/link";
 export default function Home() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      <header className="w-full bg-white border-b">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-          <h1 className="text-lg font-semibold text-gray-800">Tournament App</h1>
-          <div className="flex items-center space-x-2">
-            <Link href="/login" className="text-sm px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700">
-              Login
-            </Link>
-            <Link href="/register" className="text-sm px-3 py-1 rounded border border-gray-300 hover:bg-gray-100">
-              Register
-            </Link>
-          </div>
-        </div>
-      </header>
-
       <main className="flex-1 flex items-center justify-center">
         <section className="max-w-4xl w-full px-6 py-12">
           <div className="bg-white rounded-2xl shadow-lg p-12 flex flex-col md:flex-row items-center md:items-stretch gap-8">

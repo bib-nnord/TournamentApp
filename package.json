@@ -9,9 +9,5 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "packageManager": "pnpm@10.29.3",
-  "dependencies": {
-    "@reduxjs/toolkit": "^2.11.2",
-    "react-redux": "^9.2.0"
-  }
+  "packageManager": "pnpm@10.29.3"
 }
