@@ -21,6 +21,19 @@ const recentResults = [
   { id: "4", name: "Winter Championship", date: "Dec 5, 2024", placement: "3rd" },
 ];
 
+// Placeholder — replace with real data from API
+const teamNews = [
+  { id: "n1", team: "The Knights", message: "New member joined: diana", time: "2h ago" },
+  { id: "n2", team: "Storm Squad", message: "Match scheduled vs Iron Bishops", time: "5h ago" },
+  { id: "n3", team: "The Knights", message: "Team practice moved to Thursday", time: "1d ago" },
+];
+
+const upcomingMatches = [
+  { id: "m1", tournament: "Spring Open 2025", opponent: "Iron Bishops", date: "Mar 15, 2025", time: "14:00" },
+  { id: "m2", tournament: "Weekly Blitz #42", opponent: "Rapid Rookies", date: "Feb 28, 2025", time: "18:00" },
+  { id: "m3", tournament: "Easter Invitational", opponent: "TBD", date: "Apr 20, 2025", time: "10:00" },
+];
+
 export default function DashboardPage() {
   const router = useRouter();
   const user = useSelector((state: RootState) => state.auth.user);
@@ -104,6 +117,61 @@ export default function DashboardPage() {
                     <span className="text-sm font-medium text-gray-800">{t.name}</span>
                     <span className="text-xs text-gray-400">{t.date}</span>
                   </Link>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Team news */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+            <h2 className="text-sm font-semibold text-gray-800 mb-4 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-purple-500 inline-block" />
+              Team news
+            </h2>
+            {teamNews.length === 0 ? (
+              <p className="text-sm text-gray-400">No news from your teams.</p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {teamNews.map((n) => (
+                  <div
+                    key={n.id}
+                    className="flex items-start justify-between px-3 py-2 rounded-lg hover:bg-gray-50"
+                  >
+                    <div>
+                      <span className="text-xs font-semibold text-indigo-600">{n.team}</span>
+                      <p className="text-sm text-gray-800">{n.message}</p>
+                    </div>
+                    <span className="text-xs text-gray-400 whitespace-nowrap ml-3">{n.time}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Upcoming matches */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+            <h2 className="text-sm font-semibold text-gray-800 mb-4 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-orange-500 inline-block" />
+              Upcoming matches
+            </h2>
+            {upcomingMatches.length === 0 ? (
+              <p className="text-sm text-gray-400">No upcoming matches.</p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {upcomingMatches.map((m) => (
+                  <div
+                    key={m.id}
+                    className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gray-50"
+                  >
+                    <div>
+                      <p className="text-sm font-medium text-gray-800">vs {m.opponent}</p>
+                      <span className="text-xs text-gray-400">{m.tournament}</span>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs font-medium text-gray-700">{m.date}</p>
+                      <span className="text-xs text-gray-400">{m.time}</span>
+                    </div>
+                  </div>
                 ))}
               </div>
             )}

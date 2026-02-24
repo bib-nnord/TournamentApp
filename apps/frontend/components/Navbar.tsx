@@ -22,65 +22,67 @@ export default function Navbar() {
     router.push("/");
   }
 
+  if (collapsed) {
+    return (
+      <div className="fixed top-2 right-2 z-50">
+        <button
+          onClick={() => setCollapsed(false)}
+          className="text-xs px-2 py-1 rounded bg-white border border-gray-200 shadow-sm text-gray-400 hover:text-gray-600 hover:bg-gray-50"
+          title="Show navbar"
+        >
+          ▼ Show navbar
+        </button>
+      </div>
+    );
+  }
+
   return (
     <header className="sticky top-0 z-50 w-full bg-white border-b shadow-sm">
-      {!collapsed ? (
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-          <Link href="/" className="text-lg font-semibold text-gray-800">
-            Tournament App
-          </Link>
-          <div className="flex items-center space-x-2">
-            {mounted && (isLoggedIn ? (
-              <>
-                <Link href="/dashboard" className="text-sm px-3 py-1 rounded hover:bg-gray-100 text-gray-700">
-                  Dashboard
-                </Link>
-                <Link href="/messages" className="text-sm px-3 py-1 rounded hover:bg-gray-100 text-gray-700">
-                  Messages
-                </Link>
-                <Link href={`/profile/${user.username}`} className="text-sm px-3 py-1 rounded border border-gray-300 hover:bg-gray-100">
-                  {user.username}
-                </Link>
-                <button
-                  onClick={handleLogout}
-                  className="text-sm px-3 py-1 rounded text-red-600 hover:bg-red-50"
-                >
-                  Logout
-                </button>
-              </>
-            ) : (
-              <>
-                <Link href="/login" className="text-sm px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700">
-                  Login
-                </Link>
-                <Link href="/register" className="text-sm px-3 py-1 rounded border border-gray-300 hover:bg-gray-100">
-                  Register
-                </Link>
-              </>
-            ))}
-            <Link href="/settings" className="text-gray-400 hover:text-gray-600 px-1.5 py-1 rounded hover:bg-gray-100" title="Settings">
-              ⚙
-            </Link>
-            <button
-              onClick={() => setCollapsed(true)}
-              className="text-gray-400 hover:text-gray-600 text-xs px-1.5 py-1 rounded hover:bg-gray-100"
-              title="Collapse navbar"
-            >
-              ▲
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="flex justify-end px-4 py-1">
+      <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+        <Link href="/" className="text-lg font-semibold text-gray-800">
+          Tournament App
+        </Link>
+        <div className="flex items-center space-x-2">
+          {mounted && (isLoggedIn ? (
+            <>
+              <Link href="/dashboard" className="text-sm px-3 py-1 rounded hover:bg-gray-100 text-gray-700">
+                Dashboard
+              </Link>
+              <Link href="/messages" className="text-sm px-3 py-1 rounded hover:bg-gray-100 text-gray-700">
+                Messages
+              </Link>
+              <Link href={`/profile/${user.username}`} className="text-sm px-3 py-1 rounded border border-gray-300 hover:bg-gray-100">
+                {user.username}
+              </Link>
+              <button
+                onClick={handleLogout}
+                className="text-sm px-3 py-1 rounded text-red-600 hover:bg-red-50"
+              >
+                Logout
+              </button>
+              <Link href="/settings" className="text-gray-400 hover:text-gray-600 px-1.5 py-1 rounded hover:bg-gray-100" title="Settings">
+                ⚙
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link href="/login" className="text-sm px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700">
+                Login
+              </Link>
+              <Link href="/register" className="text-sm px-3 py-1 rounded border border-gray-300 hover:bg-gray-100">
+                Register
+              </Link>
+            </>
+          ))}
           <button
-            onClick={() => setCollapsed(false)}
-            className="text-gray-400 hover:text-gray-600 text-xs px-2 py-1 rounded hover:bg-gray-100"
-            title="Expand navbar"
+            onClick={() => setCollapsed(true)}
+            className="text-gray-400 hover:text-gray-600 text-xs px-1.5 py-1 rounded hover:bg-gray-100"
+            title="Collapse navbar"
           >
-            ▼ Show navbar
+            ▲
           </button>
         </div>
-      )}
+      </div>
     </header>
   );
 }
