@@ -1,8 +1,12 @@
+"use client";
+
 import Link from "next/link";
+import { useSelector } from "react-redux";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import type { RootState } from "@/store/store";
 
-// Placeholder — replace with real user/tournament data once auth + backend are ready
-const user = { username: "johndoe" };
-
+// Placeholder — replace with real tournament data from API
 const upcomingTournaments = [
   { id: "1", name: "Spring Open 2025", date: "Mar 15, 2025", role: "participant" },
   { id: "5", name: "Easter Invitational", date: "Apr 20, 2025", role: "participant" },
@@ -18,6 +22,15 @@ const recentResults = [
 ];
 
 export default function DashboardPage() {
+  const router = useRouter();
+  const user = useSelector((state: RootState) => state.auth.user);
+
+  useEffect(() => {
+    if (!user) router.replace("/login");
+  }, [user, router]);
+
+  if (!user) return null;
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-4xl mx-auto px-4 py-10">

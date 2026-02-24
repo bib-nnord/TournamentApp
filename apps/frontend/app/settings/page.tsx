@@ -1,4 +1,27 @@
+"use client";
+
+import { useSelector, useDispatch } from "react-redux";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { logout } from "@/store/authSlice";
+import type { RootState, AppDispatch } from "@/store/store";
+
 export default function SettingsPage() {
+  const router = useRouter();
+  const dispatch = useDispatch<AppDispatch>();
+  const user = useSelector((state: RootState) => state.auth.user);
+
+  useEffect(() => {
+    if (!user) router.replace("/login");
+  }, [user, router]);
+
+  if (!user) return null;
+
+  function handleLogout() {
+    dispatch(logout());
+    router.push("/");
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-2xl mx-auto px-4 py-10">
@@ -75,12 +98,19 @@ export default function SettingsPage() {
         {/* Account */}
         <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
           <h2 className="text-base font-semibold text-gray-800 mb-4">Account</h2>
+          <p className="text-sm text-gray-500 mb-4">Signed in as <span className="font-medium text-gray-700">{user.email}</span></p>
           <div className="flex flex-col gap-3">
             <button className="w-full text-left text-sm px-4 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700">
               Change password
             </button>
             <button className="w-full text-left text-sm px-4 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700">
               Change email
+            </button>
+            <button
+              onClick={handleLogout}
+              className="w-full text-left text-sm px-4 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700"
+            >
+              Log out
             </button>
             <button className="w-full text-left text-sm px-4 py-2.5 border border-red-200 rounded-lg hover:bg-red-50 text-red-500">
               Delete account

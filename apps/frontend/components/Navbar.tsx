@@ -2,12 +2,22 @@
 
 import Link from "next/link";
 import { useState } from "react";
-
-// Replace `isLoggedIn` with your auth state once auth is set up
-const isLoggedIn = false;
+import { useDispatch, useSelector } from "react-redux";
+import { useRouter } from "next/navigation";
+import { logout } from "@/store/authSlice";
+import type { RootState, AppDispatch } from "@/store/store";
 
 export default function Navbar() {
   const [collapsed, setCollapsed] = useState(false);
+  const dispatch = useDispatch<AppDispatch>();
+  const router = useRouter();
+  const user = useSelector((state: RootState) => state.auth.user);
+  const isLoggedIn = !!user;
+
+  function handleLogout() {
+    dispatch(logout());
+    router.push("/");
+  }
 
   return (
     <header className="sticky top-0 z-50 w-full bg-white border-b shadow-sm">
@@ -17,10 +27,6 @@ export default function Navbar() {
             Tournament App
           </Link>
           <div className="flex items-center space-x-2">
-            {/* TODO: remove once real auth is wired up */}
-            <Link href="/profile" className="text-xs px-2 py-1 rounded border border-dashed border-orange-300 text-orange-500 hover:bg-orange-50">
-              Debug: profile
-            </Link>
             {isLoggedIn ? (
               <>
                 <Link href="/dashboard" className="text-sm px-3 py-1 rounded hover:bg-gray-100 text-gray-700">
@@ -30,8 +36,14 @@ export default function Navbar() {
                   Messages
                 </Link>
                 <Link href="/profile" className="text-sm px-3 py-1 rounded border border-gray-300 hover:bg-gray-100">
-                  Profile
+                  {user.username}
                 </Link>
+                <button
+                  onClick={handleLogout}
+                  className="text-sm px-3 py-1 rounded text-red-600 hover:bg-red-50"
+                >
+                  Logout
+                </button>
               </>
             ) : (
               <>

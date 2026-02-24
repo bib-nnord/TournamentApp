@@ -1,25 +1,18 @@
+"use client";
+
 import Link from "next/link";
+import { useSelector } from "react-redux";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import type { RootState } from "@/store/store";
 import type { TeamRole } from "@/types";
 
-// Placeholder data — replace with real user data once auth is set up
+// Placeholder data — replace with API calls once endpoints are ready
 const friends = [
   { id: "u1", username: "alice", online: true },
   { id: "u2", username: "bob", online: false },
   { id: "u3", username: "charlie", online: true },
 ];
-
-const user = {
-  username: "johndoe",
-  email: "johndoe@example.com",
-  joinedAt: "January 2025",
-  bio: "Competitive chess player and tournament organiser. Always looking for a good game.",
-  location: "Stockholm, Sweden",
-  stats: {
-    tournamentsJoined: 8,
-    tournamentsCreated: 3,
-    wins: 2,
-  },
-};
 
 const myTeams = [
   { id: "t1", name: "The Knights", role: "lead" as TeamRole },
@@ -52,6 +45,15 @@ const statusColors: Record<string, string> = {
 };
 
 export default function ProfilePage() {
+  const router = useRouter();
+  const user = useSelector((state: RootState) => state.auth.user);
+
+  useEffect(() => {
+    if (!user) router.replace("/login");
+  }, [user, router]);
+
+  if (!user) return null;
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-3xl mx-auto px-4 py-10">
@@ -64,36 +66,10 @@ export default function ProfilePage() {
           <div className="flex-1">
             <h1 className="text-xl font-bold text-gray-900">{user.username}</h1>
             <p className="text-sm text-gray-500">{user.email}</p>
-            <p className="text-xs text-gray-400 mt-1">Member since {user.joinedAt}</p>
           </div>
           <button className="text-sm px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
             Edit profile
           </button>
-        </div>
-
-        {/* About */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
-          <h2 className="text-base font-semibold text-gray-800 mb-3">About</h2>
-          <p className="text-sm text-gray-600 mb-3">{user.bio}</p>
-          {user.location && (
-            <p className="text-xs text-gray-400">📍 {user.location}</p>
-          )}
-        </div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 text-center">
-            <p className="text-2xl font-bold text-gray-900">{user.stats.tournamentsJoined}</p>
-            <p className="text-xs text-gray-500 mt-1">Joined</p>
-          </div>
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 text-center">
-            <p className="text-2xl font-bold text-gray-900">{user.stats.tournamentsCreated}</p>
-            <p className="text-xs text-gray-500 mt-1">Created</p>
-          </div>
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 text-center">
-            <p className="text-2xl font-bold text-gray-900">{user.stats.wins}</p>
-            <p className="text-xs text-gray-500 mt-1">Wins</p>
-          </div>
         </div>
 
         {/* Friends */}
