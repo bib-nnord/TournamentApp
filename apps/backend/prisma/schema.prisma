@@ -1,0 +1,101 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Users ──────────────────────────────────────────────────────────────────
+
+model User {
+  user_id         Int       @id @default(autoincrement())
+  username        String    @unique @db.VarChar(50)
+  email           String    @unique @db.VarChar(255)
+  password_hash   String    @db.VarChar(255)
+  display_name    String?   @db.VarChar(100)
+  first_name      String?   @db.VarChar(100)
+  last_name       String?   @db.VarChar(100)
+  date_of_birth   DateTime? @db.Date
+  bio             String?   @db.Text
+  location        String?   @db.VarChar(200)
+  avatar_url      String?   @db.VarChar(500)
+  site_role       SiteRole  @default(user)
+  email_confirmed Boolean   @default(false)
+  created_at      DateTime  @default(now()) @db.Timestamp(6)
+
+  team_memberships TeamMember[]
+  created_teams    Team[]          @relation("TeamCreator")
+  sent_messages    Message[]       @relation("MessageSender")
+  received_messages Message[]      @relation("MessageRecipient")
+
+  @@map("user")
+}
+
+enum SiteRole {
+  user
+  organizer
+  moderator
+  admin
+}
+
+// ─── Teams ──────────────────────────────────────────────────────────────────
+
+model Team {
+  team_id     Int      @id @default(autoincrement())
+  name        String   @db.VarChar(100)
+  description String?  @db.Text
+  image_url   String?  @db.VarChar(500)
+  is_open     Boolean  @default(false)
+  created_by  Int
+  created_at  DateTime @default(now()) @db.Timestamp(6)
+
+  creator User         @relation("TeamCreator", fields: [created_by], references: [user_id])
+  members TeamMember[]
+
+  @@map("team")
+}
+
+model TeamMember {
+  team_id   Int
+  user_id   Int
+  role      TeamRole @default(member)
+  joined_at DateTime @default(now()) @db.Timestamp(6)
+
+  team Team @relation(fields: [team_id], references: [team_id])
+  user User @relation(fields: [user_id], references: [user_id])
+
+  @@id([team_id, user_id])
+  @@map("team_member")
+}
+
+enum TeamRole {
+  lead
+  moderator
+  member
+}
+
+// ─── Messages ───────────────────────────────────────────────────────────────
+
+model Message {
+  message_id   Int             @id @default(autoincrement())
+  sender_id    Int?
+  recipient_id Int
+  category     MessageCategory
+  subject      String          @db.VarChar(200)
+  body         String          @db.Text
+  is_read      Boolean         @default(false)
+  created_at   DateTime        @default(now()) @db.Timestamp(6)
+
+  sender    User? @relation("MessageSender", fields: [sender_id], references: [user_id])
+  recipient User  @relation("MessageRecipient", fields: [recipient_id], references: [user_id])
+
+  @@map("message")
+}
+
+enum MessageCategory {
+  users
+  teams
+  tournaments
+  website
+}
