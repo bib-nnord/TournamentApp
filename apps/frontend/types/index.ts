@@ -44,6 +44,30 @@ export interface TeamMember {
   role: TeamRole;
 }
 
+// ─── Matches ──────────────────────────────────────────────────────────────────
+
+export type MatchStatus = "scheduled" | "ongoing" | "completed";
+
+export interface MatchPlayer {
+  id: string;
+  username: string;
+  score: number | null;
+}
+
+export interface Match {
+  id: string;
+  status: MatchStatus;
+  scheduledAt: string;
+  game: string;
+  playerA: MatchPlayer;
+  playerB: MatchPlayer;
+  /** Present when the match belongs to a tournament */
+  tournament?: { id: string; name: string };
+  /** Present when the match belongs to a tournament bracket round */
+  round?: string;
+  notes?: string;
+}
+
 // ─── Users ────────────────────────────────────────────────────────────────────
 
 export interface User {

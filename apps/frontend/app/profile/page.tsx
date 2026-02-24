@@ -26,6 +26,11 @@ const myTeams = [
   { id: "t2", name: "Storm Squad", role: "member" as TeamRole },
 ];
 
+const followedTeams = [
+  { id: "t3", name: "Iron Bishops", members: 3, open: true },
+  { id: "t4", name: "Rapid Rookies", members: 8, open: false },
+];
+
 const teamRoleColors: Record<TeamRole, string> = {
   lead: "bg-yellow-100 text-yellow-700",
   moderator: "bg-blue-100 text-blue-700",
@@ -130,6 +135,32 @@ export default function ProfilePage() {
               </Link>
             ))}
           </div>
+        </div>
+
+        {/* Followed teams */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+          <h2 className="text-base font-semibold text-gray-800 mb-4">Followed teams</h2>
+          {followedTeams.length === 0 ? (
+            <p className="text-sm text-gray-400">No followed teams yet.</p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {followedTeams.map((t) => (
+                <Link
+                  key={t.id}
+                  href={`/teams/${t.id}`}
+                  className="flex items-center justify-between px-4 py-3 rounded-lg border border-gray-100 hover:bg-gray-50"
+                >
+                  <div>
+                    <span className="text-sm font-medium text-gray-800">{t.name}</span>
+                    <span className="text-xs text-gray-400 ml-2">{t.members} members</span>
+                  </div>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${t.open ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                    {t.open ? "Open" : "Closed"}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* My tournaments */}
