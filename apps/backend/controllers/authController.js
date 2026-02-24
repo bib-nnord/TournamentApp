@@ -3,10 +3,10 @@ const jwt = require('jsonwebtoken');
 const prisma = require('../lib/prisma');
 
 // POST /auth/register
-// Body: { username, email, password }
+// Body: { username, email, password, display_name?, first_name?, last_name?, date_of_birth? }
 // Response 201: { message: string }
 async function register(req, res) {
-  const { username, email, password } = req.body;
+  const { username, email, password, display_name, first_name, last_name, date_of_birth } = req.body;
 
   if (!username || !email || !password) {
     return res.status(400).json({ error: 'username, email, and password are required' });
@@ -35,6 +35,10 @@ async function register(req, res) {
         username,
         email: email.toLowerCase(),
         password_hash,
+        display_name: display_name || null,
+        first_name: first_name || null,
+        last_name: last_name || null,
+        date_of_birth: date_of_birth ? new Date(date_of_birth) : null,
       },
     });
 
