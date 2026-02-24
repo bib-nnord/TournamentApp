@@ -3,7 +3,7 @@
 import { useSelector, useDispatch } from "react-redux";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { logout } from "@/store/authSlice";
+import { logoutAsync } from "@/store/authSlice";
 import type { RootState, AppDispatch } from "@/store/store";
 
 export default function SettingsPage() {
@@ -18,7 +18,7 @@ export default function SettingsPage() {
   if (!user) return null;
 
   function handleLogout() {
-    dispatch(logout());
+    dispatch(logoutAsync());
     router.push("/");
   }
 

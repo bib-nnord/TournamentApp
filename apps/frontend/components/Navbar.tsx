@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useRouter } from "next/navigation";
-import { logout } from "@/store/authSlice";
+import { logoutAsync } from "@/store/authSlice";
 import type { RootState, AppDispatch } from "@/store/store";
 
 export default function Navbar() {
@@ -15,7 +15,7 @@ export default function Navbar() {
   const isLoggedIn = !!user;
 
   function handleLogout() {
-    dispatch(logout());
+    dispatch(logoutAsync());
     router.push("/");
   }
 

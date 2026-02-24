@@ -10,17 +10,22 @@ interface User {
 
 interface AuthState {
   user: User | null;
-  token: string | null;
+  accessToken: string | null;
+  refreshToken: string | null;
   loading: boolean;
   error: string | null;
 }
 
 const initialState: AuthState = {
   user: typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('user') ?? 'null') : null,
-  token: typeof window !== 'undefined' ? localStorage.getItem('token') : null,
+  accessToken: typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null,
+  refreshToken: typeof window !== 'undefined' ? localStorage.getItem('refreshToken') : null,
   loading: false,
   error: null,
 };
+
+// Clean up old localStorage key from previous auth system
+if (typeof window !== 'undefined') localStorage.removeItem('token');
 
 export const login = createAsyncThunk(
   'auth/login',
@@ -32,7 +37,7 @@ export const login = createAsyncThunk(
     });
     const data = await res.json();
     if (!res.ok) return rejectWithValue(data.error ?? 'Login failed');
-    return data as { token: string; user: User };
+    return data as { accessToken: string; refreshToken: string; user: User };
   }
 );
 
@@ -61,14 +66,49 @@ export const register = createAsyncThunk(
   }
 );
 
+export const refreshAccessToken = createAsyncThunk(
+  'auth/refreshAccessToken',
+  async (_, { getState, rejectWithValue }) => {
+    const state = getState() as { auth: AuthState };
+    const refreshToken = state.auth.refreshToken;
+    if (!refreshToken) return rejectWithValue('No refresh token');
+
+    const res = await fetch(`${API_URL}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken }),
+    });
+    const data = await res.json();
+    if (!res.ok) return rejectWithValue(data.error ?? 'Refresh failed');
+    return data as { accessToken: string };
+  }
+);
+
+export const logoutAsync = createAsyncThunk(
+  'auth/logoutAsync',
+  async (_, { getState }) => {
+    const state = getState() as { auth: AuthState };
+    const refreshToken = state.auth.refreshToken;
+    if (refreshToken) {
+      fetch(`${API_URL}/auth/logout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+      }).catch(() => {});
+    }
+  }
+);
+
 const authSlice = createSlice({
   name: 'auth',
   initialState,
   reducers: {
-    logout(state) {
+    clearAuth(state) {
       state.user = null;
-      state.token = null;
-      localStorage.removeItem('token');
+      state.accessToken = null;
+      state.refreshToken = null;
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
       localStorage.removeItem('user');
     },
     clearError(state) {
@@ -83,9 +123,11 @@ const authSlice = createSlice({
       })
       .addCase(login.fulfilled, (state, action) => {
         state.loading = false;
-        state.token = action.payload.token;
+        state.accessToken = action.payload.accessToken;
+        state.refreshToken = action.payload.refreshToken;
         state.user = action.payload.user;
-        localStorage.setItem('token', action.payload.token);
+        localStorage.setItem('accessToken', action.payload.accessToken);
+        localStorage.setItem('refreshToken', action.payload.refreshToken);
         localStorage.setItem('user', JSON.stringify(action.payload.user));
       })
       .addCase(login.rejected, (state, action) => {
@@ -102,9 +144,29 @@ const authSlice = createSlice({
       .addCase(register.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
+      })
+      .addCase(refreshAccessToken.fulfilled, (state, action) => {
+        state.accessToken = action.payload.accessToken;
+        localStorage.setItem('accessToken', action.payload.accessToken);
+      })
+      .addCase(refreshAccessToken.rejected, (state) => {
+        state.user = null;
+        state.accessToken = null;
+        state.refreshToken = null;
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('user');
+      })
+      .addCase(logoutAsync.pending, (state) => {
+        state.user = null;
+        state.accessToken = null;
+        state.refreshToken = null;
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('user');
       });
   },
 });
 
-export const { logout, clearError } = authSlice.actions;
+export const { clearError, clearAuth } = authSlice.actions;
 export default authSlice.reducer;

@@ -28,6 +28,7 @@ model User {
   created_teams    Team[]          @relation("TeamCreator")
   sent_messages    Message[]       @relation("MessageSender")
   received_messages Message[]      @relation("MessageRecipient")
+  refresh_tokens   RefreshToken[]
 
   @@map("user")
 }
@@ -37,6 +38,21 @@ enum SiteRole {
   organizer
   moderator
   admin
+}
+
+// ─── Refresh Tokens ─────────────────────────────────────────────────────────
+
+model RefreshToken {
+  id         Int      @id @default(autoincrement())
+  token      String   @unique @db.VarChar(64)
+  user_id    Int
+  expires_at DateTime @db.Timestamp(6)
+  created_at DateTime @default(now()) @db.Timestamp(6)
+
+  user User @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@map("refresh_token")
 }
 
 // ─── Teams ──────────────────────────────────────────────────────────────────
