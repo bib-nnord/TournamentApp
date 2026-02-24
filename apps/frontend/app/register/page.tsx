@@ -16,6 +16,10 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [dateOfBirth, setDateOfBirth] = useState('');
   const [validationError, setValidationError] = useState('');
 
   async function handleSubmit(e: { preventDefault(): void }) {
@@ -25,7 +29,15 @@ export default function RegisterPage() {
       return;
     }
     setValidationError('');
-    const result = await dispatch(register({ username, email, password }));
+    const result = await dispatch(register({
+      username,
+      email,
+      password,
+      display_name: displayName,
+      first_name: firstName,
+      last_name: lastName,
+      date_of_birth: dateOfBirth,
+    }));
     if (register.fulfilled.match(result)) {
       router.push('/login');
     }
@@ -48,6 +60,62 @@ export default function RegisterPage() {
               placeholder="johndoe"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label htmlFor="display-name" className="text-sm font-medium text-gray-700">
+              Display name
+            </label>
+            <input
+              id="display-name"
+              type="text"
+              placeholder="John"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div className="flex gap-3">
+            <div className="flex flex-col gap-1 flex-1">
+              <label htmlFor="first-name" className="text-sm font-medium text-gray-700">
+                First name
+              </label>
+              <input
+                id="first-name"
+                type="text"
+                placeholder="John"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div className="flex flex-col gap-1 flex-1">
+              <label htmlFor="last-name" className="text-sm font-medium text-gray-700">
+                Last name
+              </label>
+              <input
+                id="last-name"
+                type="text"
+                placeholder="Doe"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label htmlFor="date-of-birth" className="text-sm font-medium text-gray-700">
+              Date of birth
+            </label>
+            <input
+              id="date-of-birth"
+              type="date"
+              value={dateOfBirth}
+              onChange={(e) => setDateOfBirth(e.target.value)}
               className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>

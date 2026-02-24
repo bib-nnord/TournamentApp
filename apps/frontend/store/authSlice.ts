@@ -39,7 +39,15 @@ export const login = createAsyncThunk(
 export const register = createAsyncThunk(
   'auth/register',
   async (
-    credentials: { username: string; email: string; password: string },
+    credentials: {
+      username: string;
+      email: string;
+      password: string;
+      display_name: string;
+      first_name: string;
+      last_name: string;
+      date_of_birth: string;
+    },
     { rejectWithValue }
   ) => {
     const res = await fetch(`${API_URL}/auth/register`, {
