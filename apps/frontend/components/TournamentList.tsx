@@ -78,7 +78,7 @@ export default function TournamentList() {
           {filtered.map((t) => (
             <Link
               key={t.id}
-              href={`/tournaments/${t.id}`}
+              href={`/tournaments/view/${t.id}`}
               className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-shadow flex flex-col gap-3"
             >
               <div className="flex items-start justify-between">

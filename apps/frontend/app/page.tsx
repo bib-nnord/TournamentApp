@@ -20,13 +20,13 @@ export default function Home() {
               href="/register"
               className="px-6 py-2.5 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700"
             >
-              Get started
+              Create an account
             </Link>
             <Link
-              href="/tournaments/create"
+              href="/login"
               className="px-6 py-2.5 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50"
             >
-              Create a tournament
+              Log in
             </Link>
           </div>
         </div>

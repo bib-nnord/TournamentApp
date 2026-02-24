@@ -26,6 +26,9 @@ export default function Navbar() {
                 <Link href="/dashboard" className="text-sm px-3 py-1 rounded hover:bg-gray-100 text-gray-700">
                   Dashboard
                 </Link>
+                <Link href="/messages" className="text-sm px-3 py-1 rounded hover:bg-gray-100 text-gray-700">
+                  Messages
+                </Link>
                 <Link href="/profile" className="text-sm px-3 py-1 rounded border border-gray-300 hover:bg-gray-100">
                   Profile
                 </Link>

@@ -61,7 +61,7 @@ export default function DashboardPage() {
                 {activeTournaments.map((t) => (
                   <Link
                     key={t.id}
-                    href={`/tournaments/${t.id}`}
+                    href={`/tournaments/view/${t.id}`}
                     className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gray-50"
                   >
                     <span className="text-sm font-medium text-gray-800">{t.name}</span>
@@ -85,7 +85,7 @@ export default function DashboardPage() {
                 {upcomingTournaments.map((t) => (
                   <Link
                     key={t.id}
-                    href={`/tournaments/${t.id}`}
+                    href={`/tournaments/view/${t.id}`}
                     className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gray-50"
                   >
                     <span className="text-sm font-medium text-gray-800">{t.name}</span>
@@ -106,7 +106,7 @@ export default function DashboardPage() {
                 {recentResults.map((t) => (
                   <Link
                     key={t.id}
-                    href={`/tournaments/${t.id}`}
+                    href={`/tournaments/view/${t.id}`}
                     className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gray-50"
                   >
                     <span className="text-sm font-medium text-gray-800">{t.name}</span>

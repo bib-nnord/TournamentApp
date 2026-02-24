@@ -139,7 +139,7 @@ export default function ProfilePage() {
             {myTournaments.map((t) => (
               <Link
                 key={t.id}
-                href={`/tournaments/${t.id}`}
+                href={`/tournaments/view/${t.id}`}
                 className="flex items-center justify-between px-4 py-3 rounded-lg border border-gray-100 hover:bg-gray-50"
               >
                 <span className="text-sm font-medium text-gray-800">{t.name}</span>
