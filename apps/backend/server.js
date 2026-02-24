@@ -1,13 +1,24 @@
-  const express = require('express'); 
-   const app = express(); 
+require('dotenv').config();
 
-   // Create a route that sends a response when visiting the homepage
-   app.get('/', (req, res) => {
-     res.send('<h1>Hello, Express.js Server!</h1>');
-   });
+const express = require('express');
+const cors = require('cors');
+const authRoutes = require('./routes/auth');
 
-   // Set up the server to listen on port 3000
-   const port = 2000;
-   app.listen(port, () => {
-     console.log(`Server is running on port ${port}`);
-   });
+const app = express();
+
+app.use(cors());
+app.use(express.json());
+
+app.get('/', (req, res) => res.json({ status: 'ok' }));
+
+app.use('/auth', authRoutes);
+
+app.use((req, res) => res.status(404).json({ error: 'Route not found' }));
+
+app.use((err, req, res, next) => {
+  console.error('[unhandled]', err);
+  res.status(500).json({ error: 'Internal server error' });
+});
+
+const PORT = process.env.PORT || 2000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

@@ -22,6 +22,9 @@ services:
       - 2000:2000
     environment:
       NODE_ENV: production
+      PORT: 2000
+      DATABASE_URL: "postgresql://postgres:postgres@db:5432/postgres"
+      JWT_SECRET: "replace_with_your_production_secret"
       DB_HOST: db
       DB_PORT: 5432
       DB_USER: postgres
