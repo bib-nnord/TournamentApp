@@ -1,6 +1,15 @@
 // ─── Tournaments ─────────────────────────────────────────────────────────────
 
-export type TournamentStatus = "upcoming" | "active" | "past";
+export type TournamentStatus = "draft" | "registration" | "active" | "completed" | "cancelled";
+
+/** Human-readable labels for tournament status badges */
+export const tournamentStatusLabel: Record<TournamentStatus, string> = {
+  draft: "Draft",
+  registration: "Registration",
+  active: "Active",
+  completed: "Completed",
+  cancelled: "Cancelled",
+};
 
 export interface Tournament {
   id: string;
@@ -46,7 +55,16 @@ export interface TeamMember {
 
 // ─── Matches ──────────────────────────────────────────────────────────────────
 
-export type MatchStatus = "scheduled" | "ongoing" | "completed";
+export type MatchStatus = "scheduled" | "in_progress" | "completed" | "tie" | "cancelled";
+
+/** Human-readable labels for match status badges */
+export const matchStatusLabel: Record<MatchStatus, string> = {
+  scheduled: "Scheduled",
+  in_progress: "Ongoing",
+  completed: "Completed",
+  tie: "Tie",
+  cancelled: "Cancelled",
+};
 
 export interface MatchPlayer {
   id: string;

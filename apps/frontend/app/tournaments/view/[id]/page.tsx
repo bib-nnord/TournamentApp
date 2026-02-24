@@ -1,11 +1,12 @@
 import Link from "next/link";
-import type { TournamentParticipant } from "@/types";
+import type { TournamentParticipant, TournamentStatus } from "@/types";
+import { tournamentStatusLabel } from "@/types";
 
 // Placeholder — replace with real fetch by id once backend is ready
 const tournament = {
   id: "1",
   name: "Spring Open 2025",
-  status: "upcoming" as const,
+  status: "registration" as TournamentStatus,
   date: "March 15, 2025",
   description: "An open tournament for all skill levels. Single elimination format. Bring your best game!",
   game: "Chess",
@@ -19,10 +20,12 @@ const tournament = {
   maxParticipants: 16,
 };
 
-const statusColors = {
-  upcoming: "bg-blue-100 text-blue-700",
+const statusColors: Record<TournamentStatus, string> = {
+  draft: "bg-gray-100 text-gray-500",
+  registration: "bg-blue-100 text-blue-700",
   active: "bg-green-100 text-green-700",
-  past: "bg-gray-100 text-gray-500",
+  completed: "bg-gray-100 text-gray-500",
+  cancelled: "bg-red-100 text-red-600",
 };
 
 export default function TournamentPage() {
@@ -42,7 +45,7 @@ export default function TournamentPage() {
           <div className="flex items-start justify-between mb-4">
             <h1 className="text-2xl font-bold text-gray-900">{tournament.name}</h1>
             <span className={`text-xs px-2 py-1 rounded-full font-medium ${statusColors[tournament.status]}`}>
-              {tournament.status}
+              {tournamentStatusLabel[tournament.status]}
             </span>
           </div>
           <p className="text-sm text-gray-600 mb-6">{tournament.description}</p>
@@ -71,7 +74,7 @@ export default function TournamentPage() {
             </div>
           </div>
 
-          {tournament.status === "upcoming" && spotsLeft > 0 && (
+          {tournament.status === "registration" && spotsLeft > 0 && (
             <button className="mt-6 w-full py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700">
               Join tournament
             </button>

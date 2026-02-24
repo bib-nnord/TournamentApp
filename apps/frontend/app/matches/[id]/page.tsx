@@ -1,5 +1,6 @@
 import Link from "next/link";
-import type { Match } from "@/types";
+import type { Match, MatchStatus } from "@/types";
+import { matchStatusLabel } from "@/types";
 
 // Placeholder — replace with real fetch by id once backend is ready
 const match: Match = {
@@ -23,10 +24,12 @@ const match: Match = {
 //   playerB: { id: "u4", username: "diana", score: null },
 // };
 
-const statusStyles: Record<string, string> = {
+const statusStyles: Record<MatchStatus, string> = {
   scheduled: "bg-blue-100 text-blue-700",
-  ongoing: "bg-green-100 text-green-700",
+  in_progress: "bg-green-100 text-green-700",
   completed: "bg-gray-100 text-gray-500",
+  tie: "bg-yellow-100 text-yellow-700",
+  cancelled: "bg-red-100 text-red-600",
 };
 
 function getWinner(match: Match): string | null {
@@ -74,8 +77,8 @@ export default function MatchPage() {
                 <p className="text-sm text-gray-400 mt-0.5">Standalone match</p>
               )}
             </div>
-            <span className={`text-xs px-2 py-1 rounded-full font-medium capitalize ${statusStyles[match.status]}`}>
-              {match.status}
+            <span className={`text-xs px-2 py-1 rounded-full font-medium ${statusStyles[match.status]}`}>
+              {matchStatusLabel[match.status]}
             </span>
           </div>
 

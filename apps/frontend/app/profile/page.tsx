@@ -38,15 +38,17 @@ const teamRoleColors: Record<TeamRole, string> = {
 };
 
 const myTournaments = [
-  { id: "1", name: "Spring Open 2025", status: "upcoming", role: "participant" },
-  { id: "2", name: "City Chess Cup", status: "past", role: "organizer" },
+  { id: "1", name: "Spring Open 2025", status: "registration", role: "participant" },
+  { id: "2", name: "City Chess Cup", status: "completed", role: "organizer" },
   { id: "3", name: "Weekly Blitz", status: "active", role: "participant" },
 ];
 
 const statusColors: Record<string, string> = {
-  upcoming: "bg-blue-100 text-blue-700",
+  draft: "bg-gray-100 text-gray-500",
+  registration: "bg-blue-100 text-blue-700",
   active: "bg-green-100 text-green-700",
-  past: "bg-gray-100 text-gray-500",
+  completed: "bg-gray-100 text-gray-500",
+  cancelled: "bg-red-100 text-red-600",
 };
 
 export default function ProfilePage() {
