@@ -1,6 +1,7 @@
 import Link from "next/link";
 import TournamentList from "@/components/TournamentList";
 import TeamList from "@/components/TeamList";
+import AuthButtons from "@/components/AuthButtons";
 
 export default function Home() {
   return (
@@ -15,20 +16,7 @@ export default function Home() {
           <p className="text-lg text-gray-500 max-w-xl">
             Create and join tournaments for any game or sport. Track results, manage teams, and climb the leaderboard.
           </p>
-          <div className="flex gap-3 mt-2">
-            <Link
-              href="/register"
-              className="px-6 py-2.5 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700"
-            >
-              Create an account
-            </Link>
-            <Link
-              href="/login"
-              className="px-6 py-2.5 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50"
-            >
-              Log in
-            </Link>
-          </div>
+          <AuthButtons />
         </div>
       </div>
 

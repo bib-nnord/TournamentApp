@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useRouter } from "next/navigation";
 import { logoutAsync } from "@/store/authSlice";
@@ -9,10 +9,13 @@ import type { RootState, AppDispatch } from "@/store/store";
 
 export default function Navbar() {
   const [collapsed, setCollapsed] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
   const user = useSelector((state: RootState) => state.auth.user);
   const isLoggedIn = !!user;
+
+  useEffect(() => setMounted(true), []);
 
   function handleLogout() {
     dispatch(logoutAsync());
@@ -27,7 +30,7 @@ export default function Navbar() {
             Tournament App
           </Link>
           <div className="flex items-center space-x-2">
-            {isLoggedIn ? (
+            {mounted && (isLoggedIn ? (
               <>
                 <Link href="/dashboard" className="text-sm px-3 py-1 rounded hover:bg-gray-100 text-gray-700">
                   Dashboard
@@ -35,7 +38,7 @@ export default function Navbar() {
                 <Link href="/messages" className="text-sm px-3 py-1 rounded hover:bg-gray-100 text-gray-700">
                   Messages
                 </Link>
-                <Link href="/profile" className="text-sm px-3 py-1 rounded border border-gray-300 hover:bg-gray-100">
+                <Link href={`/profile/${user.username}`} className="text-sm px-3 py-1 rounded border border-gray-300 hover:bg-gray-100">
                   {user.username}
                 </Link>
                 <button
@@ -54,7 +57,7 @@ export default function Navbar() {
                   Register
                 </Link>
               </>
-            )}
+            ))}
             <Link href="/settings" className="text-gray-400 hover:text-gray-600 px-1.5 py-1 rounded hover:bg-gray-100" title="Settings">
               ⚙
             </Link>

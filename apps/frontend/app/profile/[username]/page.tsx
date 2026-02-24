@@ -2,8 +2,7 @@
 
 import Link from "next/link";
 import { useSelector } from "react-redux";
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useParams } from "next/navigation";
 import type { RootState } from "@/store/store";
 import type { TeamRole } from "@/types";
 
@@ -45,14 +44,12 @@ const statusColors: Record<string, string> = {
 };
 
 export default function ProfilePage() {
-  const router = useRouter();
+  const { username } = useParams<{ username: string }>();
   const user = useSelector((state: RootState) => state.auth.user);
+  const isOwnProfile = user?.username === username;
 
-  useEffect(() => {
-    if (!user) router.replace("/login");
-  }, [user, router]);
-
-  if (!user) return null;
+  // TODO: fetch profile data for `username` from API
+  // For now, using placeholder data
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -61,15 +58,19 @@ export default function ProfilePage() {
         {/* Profile header */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 flex items-center gap-6 mb-6">
           <div className="w-16 h-16 rounded-full bg-indigo-100 flex items-center justify-center text-2xl font-bold text-indigo-600">
-            {user.username[0].toUpperCase()}
+            {username[0].toUpperCase()}
           </div>
           <div className="flex-1">
-            <h1 className="text-xl font-bold text-gray-900">{user.username}</h1>
-            <p className="text-sm text-gray-500">{user.email}</p>
+            <h1 className="text-xl font-bold text-gray-900">{username}</h1>
+            {isOwnProfile && user && (
+              <p className="text-sm text-gray-500">{user.email}</p>
+            )}
           </div>
-          <button className="text-sm px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
-            Edit profile
-          </button>
+          {isOwnProfile && (
+            <button className="text-sm px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+              Edit profile
+            </button>
+          )}
         </div>
 
         {/* Friends */}
@@ -98,7 +99,7 @@ export default function ProfilePage() {
 
         {/* My teams */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
-          <h2 className="text-base font-semibold text-gray-800 mb-4">My teams</h2>
+          <h2 className="text-base font-semibold text-gray-800 mb-4">{isOwnProfile ? "My teams" : "Teams"}</h2>
           <div className="flex flex-col gap-2">
             {myTeams.map((t) => (
               <Link
@@ -141,9 +142,9 @@ export default function ProfilePage() {
           )}
         </div>
 
-        {/* My tournaments */}
+        {/* Tournaments */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-          <h2 className="text-base font-semibold text-gray-800 mb-4">My tournaments</h2>
+          <h2 className="text-base font-semibold text-gray-800 mb-4">{isOwnProfile ? "My tournaments" : "Tournaments"}</h2>
           <div className="flex flex-col gap-3">
             {myTournaments.map((t) => (
               <Link
