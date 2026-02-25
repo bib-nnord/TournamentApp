@@ -1,5 +1,10 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 import type { TeamRelation as TeamRole } from "@/types";
+import Modal from "@/components/Modal";
+import TeamSettingsForm from "@/components/TeamSettingsForm";
 
 // Placeholder — replace with real data + role derived from auth once backend is ready
 const team = {
@@ -33,6 +38,7 @@ const roleLabel: Record<TeamRole, string> = {
 };
 
 export default function TeamPage() {
+  const [showSettings, setShowSettings] = useState(false);
   const isLead = currentUserRole === "lead";
   const isModerator = currentUserRole === "moderator";
   const isMember = currentUserRole === "member";
@@ -64,9 +70,9 @@ export default function TeamPage() {
               )}
               {/* Settings — lead and moderator only */}
               {canManage && (
-                <Link href={`/teams/${team.id}/settings`} className="text-sm px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-500" title="Team settings">
+                <button onClick={() => setShowSettings(true)} className="text-sm px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-500" title="Team settings">
                   ⚙
-                </Link>
+                </button>
               )}
             </div>
           </div>
@@ -151,6 +157,10 @@ export default function TeamPage() {
         </div>
 
       </div>
+
+      <Modal isOpen={showSettings} onClose={() => setShowSettings(false)} title="Team settings">
+        <TeamSettingsForm team={team} isLead={isLead} onSuccess={() => setShowSettings(false)} />
+      </Modal>
     </div>
   );
 }

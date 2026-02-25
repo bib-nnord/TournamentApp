@@ -14,14 +14,22 @@ export async function apiFetch(path: string, options: RequestInit = {}): Promise
 
   let res = await fetch(`${API_URL}${path}`, { ...options, headers });
 
-  if (res.status === 401 && state.refreshToken) {
-    const result = await store.dispatch(refreshAccessToken());
+  if (res.status === 401) {
+    if (state.refreshToken) {
+      const result = await store.dispatch(refreshAccessToken());
 
-    if (refreshAccessToken.fulfilled.match(result)) {
-      headers.set('Authorization', `Bearer ${result.payload.accessToken}`);
-      res = await fetch(`${API_URL}${path}`, { ...options, headers });
+      if (refreshAccessToken.fulfilled.match(result)) {
+        headers.set('Authorization', `Bearer ${result.payload.accessToken}`);
+        res = await fetch(`${API_URL}${path}`, { ...options, headers });
+      } else {
+        store.dispatch(clearAuth());
+        window.location.href = '/login';
+        return res;
+      }
     } else {
       store.dispatch(clearAuth());
+      window.location.href = '/login';
+      return res;
     }
   }
 

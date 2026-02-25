@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
 import { login } from "@/store/authSlice";
 import type { AppDispatch, RootState } from "@/store/store";
+import Modal from "@/components/Modal";
+import ForgotPasswordForm from "@/components/ForgotPasswordForm";
 
 export default function LoginPage() {
   const dispatch = useDispatch<AppDispatch>();
@@ -14,6 +16,7 @@ export default function LoginPage() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showForgot, setShowForgot] = useState(false);
 
   async function handleSubmit(e: { preventDefault(): void }) {
     e.preventDefault();
@@ -49,9 +52,9 @@ export default function LoginPage() {
               <label htmlFor="password" className="text-sm font-medium text-gray-700">
                 Password
               </label>
-              <Link href="/forgot-password" className="text-xs text-blue-600 hover:underline">
+              <button type="button" onClick={() => setShowForgot(true)} className="text-xs text-blue-600 hover:underline">
                 Forgot password?
-              </Link>
+              </button>
             </div>
             <input
               id="password"
@@ -81,6 +84,10 @@ export default function LoginPage() {
           </Link>
         </p>
       </div>
+
+      <Modal isOpen={showForgot} onClose={() => setShowForgot(false)} title="Reset password">
+        <ForgotPasswordForm />
+      </Modal>
     </div>
   );
 }
