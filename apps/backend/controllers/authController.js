@@ -3,6 +3,10 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const prisma = require('../lib/prisma');
 
+function hashToken(token) {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
 // POST /auth/register
 // Body: { username, email, password, display_name?, first_name?, last_name?, date_of_birth? }
 // Response 201: { message: string }
@@ -85,7 +89,7 @@ async function login(req, res) {
 
     await prisma.refreshToken.create({
       data: {
-        token: refreshToken,
+        token: hashToken(refreshToken),
         user_id: user.user_id,
         expires_at: expiresAt,
       },
@@ -118,7 +122,7 @@ async function refresh(req, res) {
 
   try {
     const stored = await prisma.refreshToken.findUnique({
-      where: { token: refreshToken },
+      where: { token: hashToken(refreshToken) },
       include: { user: true },
     });
 
@@ -161,7 +165,7 @@ async function logout(req, res) {
 
   try {
     await prisma.refreshToken.deleteMany({
-      where: { token: refreshToken },
+      where: { token: hashToken(refreshToken) },
     });
 
     return res.status(200).json({ message: 'Logged out successfully' });

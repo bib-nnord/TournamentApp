@@ -90,7 +90,7 @@ export const logoutAsync = createAsyncThunk(
     const state = getState() as { auth: AuthState };
     const refreshToken = state.auth.refreshToken;
     if (refreshToken) {
-      fetch(`${API_URL}/auth/logout`, {
+      await fetch(`${API_URL}/auth/logout`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refreshToken }),
@@ -157,7 +157,7 @@ const authSlice = createSlice({
         localStorage.removeItem('refreshToken');
         localStorage.removeItem('user');
       })
-      .addCase(logoutAsync.pending, (state) => {
+      .addCase(logoutAsync.fulfilled, (state) => {
         state.user = null;
         state.accessToken = null;
         state.refreshToken = null;
