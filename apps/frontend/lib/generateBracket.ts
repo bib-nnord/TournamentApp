@@ -50,50 +50,25 @@ function generateSingleElimination(participants: string[]): BracketRound[] {
   const n = participants.length;
   if (n < 2) return [];
 
-  // If n is a power of 2, no prelims needed — mainSize = n
-  // Otherwise, mainSize = largest power of 2 ≤ n, and extras play a preliminary round
+  // Build a standard single-elimination tree sized to the next power of two.
+  // Instead of a separate preliminary round, we fill missing slots in round 1
+  // with nulls (byes) so some participants advance automatically.
   const isPow2 = (n & (n - 1)) === 0;
-  const mainSize = isPow2 ? n : Math.pow(2, Math.floor(Math.log2(n)));
-  const extras = n - mainSize; // number of extra players beyond mainSize
-  // extras players need to be paired into preliminary matches
-  // 2 * extras players compete in prelims, winners fill the bottom slots of round 1
-  // the top (mainSize - extras) players go directly to round 1
-
-  const directCount = mainSize - extras;
-  const directPlayers = participants.slice(0, directCount);
-  const prelimPlayers = participants.slice(directCount); // 2 * extras players
-
+  const mainSize = isPow2 ? n : Math.pow(2, Math.ceil(Math.log2(n)));
   const mainRounds = Math.log2(mainSize);
   const rounds: BracketRound[] = [];
 
-  // Preliminary round (only if not a power of 2)
-  if (extras > 0) {
-    const prelimMatches: BracketMatch[] = [];
-    for (let i = 0; i < prelimPlayers.length; i += 2) {
-      prelimMatches.push({
-        id: nextId(),
-        round: 0,
-        position: i / 2,
-        participantA: prelimPlayers[i],
-        participantB: i + 1 < prelimPlayers.length ? prelimPlayers[i + 1] : null,
-      });
-    }
-    rounds.push({ name: "Preliminary", matches: prelimMatches });
-  }
-
-  // Round 1: mainSize / 2 matches
-  // Top seeds (direct players) fill slots from the top
-  // Preliminary winners fill the remaining bottom slots (shown as TBD)
+  // Round 1: place participants in order; empty slots represent byes
   const r1Matches: BracketMatch[] = [];
   for (let i = 0; i < mainSize; i += 2) {
-    const slotA = i < directCount ? directPlayers[i] : null;
-    const slotB = i + 1 < directCount ? directPlayers[i + 1] : null;
+    const a = i < n ? participants[i] : null;
+    const b = i + 1 < n ? participants[i + 1] : null;
     r1Matches.push({
       id: nextId(),
       round: 1,
       position: i / 2,
-      participantA: slotA,
-      participantB: slotB,
+      participantA: a,
+      participantB: b,
     });
   }
   rounds.push({ name: roundName(1, mainRounds), matches: r1Matches });
