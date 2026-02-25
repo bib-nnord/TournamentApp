@@ -2,8 +2,6 @@ import Link from "next/link";
 import TournamentList from "@/components/TournamentList";
 import TeamList from "@/components/TeamList";
 import AuthButtons from "@/components/AuthButtons";
-import QuickCreateTournament from "@/components/QuickCreateTournament";
-
 export default function Home() {
   return (
     <div className="min-h-screen bg-gray-50">
@@ -24,8 +22,13 @@ export default function Home() {
       {/* Tournaments */}
       <div className="max-w-4xl mx-auto px-4 py-10">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-gray-900">Public Tournaments</h2>
-          <QuickCreateTournament />
+          <h2 className="text-xl font-bold text-gray-900">My Tournaments</h2>
+          <Link
+            href="/tournaments"
+            className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
+          >
+            All Tournaments →
+          </Link>
         </div>
         <TournamentList />
       </div>
@@ -33,12 +36,12 @@ export default function Home() {
       {/* Teams */}
       <div className="max-w-4xl mx-auto px-4 pb-10">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-gray-900">Teams</h2>
+          <h2 className="text-xl font-bold text-gray-900">My Teams</h2>
           <Link
-            href="/teams/create"
-            className="text-sm px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+            href="/teams"
+            className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
           >
-            + Create
+            All Teams →
           </Link>
         </div>
         <TeamList />

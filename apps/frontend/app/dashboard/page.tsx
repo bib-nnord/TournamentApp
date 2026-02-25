@@ -5,7 +5,7 @@ import { useSelector } from "react-redux";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import type { RootState } from "@/store/store";
-import QuickCreateTournament from "@/components/QuickCreateTournament";
+
 
 // Placeholder — replace with real tournament data from API
 const upcomingTournaments = [
@@ -59,7 +59,12 @@ export default function DashboardPage() {
 
         {/* Quick actions */}
         <div className="flex gap-3 mb-8">
-          <QuickCreateTournament className="text-sm px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700" />
+          <Link
+            href="/tournaments/create"
+            className="text-sm px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+          >
+            + Create tournament
+          </Link>
           <Link
             href="/tournaments"
             className="text-sm px-4 py-2 border border-gray-300 bg-white rounded-lg hover:bg-gray-50"

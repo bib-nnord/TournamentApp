@@ -1,5 +1,40 @@
 // ─── Tournaments ─────────────────────────────────────────────────────────────
 
+export type TournamentFormat =
+  | "single_elimination"
+  | "double_elimination"
+  | "round_robin"
+  | "double_round_robin"
+  | "combination"
+  | "swiss";
+
+export const tournamentFormatInfo: Record<TournamentFormat, { label: string; description: string }> = {
+  single_elimination: {
+    label: "Single Elimination",
+    description: "One loss and you're out. Fast, high-stakes knockout format.",
+  },
+  double_elimination: {
+    label: "Double Elimination",
+    description: "Must lose twice to be eliminated. Winners and losers brackets.",
+  },
+  round_robin: {
+    label: "Round Robin",
+    description: "Everyone plays everyone once. Thorough ranking by record.",
+  },
+  double_round_robin: {
+    label: "Double Round Robin",
+    description: "Everyone plays everyone twice. Common in league structures.",
+  },
+  combination: {
+    label: "Combination (Two-Stage)",
+    description: "Round-robin group stage followed by elimination knockout.",
+  },
+  swiss: {
+    label: "Swiss System",
+    description: "Paired by similar records each round. No elimination.",
+  },
+};
+
 export type TournamentStatus = "draft" | "registration" | "active" | "completed" | "cancelled";
 
 /** Human-readable labels for tournament status badges */
