@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useRef, type KeyboardEvent } from "react";
-import { tournamentFormatInfo } from "@/types";
+import { tournamentFormatInfo, type TournamentFormat } from "@/types";
 import { generateBracket, type Bracket, type BracketRound, type BracketMatch } from "@/lib/generateBracket";
 import type { QuickTournamentData, Participant } from "./QuickTournamentForm";
 
@@ -15,13 +15,15 @@ export default function TournamentPreview({ data, onBack, onConfirm }: Props) {
   const [name, setName] = useState(data.name);
   const [game, setGame] = useState(data.game);
   const [description, setDescription] = useState(data.description);
+  const [format, setFormat] = useState<TournamentFormat>(data.format);
+  const [isPrivate, setIsPrivate] = useState(data.isPrivate);
   const [participants, setParticipants] = useState<Participant[]>(data.participants);
 
   const participantNames = participants.map((p) => p.name);
 
   const bracket = useMemo(
-    () => generateBracket(participantNames, data.format),
-    [participantNames, data.format]
+    () => generateBracket(participantNames, format),
+    [participantNames, format]
   );
 
   // ─── Drag and drop ────────────────────────────────────────────────────────
@@ -131,9 +133,19 @@ export default function TournamentPreview({ data, onBack, onConfirm }: Props) {
     }
   }
 
+  // ─── Swap participants (from bracket drag-and-drop) ──────────────────────
+  function swapParticipants(nameA: string, nameB: string) {
+    const idxA = participants.findIndex((p) => p.name === nameA);
+    const idxB = participants.findIndex((p) => p.name === nameB);
+    if (idxA === -1 || idxB === -1 || idxA === idxB) return;
+    const updated = [...participants];
+    [updated[idxA], updated[idxB]] = [updated[idxB], updated[idxA]];
+    setParticipants(updated);
+  }
+
   // ─── Confirm ──────────────────────────────────────────────────────────────
   function handleConfirm() {
-    const updatedData: QuickTournamentData = { ...data, name, game, description, participants };
+    const updatedData: QuickTournamentData = { ...data, name, game, description, format, isPrivate, participants };
     onConfirm(updatedData, bracket);
   }
 
@@ -142,39 +154,64 @@ export default function TournamentPreview({ data, onBack, onConfirm }: Props) {
   const labelClass = "block text-xs text-gray-400 uppercase tracking-wide mb-1";
 
   return (
-    <div className="flex flex-col gap-10">
-      {/* Editable details */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-4">
-        <h2 className="text-lg font-bold text-gray-900 mb-4">Tournament Details</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          <div>
-            <label className={labelClass}>Name</label>
-            <input value={name} onChange={(e) => setName(e.target.value)} className={`${inputClass} w-full`} />
-          </div>
-          <div>
-            <label className={labelClass}>Game</label>
-            <input value={game} onChange={(e) => setGame(e.target.value)} className={`${inputClass} w-full`} />
-          </div>
-          <div className="sm:col-span-2">
-            <label className={labelClass}>Description</label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={2}
-              className={`${inputClass} w-full resize-none`}
-            />
-          </div>
-          <div className="sm:col-span-2">
-            <label className={labelClass}>Format</label>
-            <p className="text-sm text-gray-700">{tournamentFormatInfo[data.format].label}</p>
+    <div className="flex flex-col gap-8">
+      {/* Top row: Details + Seeding side by side */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 items-start">
+        {/* Left: Editable details */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+          <h2 className="text-lg font-bold text-gray-900 mb-4">Tournament Details</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div>
+              <label className={labelClass}>Name</label>
+              <input value={name} onChange={(e) => setName(e.target.value)} className={`${inputClass} w-full`} />
+            </div>
+            <div>
+              <label className={labelClass}>Game</label>
+              <input value={game} onChange={(e) => setGame(e.target.value)} className={`${inputClass} w-full`} />
+            </div>
+            <div className="sm:col-span-2">
+              <label className={labelClass}>Description</label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={2}
+                className={`${inputClass} w-full resize-none`}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Format</label>
+              <select
+                value={format}
+                onChange={(e) => setFormat(e.target.value as TournamentFormat)}
+                className={`${inputClass} w-full`}
+              >
+                {(Object.entries(tournamentFormatInfo) as [TournamentFormat, { label: string; description: string }][]).map(
+                  ([key, { label }]) => (
+                    <option key={key} value={key}>{label}</option>
+                  )
+                )}
+              </select>
+            </div>
+            <div>
+              <label className={labelClass}>Visibility</label>
+              <button
+                type="button"
+                onClick={() => setIsPrivate((v) => !v)}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm w-full ${
+                  isPrivate
+                    ? "border-amber-200 bg-amber-50 text-amber-700"
+                    : "border-gray-200 bg-white text-gray-700"
+                }`}
+              >
+                <span className="text-base">{isPrivate ? "🔒" : "🌐"}</span>
+                {isPrivate ? "Private" : "Public"}
+              </button>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Seeding + Bracket side by side, with improved spacing and responsiveness */}
-      <div className="grid grid-cols-1 xl:grid-cols-[360px_1fr] gap-8 items-start">
-        {/* Left: Seeding */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 xl:sticky xl:top-24 xl:max-h-[600px] xl:overflow-y-auto">
+        {/* Right: Seeding */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 max-h-[420px] overflow-y-auto">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-base font-bold text-gray-900">
               Seeding <span className="text-xs font-normal text-gray-400">({participants.length})</span>
@@ -187,7 +224,7 @@ export default function TournamentPreview({ data, onBack, onConfirm }: Props) {
               Shuffle
             </button>
           </div>
-          <div className="flex flex-col gap-3 max-h-[420px] overflow-y-auto pr-1 mb-4">
+          <div className="flex flex-col gap-3 overflow-y-auto pr-1 mb-4">
             {participants.map((p, i) => (
               <div
                 key={`${p.name}-${i}`}
@@ -205,7 +242,7 @@ export default function TournamentPreview({ data, onBack, onConfirm }: Props) {
               >
                 <span className="text-gray-300 shrink-0 cursor-grab text-xs" title="Drag to reorder">⠿</span>
                 <span className="text-xs text-gray-400 font-mono w-6 shrink-0 text-right">{i + 1}.</span>
-                <span className={`truncate flex-1 text-sm ${p.type === "account" ? "text-gray-800" : "text-amber-700"}`}> 
+                <span className={`truncate flex-1 text-sm ${p.type === "account" ? "text-gray-800" : "text-amber-700"}`}>
                   {p.name}
                 </span>
                 <span className={`text-[10px] uppercase shrink-0 px-2 py-0.5 rounded leading-none ${
@@ -233,14 +270,14 @@ export default function TournamentPreview({ data, onBack, onConfirm }: Props) {
                   <span className="flex items-center gap-2 shrink-0">
                     <button
                       type="button"
-                      onClick={(e) => { e.stopPropagation(); removeParticipant(i); }}
-                      className="text-[10px] text-red-600 hover:text-red-800 font-medium"
-                    >Remove?</button>
-                    <button
-                      type="button"
                       onClick={(e) => { e.stopPropagation(); setConfirmRemove(null); }}
                       className="text-[10px] text-gray-400 hover:text-gray-600"
                     >Cancel</button>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); removeParticipant(i); }}
+                      className="text-[10px] text-red-600 hover:text-red-800 font-medium"
+                    >Remove?</button>
                   </span>
                 ) : (
                   <button
@@ -277,16 +314,16 @@ export default function TournamentPreview({ data, onBack, onConfirm }: Props) {
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Right: Bracket */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 min-h-[400px] flex flex-col">
-          <h2 className="text-base font-bold text-gray-900 mb-4">Bracket Preview</h2>
-          {participants.length < 2 ? (
-            <p className="text-sm text-gray-400 italic">Add at least 2 participants to see the bracket.</p>
-          ) : (
-            <BracketView bracket={bracket} />
-          )}
-        </div>
+      {/* Full-width Bracket Preview */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 min-h-[400px] flex flex-col">
+        <h2 className="text-base font-bold text-gray-900 mb-4">Bracket Preview</h2>
+        {participants.length < 2 ? (
+          <p className="text-sm text-gray-400 italic">Add at least 2 participants to see the bracket.</p>
+        ) : (
+          <BracketView bracket={bracket} onSwapParticipants={swapParticipants} />
+        )}
       </div>
 
       {/* Actions */}
@@ -313,25 +350,41 @@ export default function TournamentPreview({ data, onBack, onConfirm }: Props) {
 
 // ─── Bracket visualization (format-specific) ─────────────────────────────────
 
-function BracketView({ bracket }: { bracket: Bracket }) {
+function BracketView({ bracket, onSwapParticipants }: { bracket: Bracket; onSwapParticipants?: (a: string, b: string) => void }) {
   switch (bracket.format) {
     case "single_elimination":
-      return <EliminationBracket rounds={bracket.rounds} />;
-    case "double_elimination":
+      return <EliminationBracket rounds={bracket.rounds} onSwapParticipants={onSwapParticipants} />;
+    case "double_elimination": {
+      // Separate grand final from losers rounds so it renders between the two brackets
+      const allLosers = bracket.losersRounds ?? [];
+      const grandFinalRound = allLosers.length > 0 && allLosers[allLosers.length - 1].name === "Grand Final"
+        ? allLosers[allLosers.length - 1]
+        : null;
+      const losersOnly = grandFinalRound ? allLosers.slice(0, -1) : allLosers;
+
       return (
-        <div className="flex flex-col gap-8">
+        <div className="flex flex-col gap-6">
           <div>
             <h3 className="text-sm font-semibold text-gray-600 mb-3">Winners Bracket</h3>
-            <EliminationBracket rounds={bracket.rounds} />
+            <EliminationBracket
+              rounds={bracket.rounds}
+              onSwapParticipants={onSwapParticipants}
+              grandFinal={grandFinalRound?.matches[0]}
+            />
           </div>
-          {bracket.losersRounds && (
+          {losersOnly.length > 0 && (
             <div>
               <h3 className="text-sm font-semibold text-gray-600 mb-3">Losers Bracket</h3>
-              <EliminationBracket rounds={bracket.losersRounds} />
+              <EliminationBracket
+                rounds={losersOnly}
+                onSwapParticipants={onSwapParticipants}
+                showOutputConnector={!!grandFinalRound}
+              />
             </div>
           )}
         </div>
       );
+    }
     case "round_robin":
     case "double_round_robin":
       return <RoundRobinView rounds={bracket.rounds} isDouble={bracket.format === "double_round_robin"} />;
@@ -350,24 +403,53 @@ const ROUND_GAP = 48;  // horizontal gap between rounds
 const CONNECTOR_W = 32; // width of the connector zone between rounds
 const COL_W = MATCH_W + ROUND_GAP;
 
-function EliminationBracket({ rounds }: { rounds: BracketRound[] }) {
+function EliminationBracket({
+  rounds,
+  onSwapParticipants,
+  grandFinal,
+  showOutputConnector,
+}: {
+  rounds: BracketRound[];
+  onSwapParticipants?: (a: string, b: string) => void;
+  /** Render grand final as an extra column connected to the final match */
+  grandFinal?: BracketMatch;
+  /** Draw a connector line from the final match to the right edge (for losers bracket feeding grand final) */
+  showOutputConnector?: boolean;
+}) {
   if (rounds.length === 0) return null;
 
-  // Calculate positions: each round's matches are vertically centered
-  // First round sets the base spacing; later rounds space out to align
-  const firstRoundCount = rounds[0].matches.length;
+  // Use totalPositions (full bracket slots) for layout so matches with removed
+  // byes are positioned correctly. Falls back to matches.length when unset.
+  const firstRoundSlots = rounds[0].totalPositions ?? rounds[0].matches.length;
   const matchGap = 12;
-  const totalHeight = firstRoundCount * MATCH_H + (firstRoundCount - 1) * matchGap;
+  const totalHeight = firstRoundSlots * MATCH_H + (firstRoundSlots - 1) * matchGap;
 
-  // Get the Y center of a match at (roundIndex, matchIndex)
-  function getMatchY(roundIndex: number, matchIndex: number): number {
-    const count = rounds[roundIndex].matches.length;
-    const blockH = totalHeight / count;
-    return blockH * matchIndex + blockH / 2;
+  // Get the Y center of a match by its position within the full bracket
+  function getMatchYByPosition(totalSlots: number, position: number): number {
+    const blockH = totalHeight / totalSlots;
+    return blockH * position + blockH / 2;
   }
 
-  const svgWidth = rounds.length * COL_W - ROUND_GAP;
+  function getRoundSlots(ri: number): number {
+    return rounds[ri].totalPositions ?? rounds[ri].matches.length;
+  }
+
+  const baseSvgWidth = rounds.length * COL_W - ROUND_GAP;
+  // Extra column for grand final or output connector
+  const hasExtra = !!grandFinal || !!showOutputConnector;
+  const svgWidth = hasExtra ? baseSvgWidth + COL_W : baseSvgWidth;
   const svgHeight = totalHeight;
+
+  // Final match position (last round, used for grand final / output connector)
+  const lastRi = rounds.length - 1;
+  const lastSlots = getRoundSlots(lastRi);
+  const lastMatch = rounds[lastRi].matches[0];
+  const finalX = lastRi * COL_W + MATCH_W; // right edge of final match
+  const finalY = lastMatch ? getMatchYByPosition(lastSlots, lastMatch.position) : svgHeight / 2;
+
+  // Grand final / output connector positions
+  const extraX = rounds.length * COL_W; // left edge of extra column
+  const extraY = svgHeight / 2; // center vertically
 
   return (
     <div className="overflow-x-auto pb-4 pt-8">
@@ -382,48 +464,95 @@ function EliminationBracket({ rounds }: { rounds: BracketRound[] }) {
           {rounds.map((round, ri) => {
             if (ri === 0) return null;
             const prevRi = ri - 1;
-            const prevCount = rounds[prevRi].matches.length;
+            const prevMatches = rounds[prevRi].matches;
+            const prevSlots = getRoundSlots(prevRi);
+            const currSlots = getRoundSlots(ri);
 
-            return round.matches.map((_, mi) => {
-              // This match is fed by two matches from the previous round
-              // (or one if it's a preliminary → round 1 connection and counts don't divide evenly)
-              const feedA = mi * 2;
-              const feedB = mi * 2 + 1;
+            // Determine feed pattern: if previous round has same slot count,
+            // it's a 1:1 feed (e.g. losers bracket drop-down rounds).
+            // Otherwise it's standard 2:1 elimination feed.
+            const is1to1 = prevSlots === currSlots;
 
+            return round.matches.map((match) => {
               const currX = ri * COL_W;
-              const currY = getMatchY(ri, mi);
+              const currY = getMatchYByPosition(currSlots, match.position);
               const prevX = prevRi * COL_W + MATCH_W;
 
               const lines: React.ReactNode[] = [];
 
-              if (feedA < prevCount) {
-                const prevYA = getMatchY(prevRi, feedA);
-                lines.push(
-                  <path
-                    key={`${ri}-${mi}-a`}
-                    d={`M ${prevX} ${prevYA} H ${prevX + CONNECTOR_W / 2} V ${currY} H ${currX}`}
-                    fill="none"
-                    stroke="#d1d5db"
-                    strokeWidth={1.5}
-                  />
-                );
-              }
-              if (feedB < prevCount) {
-                const prevYB = getMatchY(prevRi, feedB);
-                lines.push(
-                  <path
-                    key={`${ri}-${mi}-b`}
-                    d={`M ${prevX} ${prevYB} H ${prevX + CONNECTOR_W / 2} V ${currY} H ${currX}`}
-                    fill="none"
-                    stroke="#d1d5db"
-                    strokeWidth={1.5}
-                  />
-                );
+              if (is1to1) {
+                // 1:1 feed — straight horizontal connector from same position
+                const feedMatch = prevMatches.find(m => m.position === match.position);
+                if (feedMatch) {
+                  const prevY = getMatchYByPosition(prevSlots, feedMatch.position);
+                  lines.push(
+                    <path
+                      key={`${ri}-${match.position}-s`}
+                      d={`M ${prevX} ${prevY} H ${currX}`}
+                      fill="none"
+                      stroke="#d1d5db"
+                      strokeWidth={1.5}
+                    />
+                  );
+                }
+              } else {
+                // 2:1 feed — two matches converge into one
+                const feedPosA = match.position * 2;
+                const feedPosB = match.position * 2 + 1;
+
+                const feedMatchA = prevMatches.find(m => m.position === feedPosA);
+                const feedMatchB = prevMatches.find(m => m.position === feedPosB);
+
+                if (feedMatchA) {
+                  const prevYA = getMatchYByPosition(prevSlots, feedMatchA.position);
+                  lines.push(
+                    <path
+                      key={`${ri}-${match.position}-a`}
+                      d={`M ${prevX} ${prevYA} H ${prevX + CONNECTOR_W / 2} V ${currY} H ${currX}`}
+                      fill="none"
+                      stroke="#d1d5db"
+                      strokeWidth={1.5}
+                    />
+                  );
+                }
+                if (feedMatchB) {
+                  const prevYB = getMatchYByPosition(prevSlots, feedMatchB.position);
+                  lines.push(
+                    <path
+                      key={`${ri}-${match.position}-b`}
+                      d={`M ${prevX} ${prevYB} H ${prevX + CONNECTOR_W / 2} V ${currY} H ${currX}`}
+                      fill="none"
+                      stroke="#d1d5db"
+                      strokeWidth={1.5}
+                    />
+                  );
+                }
               }
 
               return lines;
             });
           })}
+
+          {/* Connector from final match to grand final */}
+          {grandFinal && (
+            <path
+              d={`M ${finalX} ${finalY} H ${finalX + CONNECTOR_W / 2} V ${extraY} H ${extraX}`}
+              fill="none"
+              stroke="#6366f1"
+              strokeWidth={1.5}
+            />
+          )}
+
+          {/* Output connector from final match going right (losers → grand final) */}
+          {showOutputConnector && !grandFinal && (
+            <path
+              d={`M ${finalX} ${finalY} H ${extraX + MATCH_W / 2}`}
+              fill="none"
+              stroke="#6366f1"
+              strokeWidth={1.5}
+              strokeDasharray="6 3"
+            />
+          )}
         </svg>
 
         {/* Round labels */}
@@ -437,35 +566,116 @@ function EliminationBracket({ rounds }: { rounds: BracketRound[] }) {
           </div>
         ))}
 
+        {/* Grand final label */}
+        {grandFinal && (
+          <div
+            className="absolute text-xs font-bold text-indigo-600 uppercase tracking-wide text-center"
+            style={{ left: extraX, width: MATCH_W, top: -24 }}
+          >
+            Grand Final
+          </div>
+        )}
+
+        {/* Output connector label */}
+        {showOutputConnector && !grandFinal && (
+          <div
+            className="absolute text-[10px] text-indigo-400 italic text-center"
+            style={{ left: extraX, width: MATCH_W, top: extraY - MATCH_H / 2 - 14 }}
+          >
+            → to Grand Final
+          </div>
+        )}
+
         {/* Match cards */}
-        {rounds.map((round, ri) =>
-          round.matches.map((match, mi) => {
-            const y = getMatchY(ri, mi) - MATCH_H / 2;
+        {rounds.map((round, ri) => {
+          const slots = getRoundSlots(ri);
+          return round.matches.map((match) => {
+            const y = getMatchYByPosition(slots, match.position) - MATCH_H / 2;
             return (
               <div
                 key={match.id}
                 className="absolute"
                 style={{ left: ri * COL_W, top: y, width: MATCH_W }}
               >
-                <MatchCard match={match} />
+                <MatchCard match={match} onSwapParticipants={onSwapParticipants} />
               </div>
             );
-          })
+          });
+        })}
+
+        {/* Grand final match card */}
+        {grandFinal && (
+          <div
+            className="absolute"
+            style={{ left: extraX, top: extraY - MATCH_H / 2, width: MATCH_W }}
+          >
+            <MatchCard match={grandFinal} />
+          </div>
         )}
       </div>
     </div>
   );
 }
 
-function MatchCard({ match }: { match: BracketMatch }) {
+function MatchCard({ match, onSwapParticipants }: { match: BracketMatch; onSwapParticipants?: (a: string, b: string) => void }) {
+  const [dropTarget, setDropTarget] = useState<"a" | "b" | null>(null);
+
+  function handleDragStart(e: React.DragEvent, name: string) {
+    e.dataTransfer.setData("text/participant", name);
+    e.dataTransfer.effectAllowed = "move";
+  }
+
+  function handleDragOver(e: React.DragEvent, slot: "a" | "b") {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDropTarget(slot);
+  }
+
+  function handleDragLeave() {
+    setDropTarget(null);
+  }
+
+  function handleDrop(e: React.DragEvent, targetName: string | null) {
+    e.preventDefault();
+    setDropTarget(null);
+    const sourceName = e.dataTransfer.getData("text/participant");
+    if (sourceName && targetName && sourceName !== targetName && onSwapParticipants) {
+      onSwapParticipants(sourceName, targetName);
+    }
+  }
+
+  const canDrag = !!onSwapParticipants;
+  const wbA = match.wbDropDown === "a" || match.wbDropDown === "both";
+  const wbB = match.wbDropDown === "b" || match.wbDropDown === "both";
+
   return (
     <div className="border border-gray-200 rounded-lg overflow-hidden text-sm bg-white">
-      <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 border-b border-gray-100">
+      <div
+        draggable={!!match.participantA && canDrag}
+        onDragStart={(e) => match.participantA && handleDragStart(e, match.participantA)}
+        onDragOver={(e) => match.participantA && handleDragOver(e, "a")}
+        onDragLeave={handleDragLeave}
+        onDrop={(e) => handleDrop(e, match.participantA)}
+        className={`flex items-center gap-2 px-3 py-1.5 border-b border-gray-100 transition-colors ${
+          dropTarget === "a" ? "bg-indigo-50" : wbA ? "bg-amber-50/60" : "bg-gray-50"
+        } ${match.participantA && canDrag ? "cursor-grab active:cursor-grabbing" : ""}`}
+      >
+        {wbA && <span className="text-[9px] text-amber-500 font-semibold shrink-0" title="From Winners Bracket">WB</span>}
         <span className={match.participantA ? "text-gray-800" : "text-gray-300 italic"}>
           {match.participantA ?? "TBD"}
         </span>
       </div>
-      <div className="flex items-center gap-2 px-3 py-1.5">
+      <div
+        draggable={!!match.participantB && canDrag}
+        onDragStart={(e) => match.participantB && handleDragStart(e, match.participantB)}
+        onDragOver={(e) => match.participantB && handleDragOver(e, "b")}
+        onDragLeave={handleDragLeave}
+        onDrop={(e) => handleDrop(e, match.participantB)}
+        className={`flex items-center gap-2 px-3 py-1.5 transition-colors ${
+          dropTarget === "b" ? "bg-indigo-50" : wbB ? "bg-amber-50/60" : ""
+        } ${match.participantB && canDrag ? "cursor-grab active:cursor-grabbing" : ""}`}
+      >
+        {wbB && <span className="text-[9px] text-amber-500 font-semibold shrink-0" title="From Winners Bracket">WB</span>}
         <span className={match.participantB ? "text-gray-800" : "text-gray-300 italic"}>
           {match.participantB ?? "TBD"}
         </span>

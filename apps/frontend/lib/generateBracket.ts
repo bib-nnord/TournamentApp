@@ -8,11 +8,17 @@ export interface BracketMatch {
   position: number;
   participantA: string | null;
   participantB: string | null;
+  /** Which slots receive a drop-down from the winners bracket */
+  wbDropDown?: "a" | "b" | "both";
 }
 
 export interface BracketRound {
   name: string;
   matches: BracketMatch[];
+  /** Full number of match slots in this round (including removed byes). Used for layout. */
+  totalPositions?: number;
+  /** Losers bracket: this round receives drop-downs from the winners bracket */
+  isDropDown?: boolean;
 }
 
 export interface Bracket {
@@ -46,23 +52,42 @@ function roundName(round: number, total: number): string {
 
 // ─── Single Elimination ───────────────────────────────────────────────────────
 
+/**
+ * Generate standard tournament seed positions for a bracket of size `size`.
+ * E.g. size=8 → [1, 8, 4, 5, 2, 7, 3, 6] — ensures top seeds are spread
+ * across the bracket and meet latest if they keep winning.
+ */
+function generateSeedPositions(size: number): number[] {
+  let positions = [1, 2];
+  while (positions.length < size) {
+    const next: number[] = [];
+    const currentSize = positions.length * 2;
+    for (const seed of positions) {
+      next.push(seed, currentSize + 1 - seed);
+    }
+    positions = next;
+  }
+  return positions;
+}
+
 function generateSingleElimination(participants: string[]): BracketRound[] {
   const n = participants.length;
   if (n < 2) return [];
 
-  // Build a standard single-elimination tree sized to the next power of two.
-  // Instead of a separate preliminary round, we fill missing slots in round 1
-  // with nulls (byes) so some participants advance automatically.
-  const isPow2 = (n & (n - 1)) === 0;
-  const mainSize = isPow2 ? n : Math.pow(2, Math.ceil(Math.log2(n)));
-  const mainRounds = Math.log2(mainSize);
+  const bracketSize = Math.pow(2, Math.ceil(Math.log2(n)));
+  const totalRounds = Math.log2(bracketSize);
   const rounds: BracketRound[] = [];
 
-  // Round 1: place participants in order; empty slots represent byes
+  // Use standard seeding so byes go to top seeds and are spread evenly
+  const seeds = generateSeedPositions(bracketSize);
+
+  // Round 1: pair seeds using the seeding order; seeds > n become byes (null)
   const r1Matches: BracketMatch[] = [];
-  for (let i = 0; i < mainSize; i += 2) {
-    const a = i < n ? participants[i] : null;
-    const b = i + 1 < n ? participants[i + 1] : null;
+  for (let i = 0; i < bracketSize; i += 2) {
+    const seedA = seeds[i];
+    const seedB = seeds[i + 1];
+    const a = seedA <= n ? participants[seedA - 1] : null;
+    const b = seedB <= n ? participants[seedB - 1] : null;
     r1Matches.push({
       id: nextId(),
       round: 1,
@@ -71,11 +96,12 @@ function generateSingleElimination(participants: string[]): BracketRound[] {
       participantB: b,
     });
   }
-  rounds.push({ name: roundName(1, mainRounds), matches: r1Matches });
+  const r1FullCount = r1Matches.length;
+  rounds.push({ name: roundName(1, totalRounds), matches: r1Matches, totalPositions: r1FullCount });
 
   // Subsequent rounds (round 2 to final)
-  for (let r = 2; r <= mainRounds; r++) {
-    const matchCount = mainSize / Math.pow(2, r);
+  for (let r = 2; r <= totalRounds; r++) {
+    const matchCount = bracketSize / Math.pow(2, r);
     const matches: BracketMatch[] = [];
     for (let p = 0; p < matchCount; p++) {
       matches.push({
@@ -86,7 +112,29 @@ function generateSingleElimination(participants: string[]): BracketRound[] {
         participantB: null,
       });
     }
-    rounds.push({ name: roundName(r, mainRounds), matches });
+    rounds.push({ name: roundName(r, totalRounds), matches });
+  }
+
+  // Resolve byes: advance bye winners into round 2, then remove bye matches
+  if (rounds.length > 1) {
+    const r1 = rounds[0];
+    const r2 = rounds[1];
+    for (const match of r1.matches) {
+      const aIsNull = match.participantA === null;
+      const bIsNull = match.participantB === null;
+      if (aIsNull || bIsNull) {
+        const winner = match.participantA ?? match.participantB;
+        if (winner) {
+          const r2Match = r2.matches[Math.floor(match.position / 2)];
+          if (match.position % 2 === 0) r2Match.participantA = winner;
+          else r2Match.participantB = winner;
+        }
+      }
+    }
+    // Keep only real matches (both sides filled)
+    r1.matches = r1.matches.filter(m => m.participantA !== null && m.participantB !== null);
+    // If round 1 is empty (all byes), remove it
+    if (r1.matches.length === 0) rounds.shift();
   }
 
   return rounds;
@@ -95,16 +143,26 @@ function generateSingleElimination(participants: string[]): BracketRound[] {
 // ─── Double Elimination ───────────────────────────────────────────────────────
 
 function generateDoubleElimination(participants: string[]): { winners: BracketRound[]; losers: BracketRound[] } {
+  const n = participants.length;
+  const bracketSize = Math.pow(2, Math.ceil(Math.log2(n)));
+  const winnersRoundCount = Math.log2(bracketSize);
+
   const winners = generateSingleElimination(participants);
 
-  // Losers bracket has (totalWinnerRounds - 1) * 2 rounds roughly
-  const totalWinnerRounds = winners.length;
-  const losersRoundCount = Math.max(1, (totalWinnerRounds - 1) * 2);
+  // Losers bracket structure (for bracket size N):
+  //   Rounds come in pairs — each pair halves the match count:
+  //     LR1 (pairing):  N/4 matches — WR1 losers pair up
+  //     LR2 (drop-down): N/4 matches — LR1 winners face WR2 losers
+  //     LR3 (pairing):  N/8 matches — LR2 winners pair up
+  //     LR4 (drop-down): N/8 matches — LR3 winners face WR3 losers
+  //     ...continues until Losers Final (1 match)
+  //   Then Grand Final: winners champion vs losers champion
+  const losersRoundCount = Math.max(1, (winnersRoundCount - 1) * 2);
   const losers: BracketRound[] = [];
 
-  let matchesInRound = Math.floor(participants.length / 4);
+  let matchesInRound = Math.max(1, bracketSize / 4);
   for (let r = 1; r <= losersRoundCount; r++) {
-    matchesInRound = Math.max(1, matchesInRound);
+    const isEvenRound = r % 2 === 0;
     const matches: BracketMatch[] = [];
     for (let p = 0; p < matchesInRound; p++) {
       matches.push({
@@ -113,14 +171,23 @@ function generateDoubleElimination(participants: string[]): { winners: BracketRo
         position: p,
         participantA: null,
         participantB: null,
+        // LR1: both slots are WR1 losers; even rounds: one slot drops from WB
+        wbDropDown: r === 1 ? "both" : isEvenRound ? "b" : undefined,
       });
     }
-    losers.push({ name: `Losers Round ${r}`, matches });
-    // Every other round halves the matches
-    if (r % 2 === 0) matchesInRound = Math.ceil(matchesInRound / 2);
+    // LR1 receives all WR1 losers; even rounds receive drop-downs from later WB rounds
+    const receivesFromWB = r === 1 || isEvenRound;
+    losers.push({
+      name: matchesInRound === 1 && r === losersRoundCount ? "Losers Final" : `Losers Round ${r}`,
+      matches,
+      totalPositions: matchesInRound,
+      isDropDown: receivesFromWB,
+    });
+    // Match count halves after each pair of rounds (pairing + drop-down)
+    if (isEvenRound) matchesInRound = Math.max(1, Math.ceil(matchesInRound / 2));
   }
 
-  // Grand final
+  // Grand final: winners champion vs losers champion
   losers.push({
     name: "Grand Final",
     matches: [{ id: nextId(), round: losersRoundCount + 1, position: 0, participantA: null, participantB: null }],

@@ -14,6 +14,7 @@ export interface QuickTournamentData {
   description: string;
   format: TournamentFormat;
   participants: Participant[];
+  isPrivate: boolean;
 }
 
 interface Props {
@@ -28,6 +29,7 @@ export default function QuickTournamentForm({ initial, onSubmit }: Props) {
   const [game, setGame] = useState(initial?.game ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [format, setFormat] = useState<TournamentFormat>(initial?.format ?? "single_elimination");
+  const [isPrivate, setIsPrivate] = useState(initial?.isPrivate ?? false);
 
   const [accounts, setAccounts] = useState<string[]>(
     () => initial?.participants.filter((p) => p.type === "account").map((p) => p.name) ?? []
@@ -93,7 +95,7 @@ export default function QuickTournamentForm({ initial, onSubmit }: Props) {
       ...accounts.map((n) => ({ name: n, type: "account" as const })),
       ...guests.map((n) => ({ name: n, type: "guest" as const })),
     ];
-    onSubmit({ name, game, description, format, participants });
+    onSubmit({ name, game, description, format, participants, isPrivate });
   }
 
   const inputClass =
