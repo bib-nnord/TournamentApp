@@ -30,6 +30,10 @@ model User {
   received_messages Message[]      @relation("MessageRecipient")
   refresh_tokens   RefreshToken[]
 
+  created_tournaments   Tournament[]              @relation("TournamentCreator")
+  tournament_entries    TournamentParticipant[]    @relation("TournamentParticipants")
+  match_entries         MatchParticipant[]         @relation("MatchParticipantUser")
+
   @@map("user")
 }
 
@@ -68,6 +72,8 @@ model Team {
 
   creator User         @relation("TeamCreator", fields: [created_by], references: [user_id])
   members TeamMember[]
+
+  match_entries MatchParticipant[] @relation("MatchParticipantTeam")
 
   @@map("team")
 }
@@ -114,4 +120,110 @@ enum MessageCategory {
   teams
   tournaments
   website
+}
+
+// ─── Tournaments ────────────────────────────────────────────────────────────
+
+model Tournament {
+  tournament_id  Int               @id @default(autoincrement())
+  name           String            @db.VarChar(200)
+  game           String            @db.VarChar(100)
+  description    String?           @db.Text
+  format         TournamentFormat
+  status         TournamentStatus  @default(draft)
+  is_private     Boolean           @default(false)
+  max_participants Int?
+  bracket_data   Json?
+  created_by     Int
+  created_at     DateTime          @default(now()) @db.Timestamp(6)
+  updated_at     DateTime          @updatedAt @db.Timestamp(6)
+
+  creator      User                    @relation("TournamentCreator", fields: [created_by], references: [user_id])
+  participants TournamentParticipant[]
+  matches      Match[]
+
+  @@map("tournament")
+}
+
+model TournamentParticipant {
+  tournament_id Int
+  seed          Int
+  user_id       Int?
+  guest_name    String?         @db.VarChar(100)
+  display_name  String          @db.VarChar(100)
+  joined_at     DateTime        @default(now()) @db.Timestamp(6)
+
+  tournament Tournament @relation(fields: [tournament_id], references: [tournament_id], onDelete: Cascade)
+  user       User?      @relation("TournamentParticipants", fields: [user_id], references: [user_id])
+
+  @@id([tournament_id, seed])
+  @@map("tournament_participant")
+}
+
+enum TournamentFormat {
+  single_elimination
+  double_elimination
+  round_robin
+  double_round_robin
+  combination
+  swiss
+}
+
+enum TournamentStatus {
+  draft
+  registration
+  active
+  completed
+  cancelled
+}
+
+// ─── Matches ────────────────────────────────────────────────────────────────
+
+model Match {
+  match_id       Int          @id @default(autoincrement())
+  tournament_id  Int?
+  round          String?      @db.VarChar(100)
+  position       Int?
+  status         MatchStatus  @default(scheduled)
+  score_a        Int?
+  score_b        Int?
+  scheduled_at   DateTime?    @db.Timestamp(6)
+  played_at      DateTime?    @db.Timestamp(6)
+  notes          String?      @db.Text
+  created_at     DateTime     @default(now()) @db.Timestamp(6)
+
+  tournament   Tournament?        @relation(fields: [tournament_id], references: [tournament_id], onDelete: Cascade)
+  participants MatchParticipant[]
+
+  @@map("match")
+}
+
+model MatchParticipant {
+  id            Int       @id @default(autoincrement())
+  match_id      Int
+  side          MatchSide
+  user_id       Int?
+  team_id       Int?
+  team_name     String?   @db.VarChar(100)
+  display_name  String    @db.VarChar(100)
+
+  match Match @relation(fields: [match_id], references: [match_id], onDelete: Cascade)
+  user  User? @relation("MatchParticipantUser", fields: [user_id], references: [user_id])
+  team  Team? @relation("MatchParticipantTeam", fields: [team_id], references: [team_id])
+
+  @@index([match_id, side])
+  @@map("match_participant")
+}
+
+enum MatchSide {
+  a
+  b
+}
+
+enum MatchStatus {
+  scheduled
+  in_progress
+  completed
+  tie
+  cancelled
 }

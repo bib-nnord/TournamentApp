@@ -1,0 +1,264 @@
+const prisma = require('../lib/prisma');
+
+// ─── POST /tournaments ─────────────────────────────────────────────────────
+// Creates a tournament with participants and bracket data.
+// Body: { name, game, description?, format, isPrivate?, participants, bracketData?, maxParticipants? }
+// participants: [{ name, type: "account"|"guest" }]
+async function create(req, res) {
+  const { name, game, description, format, isPrivate, participants, bracketData, maxParticipants } = req.body;
+
+  if (!name || !game || !format) {
+    return res.status(400).json({ error: 'name, game, and format are required' });
+  }
+
+  const validFormats = [
+    'single_elimination',
+    'double_elimination',
+    'round_robin',
+    'double_round_robin',
+    'combination',
+    'swiss',
+  ];
+  if (!validFormats.includes(format)) {
+    return res.status(400).json({ error: `Invalid format. Must be one of: ${validFormats.join(', ')}` });
+  }
+
+  if (!Array.isArray(participants) || participants.length < 2) {
+    return res.status(400).json({ error: 'At least 2 participants are required' });
+  }
+
+  try {
+    const tournament = await prisma.tournament.create({
+      data: {
+        name,
+        game,
+        description: description || null,
+        format,
+        status: 'active',
+        is_private: isPrivate ?? false,
+        max_participants: maxParticipants ?? participants.length,
+        bracket_data: bracketData ?? null,
+        created_by: req.user.id,
+        participants: {
+          create: participants.map((p, i) => ({
+            seed: i + 1,
+            display_name: p.name,
+            guest_name: p.type === 'guest' ? p.name : null,
+            // user_id lookup could be added later for account participants
+          })),
+        },
+      },
+      include: {
+        participants: { orderBy: { seed: 'asc' } },
+      },
+    });
+
+    return res.status(201).json(formatTournament(tournament));
+  } catch (err) {
+    console.error('[tournament.create]', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+// ─── GET /tournaments ──────────────────────────────────────────────────────
+// Query: ?status=active&page=1&limit=20
+async function list(req, res) {
+  const { status, page = '1', limit = '20' } = req.query;
+  const take = Math.min(parseInt(limit, 10) || 20, 100);
+  const skip = (Math.max(parseInt(page, 10) || 1, 1) - 1) * take;
+
+  const where = {};
+  if (status) where.status = status;
+  // Hide private tournaments unless user is the creator
+  where.OR = [
+    { is_private: false },
+    ...(req.user ? [{ created_by: req.user.id }] : []),
+  ];
+
+  try {
+    const [tournaments, total] = await Promise.all([
+      prisma.tournament.findMany({
+        where,
+        orderBy: { created_at: 'desc' },
+        take,
+        skip,
+        include: {
+          _count: { select: { participants: true } },
+          creator: { select: { user_id: true, username: true } },
+        },
+      }),
+      prisma.tournament.count({ where }),
+    ]);
+
+    return res.json({
+      tournaments: tournaments.map((t) => ({
+        id: t.tournament_id,
+        name: t.name,
+        game: t.game,
+        format: t.format,
+        status: t.status,
+        isPrivate: t.is_private,
+        participants: t._count.participants,
+        max: t.max_participants,
+        creator: { id: t.creator.user_id, username: t.creator.username },
+        createdAt: t.created_at,
+      })),
+      page: Math.floor(skip / take) + 1,
+      totalPages: Math.ceil(total / take),
+      total,
+    });
+  } catch (err) {
+    console.error('[tournament.list]', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+// ─── GET /tournaments/:id ──────────────────────────────────────────────────
+async function getById(req, res) {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) return res.status(400).json({ error: 'Invalid tournament ID' });
+
+  try {
+    const tournament = await prisma.tournament.findUnique({
+      where: { tournament_id: id },
+      include: {
+        participants: { orderBy: { seed: 'asc' } },
+        creator: { select: { user_id: true, username: true } },
+        matches: {
+        orderBy: [{ round: 'asc' }, { position: 'asc' }],
+        include: { participants: true },
+      },
+      },
+    });
+
+    if (!tournament) return res.status(404).json({ error: 'Tournament not found' });
+
+    // Private check
+    if (tournament.is_private && (!req.user || req.user.id !== tournament.created_by)) {
+      return res.status(404).json({ error: 'Tournament not found' });
+    }
+
+    return res.json(formatTournament(tournament));
+  } catch (err) {
+    console.error('[tournament.getById]', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+// ─── PATCH /tournaments/:id ────────────────────────────────────────────────
+// Allowed fields: name, game, description, status, bracketData
+async function update(req, res) {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) return res.status(400).json({ error: 'Invalid tournament ID' });
+
+  try {
+    const tournament = await prisma.tournament.findUnique({ where: { tournament_id: id } });
+    if (!tournament) return res.status(404).json({ error: 'Tournament not found' });
+    if (tournament.created_by !== req.user.id) {
+      return res.status(403).json({ error: 'Only the tournament creator can update it' });
+    }
+
+    const { name, game, description, status, bracketData } = req.body;
+    const data = {};
+    if (name !== undefined) data.name = name;
+    if (game !== undefined) data.game = game;
+    if (description !== undefined) data.description = description;
+    if (status !== undefined) data.status = status;
+    if (bracketData !== undefined) data.bracket_data = bracketData;
+
+    const updated = await prisma.tournament.update({
+      where: { tournament_id: id },
+      data,
+      include: {
+        participants: { orderBy: { seed: 'asc' } },
+        creator: { select: { user_id: true, username: true } },
+      },
+    });
+
+    return res.json(formatTournament(updated));
+  } catch (err) {
+    console.error('[tournament.update]', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+// ─── DELETE /tournaments/:id ───────────────────────────────────────────────
+async function remove(req, res) {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) return res.status(400).json({ error: 'Invalid tournament ID' });
+
+  try {
+    const tournament = await prisma.tournament.findUnique({ where: { tournament_id: id } });
+    if (!tournament) return res.status(404).json({ error: 'Tournament not found' });
+    if (tournament.created_by !== req.user.id) {
+      return res.status(403).json({ error: 'Only the tournament creator can delete it' });
+    }
+
+    await prisma.tournament.delete({ where: { tournament_id: id } });
+    return res.json({ message: 'Tournament deleted' });
+  } catch (err) {
+    console.error('[tournament.remove]', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+function formatTournament(t) {
+  return {
+    id: t.tournament_id,
+    name: t.name,
+    game: t.game,
+    description: t.description,
+    format: t.format,
+    status: t.status,
+    isPrivate: t.is_private,
+    max: t.max_participants,
+    bracketData: t.bracket_data,
+    creator: t.creator
+      ? { id: t.creator.user_id, username: t.creator.username }
+      : undefined,
+    participants: t.participants
+      ? t.participants.map((p) => ({
+          seed: p.seed,
+          displayName: p.display_name,
+          guestName: p.guest_name,
+          userId: p.user_id,
+          type: p.guest_name ? 'guest' : 'account',
+        }))
+      : undefined,
+    matches: t.matches
+      ? t.matches.map((m) => {
+          const sideA = (m.participants || []).filter((p) => p.side === 'a');
+          const sideB = (m.participants || []).filter((p) => p.side === 'b');
+          return {
+            id: m.match_id,
+            round: m.round,
+            position: m.position,
+            status: m.status,
+            scoreA: m.score_a,
+            scoreB: m.score_b,
+            sideA: {
+              teamName: sideA[0]?.team_name || null,
+              players: sideA.map((p) => ({
+                displayName: p.display_name,
+                userId: p.user_id,
+                teamId: p.team_id,
+              })),
+            },
+            sideB: {
+              teamName: sideB[0]?.team_name || null,
+              players: sideB.map((p) => ({
+                displayName: p.display_name,
+                userId: p.user_id,
+                teamId: p.team_id,
+              })),
+            },
+          };
+        })
+      : undefined,
+    createdAt: t.created_at,
+  };
+}
+
+module.exports = { create, list, getById, update, remove };

@@ -4,14 +4,17 @@ import { useState, useMemo, useRef, type KeyboardEvent } from "react";
 import { tournamentFormatInfo, type TournamentFormat } from "@/types";
 import { generateBracket, type Bracket, type BracketRound, type BracketMatch, type BracketOptions } from "@/lib/generateBracket";
 import type { QuickTournamentData, Participant } from "./QuickTournamentForm";
+import UserSearchInput from "./UserSearchInput";
 
 interface Props {
   data: QuickTournamentData;
   onBack: () => void;
   onConfirm: (data: QuickTournamentData, bracket: Bracket) => void;
+  submitting?: boolean;
+  submitError?: string | null;
 }
 
-export default function TournamentPreview({ data, onBack, onConfirm }: Props) {
+export default function TournamentPreview({ data, onBack, onConfirm, submitting, submitError }: Props) {
   const [name, setName] = useState(data.name);
   const [game, setGame] = useState(data.game);
   const [description, setDescription] = useState(data.description);
@@ -92,18 +95,24 @@ export default function TournamentPreview({ data, onBack, onConfirm }: Props) {
   // ─── Live add / remove participants ───────────────────────────────────────
   const [accountInput, setAccountInput] = useState("");
   const [guestInput, setGuestInput] = useState("");
+  const teamMode = data.teamMode;
+  const [teamNameInput, setTeamNameInput] = useState("");
+  const [expandedTeam, setExpandedTeam] = useState<number | null>(null);
 
-  function addParticipant(name: string, type: "account" | "guest") {
+  function addParticipant(name: string, type: "account" | "guest" | "team") {
     const trimmed = name.trim();
     if (!trimmed) return;
-    // Allow duplicates — auto-number with (2), (3), etc.
     let finalName = trimmed;
     if (participantNames.includes(trimmed)) {
       let n = 2;
       while (participantNames.includes(`${trimmed} (${n})`)) n++;
       finalName = `${trimmed} (${n})`;
     }
-    setParticipants((prev) => [...prev, { name: finalName, type }]);
+    setParticipants((prev) => [...prev, {
+      name: finalName,
+      type,
+      ...(type === "team" ? { members: [] } : {}),
+    }]);
   }
 
   const [confirmRemove, setConfirmRemove] = useState<number | null>(null);
@@ -121,7 +130,7 @@ export default function TournamentPreview({ data, onBack, onConfirm }: Props) {
     e: KeyboardEvent<HTMLInputElement>,
     input: string,
     setInput: (v: string) => void,
-    type: "account" | "guest"
+    type: "account" | "guest" | "team"
   ) {
     if (e.key === "Enter" || e.key === ",") {
       e.preventDefault();
@@ -130,11 +139,34 @@ export default function TournamentPreview({ data, onBack, onConfirm }: Props) {
     }
   }
 
-  function handleAddBlur(input: string, setInput: (v: string) => void, type: "account" | "guest") {
+  function handleAddBlur(input: string, setInput: (v: string) => void, type: "account" | "guest" | "team") {
     if (input.trim()) {
       addParticipant(input, type);
       setInput("");
     }
+  }
+
+  // ─── Team member editing (in preview) ─────────────────────────────────────
+  function addTeamMember(participantIndex: number, memberName: string, memberType: "account" | "guest") {
+    const trimmed = memberName.trim();
+    if (!trimmed) return;
+    setParticipants((prev) =>
+      prev.map((p, i) =>
+        i === participantIndex && p.type === "team"
+          ? { ...p, members: [...(p.members ?? []), { name: trimmed, type: memberType }] }
+          : p
+      )
+    );
+  }
+
+  function removeTeamMember(participantIndex: number, memberIndex: number) {
+    setParticipants((prev) =>
+      prev.map((p, i) =>
+        i === participantIndex && p.type === "team"
+          ? { ...p, members: (p.members ?? []).filter((_, mi) => mi !== memberIndex) }
+          : p
+      )
+    );
   }
 
   // ─── Swap participants (from bracket drag-and-drop) ──────────────────────
@@ -215,66 +247,99 @@ export default function TournamentPreview({ data, onBack, onConfirm }: Props) {
           </div>
           <div className="flex flex-col gap-3 overflow-y-auto pr-1 min-h-0">
             {participants.map((p, i) => (
-              <div
-                key={`${p.name}-${i}`}
-                draggable
-                onDragStart={(e) => handleDragStart(e, i)}
-                onDragOver={(e) => handleDragOver(e, i)}
-                onDrop={(e) => handleDrop(e, i)}
-                onDragEnd={handleDragEnd}
-                className={`flex items-center gap-3 border rounded-lg px-4 py-2.5 text-sm cursor-grab active:cursor-grabbing select-none transition-colors ${
-                  dragOver === i
-                    ? "border-indigo-400 bg-indigo-50"
-                    : "border-gray-200 hover:border-gray-300"
-                }`}
-                style={{ minHeight: 48 }}
-              >
-                <span className="text-gray-300 shrink-0 cursor-grab text-xs" title="Drag to reorder">⠿</span>
-                <span className="text-xs text-gray-400 font-mono w-6 shrink-0 text-right">{i + 1}.</span>
-                <span className={`truncate flex-1 text-sm ${p.type === "account" ? "text-gray-800" : "text-amber-700"}`}>
-                  {p.name}
-                </span>
-                <span className={`text-[10px] uppercase shrink-0 px-2 py-0.5 rounded leading-none ${
-                  p.type === "account" ? "bg-indigo-50 text-indigo-500" : "bg-amber-50 text-amber-500"
-                }`}>
-                  {p.type === "account" ? "acc" : "guest"}
-                </span>
-                <div className="flex flex-col shrink-0 gap-1">
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); moveUp(i); }}
-                    disabled={i === 0}
-                    className="text-gray-400 hover:text-gray-700 disabled:text-gray-200 text-[10px] leading-none"
-                    title="Move up"
-                  >▲</button>
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); moveDown(i); }}
-                    disabled={i === participants.length - 1}
-                    className="text-gray-400 hover:text-gray-700 disabled:text-gray-200 text-[10px] leading-none"
-                    title="Move down"
-                  >▼</button>
-                </div>
-                {confirmRemove === i ? (
-                  <span className="flex items-center gap-2 shrink-0">
+              <div key={`${p.name}-${i}`}>
+                <div
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, i)}
+                  onDragOver={(e) => handleDragOver(e, i)}
+                  onDrop={(e) => handleDrop(e, i)}
+                  onDragEnd={handleDragEnd}
+                  className={`flex items-center gap-3 border rounded-lg px-4 py-2.5 text-sm cursor-grab active:cursor-grabbing select-none transition-colors ${
+                    dragOver === i
+                      ? "border-indigo-400 bg-indigo-50"
+                      : "border-gray-200 hover:border-gray-300"
+                  } ${p.type === "team" && expandedTeam === i ? "rounded-b-none border-b-0" : ""}`}
+                  style={{ minHeight: 48 }}
+                >
+                  <span className="text-gray-300 shrink-0 cursor-grab text-xs" title="Drag to reorder">⠿</span>
+                  <span className="text-xs text-gray-400 font-mono w-6 shrink-0 text-right">{i + 1}.</span>
+                  <div className="flex flex-col flex-1 min-w-0">
+                    <span className={`truncate text-sm ${
+                      p.type === "team" ? "text-purple-800 font-medium" : p.type === "account" ? "text-gray-800" : "text-amber-700"
+                    }`}>
+                      {p.name}
+                    </span>
+                    {p.type === "team" && p.members && p.members.length > 0 && expandedTeam !== i && (
+                      <span className="text-[11px] text-gray-400 truncate">
+                        {p.members.map((m) => m.name).join(", ")}
+                      </span>
+                    )}
+                  </div>
+                  <span className={`text-[10px] uppercase shrink-0 px-2 py-0.5 rounded leading-none ${
+                    p.type === "team"
+                      ? "bg-purple-50 text-purple-500"
+                      : p.type === "account"
+                        ? "bg-indigo-50 text-indigo-500"
+                        : "bg-amber-50 text-amber-500"
+                  }`}>
+                    {p.type === "team" ? "team" : p.type === "account" ? "acc" : "guest"}
+                  </span>
+                  {p.type === "team" && (
                     <button
                       type="button"
-                      onClick={(e) => { e.stopPropagation(); setConfirmRemove(null); }}
-                      className="text-[10px] text-gray-400 hover:text-gray-600"
-                    >Cancel</button>
+                      onClick={(e) => { e.stopPropagation(); setExpandedTeam(expandedTeam === i ? null : i); }}
+                      className="text-gray-400 hover:text-purple-600 text-xs shrink-0"
+                      title={expandedTeam === i ? "Collapse members" : "Edit members"}
+                    >
+                      {expandedTeam === i ? "▲" : "▼"}
+                    </button>
+                  )}
+                  <div className="flex flex-col shrink-0 gap-1">
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); moveUp(i); }}
+                      disabled={i === 0}
+                      className="text-gray-400 hover:text-gray-700 disabled:text-gray-200 text-[10px] leading-none"
+                      title="Move up"
+                    >▲</button>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); moveDown(i); }}
+                      disabled={i === participants.length - 1}
+                      className="text-gray-400 hover:text-gray-700 disabled:text-gray-200 text-[10px] leading-none"
+                      title="Move down"
+                    >▼</button>
+                  </div>
+                  {confirmRemove === i ? (
+                    <span className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setConfirmRemove(null); }}
+                        className="text-[10px] text-gray-400 hover:text-gray-600"
+                      >Cancel</button>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); removeParticipant(i); }}
+                        className="text-[10px] text-red-600 hover:text-red-800 font-medium"
+                      >Remove?</button>
+                    </span>
+                  ) : (
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); removeParticipant(i); }}
-                      className="text-[10px] text-red-600 hover:text-red-800 font-medium"
-                    >Remove?</button>
-                  </span>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); removeParticipant(i); }}
-                    className="text-gray-300 hover:text-red-500 leading-none shrink-0"
-                    title="Remove"
-                  >×</button>
+                      className="text-gray-300 hover:text-red-500 leading-none shrink-0"
+                      title="Remove"
+                    >×</button>
+                  )}
+                </div>
+
+                {/* Expanded team member editor */}
+                {p.type === "team" && expandedTeam === i && (
+                  <TeamMemberEditor
+                    members={p.members ?? []}
+                    onAdd={(name, type) => addTeamMember(i, name, type)}
+                    onRemove={(mi) => removeTeamMember(i, mi)}
+                  />
                 )}
               </div>
             ))}
@@ -282,24 +347,37 @@ export default function TournamentPreview({ data, onBack, onConfirm }: Props) {
 
           {/* Add participants — pinned at bottom */}
           <div className="border-t border-gray-100 pt-3 mt-3 shrink-0">
-            <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-2">Add participants</p>
+            <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-2">
+              {teamMode ? "Add teams" : "Add participants"}
+            </p>
             <div className="flex flex-col gap-2">
-              <input
-                value={accountInput}
-                onChange={(e) => setAccountInput(e.target.value.replace(",", ""))}
-                onKeyDown={(e) => handleAddKeyDown(e, accountInput, setAccountInput, "account")}
-                onBlur={() => handleAddBlur(accountInput, setAccountInput, "account")}
-                placeholder="Account (username/email)…"
-                className={`${inputClass} w-full text-xs`}
-              />
-              <input
-                value={guestInput}
-                onChange={(e) => setGuestInput(e.target.value.replace(",", ""))}
-                onKeyDown={(e) => handleAddKeyDown(e, guestInput, setGuestInput, "guest")}
-                onBlur={() => handleAddBlur(guestInput, setGuestInput, "guest")}
-                placeholder="Guest (display name)…"
-                className={`${inputClass} w-full text-xs`}
-              />
+              {teamMode ? (
+                <input
+                  value={teamNameInput}
+                  onChange={(e) => setTeamNameInput(e.target.value.replace(",", ""))}
+                  onKeyDown={(e) => handleAddKeyDown(e, teamNameInput, setTeamNameInput, "team")}
+                  onBlur={() => handleAddBlur(teamNameInput, setTeamNameInput, "team")}
+                  placeholder="Team name, press Enter…"
+                  className={`${inputClass} w-full text-xs`}
+                />
+              ) : (
+                <>
+                  <UserSearchInput
+                    onSelect={(username) => addParticipant(username, "account")}
+                    placeholder="Search account (username)…"
+                    className="w-full"
+                    size="sm"
+                  />
+                  <input
+                    value={guestInput}
+                    onChange={(e) => setGuestInput(e.target.value.replace(",", ""))}
+                    onKeyDown={(e) => handleAddKeyDown(e, guestInput, setGuestInput, "guest")}
+                    onBlur={() => handleAddBlur(guestInput, setGuestInput, "guest")}
+                    placeholder="Guest (display name)…"
+                    className={`${inputClass} w-full text-xs`}
+                  />
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -377,22 +455,28 @@ export default function TournamentPreview({ data, onBack, onConfirm }: Props) {
         )}
       </div>
 
+      {/* Error */}
+      {submitError && (
+        <p className="text-sm text-red-600 mt-4">{submitError}</p>
+      )}
+
       {/* Actions */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mt-8">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mt-4">
         <button
           type="button"
           onClick={onBack}
-          className="px-5 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
+          disabled={submitting}
+          className="px-5 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-40"
         >
           ← Back to form
         </button>
         <button
           type="button"
           onClick={handleConfirm}
-          disabled={participants.length < 2}
+          disabled={participants.length < 2 || submitting}
           className="flex-1 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          Confirm & Start Tournament
+          {submitting ? "Creating…" : "Confirm & Start Tournament"}
         </button>
       </div>
     </div>
@@ -1119,6 +1203,94 @@ function CombinationView({
           <EliminationBracket rounds={bracket.knockoutRounds} />
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Inline team member editor (shown expanded in seeding list) ─────────────
+
+function TeamMemberEditor({
+  members,
+  onAdd,
+  onRemove,
+}: {
+  members: { name: string; type: "account" | "guest" }[];
+  onAdd: (name: string, type: "account" | "guest") => void;
+  onRemove: (memberIndex: number) => void;
+}) {
+  const [input, setInput] = useState("");
+  const [memberType, setMemberType] = useState<"account" | "guest">("account");
+
+  function handleKey(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter" || e.key === ",") {
+      e.preventDefault();
+      if (input.trim()) {
+        onAdd(input.trim(), memberType);
+        setInput("");
+      }
+    }
+  }
+
+  function handleBlur() {
+    if (input.trim()) {
+      onAdd(input.trim(), memberType);
+      setInput("");
+    }
+  }
+
+  return (
+    <div className="border border-gray-200 border-t-0 rounded-b-lg bg-gray-50 px-4 py-3">
+      <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-2">Team members</p>
+
+      {members.length > 0 && (
+        <div className="flex flex-wrap gap-1 mb-2">
+          {members.map((m, mi) => (
+            <span
+              key={mi}
+              className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-md ${
+                m.type === "account" ? "bg-indigo-50 text-indigo-700" : "bg-amber-50 text-amber-700"
+              }`}
+            >
+              {m.name}
+              <button
+                type="button"
+                onClick={() => onRemove(mi)}
+                className="leading-none text-current opacity-50 hover:opacity-100"
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
+      <div className="flex gap-1.5">
+        <select
+          value={memberType}
+          onChange={(e) => setMemberType(e.target.value as "account" | "guest")}
+          className="text-xs border border-gray-200 rounded px-1.5 py-1 text-gray-600 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400"
+        >
+          <option value="account">Account</option>
+          <option value="guest">Guest</option>
+        </select>
+        {memberType === "account" ? (
+          <UserSearchInput
+            onSelect={(username) => { onAdd(username, "account"); }}
+            placeholder="Search username…"
+            className="flex-1"
+            size="sm"
+          />
+        ) : (
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value.replace(",", ""))}
+            onKeyDown={handleKey}
+            onBlur={handleBlur}
+            placeholder="Display name…"
+            className="flex-1 border border-gray-200 rounded px-2 py-1 text-xs text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400"
+          />
+        )}
+      </div>
     </div>
   );
 }
