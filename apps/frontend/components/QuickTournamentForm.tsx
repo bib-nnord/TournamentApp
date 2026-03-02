@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, type KeyboardEvent } from "react";
-import { tournamentFormatInfo, type TournamentFormat } from "@/types";
+import { tournamentFormatInfo, type TournamentFormat, type TournamentStatus } from "@/types";
 import { apiFetch } from "@/lib/api";
 import UserSearchInput from "./UserSearchInput";
 
@@ -28,6 +28,10 @@ export interface QuickTournamentData {
   participants: Participant[];
   isPrivate: boolean;
   teamMode: boolean;
+  /** Optional status override (defaults to 'active' for quick tournaments) */
+  status?: TournamentStatus;
+  /** Optional start date/time for the tournament */
+  startDate?: string;
   /** Combination format: how many participants advance from each group (default 2) */
   advancersPerGroup?: number;
 }

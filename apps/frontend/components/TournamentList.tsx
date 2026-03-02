@@ -8,12 +8,12 @@ import { tournamentStatusLabel } from "@/types";
 type Filter = "all" | TournamentStatus;
 
 const tournaments: Tournament[] = [
-  { id: "1", name: "Spring Open 2025", status: "registration", date: "Mar 15, 2025", participants: 12, max: 16, game: "Chess" },
-  { id: "2", name: "Weekly Blitz #42", status: "active", date: "Feb 23, 2025", participants: 8, max: 8, game: "Chess" },
-  { id: "3", name: "City Chess Cup", status: "completed", date: "Jan 10, 2025", participants: 32, max: 32, game: "Chess" },
-  { id: "4", name: "Winter Championship", status: "completed", date: "Dec 5, 2024", participants: 16, max: 16, game: "Chess" },
-  { id: "5", name: "Easter Invitational", status: "registration", date: "Apr 20, 2025", participants: 4, max: 16, game: "Chess" },
-  { id: "6", name: "Club Night #7", status: "active", date: "Feb 23, 2025", participants: 6, max: 8, game: "Chess" },
+  { id: 1, name: "Spring Open 2025", status: "registration", startDate: "2025-03-15T10:00:00Z", participants: 12, max: 16, game: "Chess" },
+  { id: 2, name: "Weekly Blitz #42", status: "active", startDate: "2025-02-23T18:00:00Z", participants: 8, max: 8, game: "Chess" },
+  { id: 3, name: "City Chess Cup", status: "completed", startDate: "2025-01-10T09:00:00Z", participants: 32, max: 32, game: "Chess" },
+  { id: 4, name: "Winter Championship", status: "completed", startDate: "2024-12-05T14:00:00Z", participants: 16, max: 16, game: "Chess" },
+  { id: 5, name: "Easter Invitational", status: "registration", startDate: "2025-04-20T12:00:00Z", participants: 4, max: 16, game: "Chess" },
+  { id: 6, name: "Club Night #7", status: "active", startDate: "2025-02-23T19:00:00Z", participants: 6, max: 8, game: "Chess" },
 ];
 
 const filters: { label: string; value: Filter }[] = [
@@ -93,7 +93,7 @@ export default function TournamentList() {
                 </span>
               </div>
               <div className="text-xs text-gray-500 flex flex-col gap-1">
-                <span>{t.date}</span>
+                <span>{t.startDate ? new Date(t.startDate).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) : "No date"}</span>
                 <span>{t.participants} / {t.max} participants</span>
               </div>
             </Link>

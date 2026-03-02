@@ -5,7 +5,7 @@ const prisma = require('../lib/prisma');
 // Body: { name, game, description?, format, isPrivate?, participants, bracketData?, maxParticipants? }
 // participants: [{ name, type: "account"|"guest"|"team", members?: [...], existingTeamId? }]
 async function create(req, res) {
-  const { name, game, description, format, isPrivate, participants, bracketData, maxParticipants } = req.body;
+  const { name, game, description, format, isPrivate, participants, bracketData, maxParticipants, startDate, status } = req.body;
 
   if (!name || !game || !format) {
     return res.status(400).json({ error: 'name, game, and format are required' });
@@ -25,6 +25,16 @@ async function create(req, res) {
 
   if (!Array.isArray(participants) || participants.length < 2) {
     return res.status(400).json({ error: 'At least 2 participants are required' });
+  }
+
+  // Check for duplicate participant names
+  const participantNames = participants.map((p) => p.name.trim().toLowerCase());
+  const seen = new Set();
+  for (const n of participantNames) {
+    if (seen.has(n)) {
+      return res.status(400).json({ error: `Duplicate participant name: "${n}"` });
+    }
+    seen.add(n);
   }
 
   try {
@@ -96,9 +106,10 @@ async function create(req, res) {
         game,
         description: description || null,
         format,
-        status: 'active',
+        status: status || 'active',
         is_private: isPrivate ?? false,
         max_participants: maxParticipants ?? participants.length,
+        start_date: startDate ? new Date(startDate) : null,
         bracket_data: bracketData ?? null,
         created_by: req.user.id,
         participants: {
@@ -216,13 +227,14 @@ async function update(req, res) {
       return res.status(403).json({ error: 'Only the tournament creator can update it' });
     }
 
-    const { name, game, description, status, bracketData } = req.body;
+    const { name, game, description, status, bracketData, startDate } = req.body;
     const data = {};
     if (name !== undefined) data.name = name;
     if (game !== undefined) data.game = game;
     if (description !== undefined) data.description = description;
     if (status !== undefined) data.status = status;
     if (bracketData !== undefined) data.bracket_data = bracketData;
+    if (startDate !== undefined) data.start_date = startDate ? new Date(startDate) : null;
 
     const updated = await prisma.tournament.update({
       where: { tournament_id: id },
@@ -272,6 +284,7 @@ function formatTournament(t) {
     status: t.status,
     isPrivate: t.is_private,
     max: t.max_participants,
+    startDate: t.start_date,
     bracketData: t.bracket_data,
     creator: t.creator
       ? { id: t.creator.user_id, username: t.creator.username }

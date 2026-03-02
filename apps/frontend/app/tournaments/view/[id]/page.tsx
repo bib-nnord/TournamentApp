@@ -1,11 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { useSelector } from "react-redux";
 import type { TournamentStatus, TournamentFormat } from "@/types";
 import { tournamentStatusLabel, tournamentFormatInfo } from "@/types";
 import { apiFetch } from "@/lib/api";
+import type { Bracket } from "@/lib/generateBracket";
+import BracketView from "@/components/BracketView";
+import type { RootState } from "@/store/store";
 
 interface TournamentParticipantData {
   seed: number;
@@ -26,7 +30,8 @@ interface TournamentData {
   status: TournamentStatus;
   isPrivate: boolean;
   max: number;
-  bracketData: unknown;
+  bracketData: Bracket | null;
+  startDate: string | null;
   creator: { id: number; username: string };
   participants: TournamentParticipantData[];
   createdAt: string;
@@ -48,9 +53,13 @@ const typeColors: Record<string, string> = {
 
 export default function TournamentPage() {
   const params = useParams<{ id: string }>();
+  const router = useRouter();
+  const currentUser = useSelector((state: RootState) => state.auth.user);
   const [tournament, setTournament] = useState<TournamentData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -95,6 +104,28 @@ export default function TournamentPage() {
   }
 
   const spotsLeft = tournament.max - tournament.participants.length;
+  const isCreator = currentUser?.id === tournament.creator.id;
+
+  async function handleDelete() {
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      return;
+    }
+    setDeleting(true);
+    try {
+      const res = await apiFetch(`/tournaments/${tournament.id}`, { method: "DELETE" });
+      if (res.ok) {
+        router.push("/tournaments");
+      } else {
+        const body = await res.json().catch(() => ({}));
+        setError(body.error ?? "Failed to delete");
+      }
+    } catch {
+      setError("Network error");
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -108,9 +139,11 @@ export default function TournamentPage() {
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 mb-6">
           <div className="flex items-start justify-between mb-4">
             <h1 className="text-2xl font-bold text-gray-900">{tournament.name}</h1>
-            <span className={`text-xs px-2 py-1 rounded-full font-medium ${statusColors[tournament.status]}`}>
-              {tournamentStatusLabel[tournament.status]}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className={`text-xs px-2 py-1 rounded-full font-medium ${statusColors[tournament.status]}`}>
+                {tournamentStatusLabel[tournament.status]}
+              </span>
+            </div>
           </div>
           {tournament.description && (
             <p className="text-sm text-gray-600 mb-6">{tournament.description}</p>
@@ -146,6 +179,14 @@ export default function TournamentPage() {
                 {new Date(tournament.createdAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}
               </p>
             </div>
+            {tournament.startDate && (
+              <div>
+                <p className="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Start date</p>
+                <p className="text-gray-800 font-medium">
+                  {new Date(tournament.startDate).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                </p>
+              </div>
+            )}
             {tournament.isPrivate && (
               <div>
                 <p className="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Visibility</p>
@@ -225,11 +266,38 @@ export default function TournamentPage() {
           </div>
         </div>
 
-        {/* Bracket placeholder */}
+        {/* Bracket */}
         {tournament.bracketData && (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-            <h2 className="text-base font-semibold text-gray-800 mb-2">Bracket</h2>
-            <p className="text-xs text-gray-400">Bracket visualization coming soon.</p>
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+            <h2 className="text-base font-semibold text-gray-800 mb-4">Bracket</h2>
+            <BracketView bracket={tournament.bracketData} />
+          </div>
+        )}
+
+        {/* Actions (creator only) */}
+        {isCreator && (
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={deleting}
+              className={`text-sm px-4 py-2 rounded-lg font-medium transition-colors ${
+                confirmDelete
+                  ? "bg-red-600 text-white hover:bg-red-700"
+                  : "border border-red-200 text-red-600 hover:bg-red-50"
+              } disabled:opacity-50`}
+            >
+              {deleting ? "Deleting…" : confirmDelete ? "Confirm delete" : "Delete tournament"}
+            </button>
+            {confirmDelete && (
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(false)}
+                className="text-sm text-gray-500 hover:text-gray-700"
+              >
+                Cancel
+              </button>
+            )}
           </div>
         )}
       </div>

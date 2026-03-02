@@ -151,8 +151,11 @@ export default function QuickTournamentPage() {
           description: data.description || undefined,
           format: data.format,
           isPrivate: data.isPrivate,
+          status: data.status || "active",
           participants: data.participants,
           bracketData: bracket,
+          maxParticipants: data.participants.length,
+          startDate: new Date().toISOString(),
         }),
       });
 

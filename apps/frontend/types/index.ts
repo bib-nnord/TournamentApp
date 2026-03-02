@@ -47,10 +47,10 @@ export const tournamentStatusLabel: Record<TournamentStatus, string> = {
 };
 
 export interface Tournament {
-  id: string;
+  id: number;
   name: string;
   status: TournamentStatus;
-  date: string;
+  startDate: string | null;
   participants: number;
   max: number;
   game: string;
