@@ -27,7 +27,7 @@ export interface Bracket {
   /** Double elimination only */
   losersRounds?: BracketRound[];
   /** Combination only: group stage as round-robin groups */
-  groups?: { name: string; participants: string[]; rounds: BracketRound[] }[];
+  groups?: { name: string; participants: string[]; rounds: BracketRound[]; autoAdvance?: boolean }[];
   /** Combination only: knockout stage following group stage */
   knockoutRounds?: BracketRound[];
 }
@@ -278,24 +278,40 @@ function generateSwiss(participants: string[]): BracketRound[] {
 
 // ─── Combination (Groups + Knockout) ──────────────────────────────────────────
 
-function generateCombination(participants: string[]): {
-  groups: { name: string; participants: string[]; rounds: BracketRound[] }[];
+function generateCombination(
+  participants: string[],
+  advancersPerGroup = 2,
+  autoAdvanceGroups: string[][] = [],
+): {
+  groups: { name: string; participants: string[]; rounds: BracketRound[]; autoAdvance?: boolean }[];
   knockoutRounds: BracketRound[];
 } {
+  // Filter out participants that are in auto-advance groups
+  const autoAdvanceNames = new Set(autoAdvanceGroups.flat());
+  const regularParticipants = participants.filter(p => !autoAdvanceNames.has(p));
+
   // Split into groups of 4 (or 3 if needed)
   const groupSize = 4;
-  const groupCount = Math.max(2, Math.ceil(participants.length / groupSize));
-  const groups: { name: string; participants: string[]; rounds: BracketRound[] }[] = [];
+  const groupCount = Math.max(2, Math.ceil(regularParticipants.length / groupSize));
+  const groups: { name: string; participants: string[]; rounds: BracketRound[]; autoAdvance?: boolean }[] = [];
 
   for (let g = 0; g < groupCount; g++) {
-    const groupParticipants = participants.slice(g * groupSize, (g + 1) * groupSize);
+    const groupParticipants = regularParticipants.slice(g * groupSize, (g + 1) * groupSize);
     const groupName = `Group ${String.fromCharCode(65 + g)}`;
     const rounds = groupParticipants.length >= 2 ? generateRoundRobin(groupParticipants) : [];
     groups.push({ name: groupName, participants: groupParticipants, rounds });
   }
 
-  // Knockout: top 2 from each group advance (placeholder)
-  const advancingCount = Math.min(groupCount * 2, participants.length);
+  // Auto-advance groups: all members advance, no round-robin
+  for (let a = 0; a < autoAdvanceGroups.length; a++) {
+    const groupName = `Group ${String.fromCharCode(65 + groupCount + a)}`;
+    groups.push({ name: groupName, participants: autoAdvanceGroups[a], rounds: [], autoAdvance: true });
+  }
+
+  // Knockout: top N from each regular group + all auto-advance members
+  const regularAdvancing = Math.min(groupCount * advancersPerGroup, regularParticipants.length);
+  const autoAdvancing = autoAdvanceGroups.reduce((sum, g) => sum + g.length, 0);
+  const advancingCount = regularAdvancing + autoAdvancing;
   const knockoutSize = Math.pow(2, Math.ceil(Math.log2(Math.max(advancingCount, 2))));
   const knockoutParticipants: string[] = [];
   for (let i = 0; i < knockoutSize; i++) {
@@ -308,7 +324,12 @@ function generateCombination(participants: string[]): {
 
 // ─── Main Entry ───────────────────────────────────────────────────────────────
 
-export function generateBracket(participants: string[], format: TournamentFormat): Bracket {
+export interface BracketOptions {
+  advancersPerGroup?: number;
+  autoAdvanceGroups?: string[][];
+}
+
+export function generateBracket(participants: string[], format: TournamentFormat, options?: BracketOptions): Bracket {
   resetIds();
 
   switch (format) {
@@ -330,7 +351,11 @@ export function generateBracket(participants: string[], format: TournamentFormat
       return { format, rounds: generateSwiss(participants) };
 
     case "combination": {
-      const { groups, knockoutRounds } = generateCombination(participants);
+      const { groups, knockoutRounds } = generateCombination(
+        participants,
+        options?.advancersPerGroup,
+        options?.autoAdvanceGroups,
+      );
       return { format, rounds: [], groups, knockoutRounds };
     }
   }

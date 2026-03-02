@@ -15,6 +15,8 @@ export interface QuickTournamentData {
   format: TournamentFormat;
   participants: Participant[];
   isPrivate: boolean;
+  /** Combination format: how many participants advance from each group (default 2) */
+  advancersPerGroup?: number;
 }
 
 interface Props {
