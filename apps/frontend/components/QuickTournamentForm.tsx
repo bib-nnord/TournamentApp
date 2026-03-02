@@ -35,11 +35,13 @@ export interface QuickTournamentData {
 interface Props {
   initial?: QuickTournamentData;
   onSubmit: (data: QuickTournamentData) => void;
+  /** Called on every meaningful state change so the parent can persist the draft */
+  onChange?: (data: QuickTournamentData) => void;
 }
 
 const formats = Object.entries(tournamentFormatInfo) as [TournamentFormat, { label: string; description: string }][];
 
-export default function QuickTournamentForm({ initial, onSubmit }: Props) {
+export default function QuickTournamentForm({ initial, onSubmit, onChange }: Props) {
   const [name, setName] = useState(initial?.name ?? "");
   const [game, setGame] = useState(initial?.game ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
@@ -129,6 +131,26 @@ export default function QuickTournamentForm({ initial, onSubmit }: Props) {
   const allNames = teamMode
     ? teams.map((t) => t.name)
     : [...accounts, ...guests];
+
+  // ─── Auto-save draft (debounced) ──────────────────────────────────────
+  useEffect(() => {
+    if (!onChange) return;
+    const timer = setTimeout(() => {
+      const participants: Participant[] = teamMode
+        ? teams.filter((t) => t.name.trim()).map((t) => ({
+            name: t.name,
+            type: "team" as const,
+            members: t.members,
+            existingTeamId: t.existingTeamId,
+          }))
+        : [
+            ...accounts.map((n) => ({ name: n, type: "account" as const })),
+            ...guests.map((n) => ({ name: n, type: "guest" as const })),
+          ];
+      onChange({ name, game, description, format, participants, isPrivate, teamMode });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [name, game, description, format, isPrivate, teamMode, accounts, guests, teams, onChange]);
 
   function addTag(value: string, setList: React.Dispatch<React.SetStateAction<string[]>>) {
     const trimmed = value.trim();

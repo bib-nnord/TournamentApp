@@ -190,9 +190,21 @@ export default function TournamentPreview({ data, onBack, onConfirm, submitting,
   const labelClass = "block text-xs text-gray-400 uppercase tracking-wide mb-1";
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-8 print-preview-root">
+      {/* Print-only compact details summary (hidden on screen, shown in print next to bracket) */}
+      <div className="hidden print-details-summary bg-white rounded-2xl border border-gray-100 p-4">
+        <h2 className="text-base font-bold text-gray-900 mb-3">Tournament Details</h2>
+        <dl className="text-sm space-y-2">
+          <div><dt className="text-xs text-gray-400 uppercase tracking-wide">Name</dt><dd className="text-gray-900 font-medium">{name}</dd></div>
+          <div><dt className="text-xs text-gray-400 uppercase tracking-wide">Game</dt><dd className="text-gray-900 font-medium">{game || "—"}</dd></div>
+          {description && <div><dt className="text-xs text-gray-400 uppercase tracking-wide">Description</dt><dd className="text-gray-700">{description}</dd></div>}
+          <div><dt className="text-xs text-gray-400 uppercase tracking-wide">Format</dt><dd className="text-gray-900 font-medium">{tournamentFormatInfo[format]?.label ?? format}</dd></div>
+          <div><dt className="text-xs text-gray-400 uppercase tracking-wide">Participants</dt><dd className="text-gray-900 font-medium">{participants.length}</dd></div>
+        </dl>
+      </div>
+
       {/* Top row: Details + Seeding side by side */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 items-start">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 items-start no-print">
         {/* Left: Editable details */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
           <h2 className="text-lg font-bold text-gray-900 mb-4">Tournament Details</h2>
@@ -384,7 +396,7 @@ export default function TournamentPreview({ data, onBack, onConfirm, submitting,
       </div>
 
       {/* Full-width Bracket Preview */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 min-h-[400px] flex flex-col overflow-hidden">
+      <div className="print-bracket bg-white rounded-2xl border border-gray-100 shadow-sm p-6 min-h-[400px] flex flex-col overflow-hidden">
         <h2 className="text-base font-bold text-gray-900 mb-4">Bracket Preview</h2>
         {participants.length < 2 ? (
           <p className="text-sm text-gray-400 italic">Add at least 2 participants to see the bracket.</p>
@@ -461,7 +473,7 @@ export default function TournamentPreview({ data, onBack, onConfirm, submitting,
       )}
 
       {/* Actions */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mt-4">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mt-4 no-print">
         <button
           type="button"
           onClick={onBack}
@@ -797,6 +809,12 @@ function MatchCard({ match, onSwapParticipants }: { match: BracketMatch; onSwapP
     }
   }
 
+  /** Render participant name; hide "TBD" in print */
+  function renderName(name: string | null | undefined) {
+    if (!name || name === "TBD") return <span className="print-hide-tbd text-gray-300 italic">TBD</span>;
+    return <>{name}</>;
+  }
+
   const canDrag = !!onSwapParticipants;
   const wbA = match.wbDropDown === "a" || match.wbDropDown === "both";
   const wbB = match.wbDropDown === "b" || match.wbDropDown === "both";
@@ -811,11 +829,11 @@ function MatchCard({ match, onSwapParticipants }: { match: BracketMatch; onSwapP
         onDrop={(e) => handleDrop(e, match.participantA)}
         className={`flex items-center gap-2 px-3 py-1.5 border-b border-gray-100 transition-colors ${
           dropTarget === "a" ? "bg-indigo-50" : wbA ? "bg-amber-50/60" : "bg-gray-50"
-        } ${match.participantA && canDrag ? "cursor-grab active:cursor-grabbing" : ""}`}
+        } ${match.participantA && canDrag ? "cursor-grab active:cursor-grabbing" : ""} ${!match.participantA || match.participantA === "TBD" ? "print-tbd-row" : ""}`}
       >
         {wbA && <span className="text-[9px] text-amber-500 font-semibold shrink-0" title="From Winners Bracket">WB</span>}
-        <span className={match.participantA ? "text-gray-800" : "text-gray-300 italic"}>
-          {match.participantA ?? "TBD"}
+        <span className={match.participantA && match.participantA !== "TBD" ? "text-gray-800" : "text-gray-300 italic"}>
+          {renderName(match.participantA)}
         </span>
       </div>
       <div
@@ -826,11 +844,11 @@ function MatchCard({ match, onSwapParticipants }: { match: BracketMatch; onSwapP
         onDrop={(e) => handleDrop(e, match.participantB)}
         className={`flex items-center gap-2 px-3 py-1.5 transition-colors ${
           dropTarget === "b" ? "bg-indigo-50" : wbB ? "bg-amber-50/60" : ""
-        } ${match.participantB && canDrag ? "cursor-grab active:cursor-grabbing" : ""}`}
+        } ${match.participantB && canDrag ? "cursor-grab active:cursor-grabbing" : ""} ${!match.participantB || match.participantB === "TBD" ? "print-tbd-row" : ""}`}
       >
         {wbB && <span className="text-[9px] text-amber-500 font-semibold shrink-0" title="From Winners Bracket">WB</span>}
-        <span className={match.participantB ? "text-gray-800" : "text-gray-300 italic"}>
-          {match.participantB ?? "TBD"}
+        <span className={match.participantB && match.participantB !== "TBD" ? "text-gray-800" : "text-gray-300 italic"}>
+          {renderName(match.participantB)}
         </span>
       </div>
     </div>
@@ -933,9 +951,9 @@ function RoundRobinView({ rounds, isDouble }: { rounds: BracketRound[]; isDouble
                       key={match.id}
                       className="flex items-center text-xs border border-gray-100 rounded px-2.5 py-1.5"
                     >
-                      <span className="flex-1 text-gray-800 truncate">{match.participantA ?? "TBD"}</span>
+                      <span className={`flex-1 text-gray-800 truncate ${!match.participantA || match.participantA === "TBD" ? "print-tbd-row" : ""}`}>{!match.participantA || match.participantA === "TBD" ? <span className="print-hide-tbd text-gray-300 italic">TBD</span> : match.participantA}</span>
                       <span className="px-2 text-gray-400">vs</span>
-                      <span className="flex-1 text-gray-800 truncate text-right">{match.participantB ?? "TBD"}</span>
+                      <span className={`flex-1 text-gray-800 truncate text-right ${!match.participantB || match.participantB === "TBD" ? "print-tbd-row" : ""}`}>{!match.participantB || match.participantB === "TBD" ? <span className="print-hide-tbd text-gray-300 italic">TBD</span> : match.participantB}</span>
                     </div>
                   ))}
                 </div>
@@ -959,12 +977,12 @@ function SwissView({ rounds }: { rounds: BracketRound[] }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {round.matches.map((match) => (
               <div key={match.id} className="flex items-center border border-gray-200 rounded-lg text-sm overflow-hidden">
-                <span className="flex-1 px-3 py-2 text-gray-800 bg-gray-50">
-                  {match.participantA ?? <span className="text-gray-300 italic">TBD</span>}
+                <span className={`flex-1 px-3 py-2 text-gray-800 bg-gray-50 ${!match.participantA || match.participantA === "TBD" ? "print-tbd-row" : ""}`}>
+                  {!match.participantA || match.participantA === "TBD" ? <span className="text-gray-300 italic print-hide-tbd">TBD</span> : match.participantA}
                 </span>
                 <span className="px-2 text-xs text-gray-400">vs</span>
-                <span className="flex-1 px-3 py-2 text-gray-800 text-right">
-                  {match.participantB ?? <span className="text-gray-300 italic">TBD</span>}
+                <span className={`flex-1 px-3 py-2 text-gray-800 text-right ${!match.participantB || match.participantB === "TBD" ? "print-tbd-row" : ""}`}>
+                  {!match.participantB || match.participantB === "TBD" ? <span className="text-gray-300 italic print-hide-tbd">TBD</span> : match.participantB}
                 </span>
               </div>
             ))}

@@ -73,7 +73,8 @@ model Team {
   creator User         @relation("TeamCreator", fields: [created_by], references: [user_id])
   members TeamMember[]
 
-  match_entries MatchParticipant[] @relation("MatchParticipantTeam")
+  match_entries      MatchParticipant[]      @relation("MatchParticipantTeam")
+  tournament_entries TournamentParticipant[] @relation("TournamentParticipantTeam")
 
   @@map("team")
 }
@@ -146,18 +147,28 @@ model Tournament {
 }
 
 model TournamentParticipant {
-  tournament_id Int
-  seed          Int
-  user_id       Int?
-  guest_name    String?         @db.VarChar(100)
-  display_name  String          @db.VarChar(100)
-  joined_at     DateTime        @default(now()) @db.Timestamp(6)
+  tournament_id    Int
+  seed             Int
+  user_id          Int?
+  team_id          Int?
+  participant_type ParticipantType @default(guest)
+  guest_name       String?         @db.VarChar(100)
+  display_name     String          @db.VarChar(100)
+  members_snapshot Json?           // snapshot of team members at tournament time
+  joined_at        DateTime        @default(now()) @db.Timestamp(6)
 
   tournament Tournament @relation(fields: [tournament_id], references: [tournament_id], onDelete: Cascade)
   user       User?      @relation("TournamentParticipants", fields: [user_id], references: [user_id])
+  team       Team?      @relation("TournamentParticipantTeam", fields: [team_id], references: [team_id])
 
   @@id([tournament_id, seed])
   @@map("tournament_participant")
+}
+
+enum ParticipantType {
+  account
+  guest
+  team
 }
 
 enum TournamentFormat {

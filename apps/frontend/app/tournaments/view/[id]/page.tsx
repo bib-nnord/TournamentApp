@@ -1,24 +1,36 @@
-import Link from "next/link";
-import type { TournamentParticipant, TournamentStatus } from "@/types";
-import { tournamentStatusLabel } from "@/types";
+"use client";
 
-// Placeholder — replace with real fetch by id once backend is ready
-const tournament = {
-  id: "1",
-  name: "Spring Open 2025",
-  status: "registration" as TournamentStatus,
-  date: "March 15, 2025",
-  description: "An open tournament for all skill levels. Single elimination format. Bring your best game!",
-  game: "Chess",
-  organizer: "johndoe",
-  participants: [
-    { id: "u1", username: "alice" },
-    { id: "u2", username: "bob" },
-    { id: "u3", username: "charlie" },
-    { id: "u4", username: "diana" },
-  ] as TournamentParticipant[],
-  maxParticipants: 16,
-};
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
+import Link from "next/link";
+import type { TournamentStatus, TournamentFormat } from "@/types";
+import { tournamentStatusLabel, tournamentFormatInfo } from "@/types";
+import { apiFetch } from "@/lib/api";
+
+interface TournamentParticipantData {
+  seed: number;
+  displayName: string;
+  guestName: string | null;
+  userId: number | null;
+  teamId: number | null;
+  type: "account" | "guest" | "team";
+  membersSnapshot: { name: string; type: string; userId: number | null }[] | null;
+}
+
+interface TournamentData {
+  id: number;
+  name: string;
+  game: string;
+  description: string | null;
+  format: TournamentFormat;
+  status: TournamentStatus;
+  isPrivate: boolean;
+  max: number;
+  bracketData: unknown;
+  creator: { id: number; username: string };
+  participants: TournamentParticipantData[];
+  createdAt: string;
+}
 
 const statusColors: Record<TournamentStatus, string> = {
   draft: "bg-gray-100 text-gray-500",
@@ -28,13 +40,65 @@ const statusColors: Record<TournamentStatus, string> = {
   cancelled: "bg-red-100 text-red-600",
 };
 
+const typeColors: Record<string, string> = {
+  account: "bg-indigo-100 text-indigo-600",
+  guest: "bg-amber-100 text-amber-600",
+  team: "bg-purple-100 text-purple-600",
+};
+
 export default function TournamentPage() {
-  const spotsLeft = tournament.maxParticipants - tournament.participants.length;
+  const params = useParams<{ id: string }>();
+  const [tournament, setTournament] = useState<TournamentData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const res = await apiFetch(`/tournaments/${params.id}`);
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          setError(body.error ?? "Tournament not found");
+          return;
+        }
+        setTournament(await res.json());
+      } catch {
+        setError("Network error");
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, [params.id]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-sm text-gray-400">Loading tournament…</div>
+      </div>
+    );
+  }
+
+  if (error || !tournament) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="max-w-3xl mx-auto px-4 py-10">
+          <Link href="/tournaments" className="text-sm text-gray-500 hover:text-gray-700 mb-6 inline-block">
+            ← Back to tournaments
+          </Link>
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center">
+            <p className="text-red-600 text-sm">{error ?? "Tournament not found"}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const spotsLeft = tournament.max - tournament.participants.length;
 
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-3xl mx-auto px-4 py-10">
-
         {/* Back */}
         <Link href="/tournaments" className="text-sm text-gray-500 hover:text-gray-700 mb-6 inline-block">
           ← Back to tournaments
@@ -48,62 +112,126 @@ export default function TournamentPage() {
               {tournamentStatusLabel[tournament.status]}
             </span>
           </div>
-          <p className="text-sm text-gray-600 mb-6">{tournament.description}</p>
+          {tournament.description && (
+            <p className="text-sm text-gray-600 mb-6">{tournament.description}</p>
+          )}
 
           <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <p className="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Date</p>
-              <p className="text-gray-800 font-medium">{tournament.date}</p>
-            </div>
             <div>
               <p className="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Game</p>
               <p className="text-gray-800 font-medium">{tournament.game}</p>
             </div>
             <div>
-              <p className="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Organizer</p>
-              <p className="text-gray-800 font-medium">{tournament.organizer}</p>
+              <p className="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Format</p>
+              <p className="text-gray-800 font-medium">{tournamentFormatInfo[tournament.format]?.label ?? tournament.format}</p>
             </div>
             <div>
-              <p className="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Spots</p>
+              <p className="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Organizer</p>
+              <Link href={`/profile/${tournament.creator.username}`} className="text-gray-800 font-medium hover:text-indigo-600">
+                {tournament.creator.username}
+              </Link>
+            </div>
+            <div>
+              <p className="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Participants</p>
               <p className="text-gray-800 font-medium">
-                {tournament.participants.length} / {tournament.maxParticipants}
+                {tournament.participants.length} / {tournament.max}
                 {spotsLeft > 0 && (
                   <span className="text-gray-400 font-normal"> ({spotsLeft} left)</span>
                 )}
               </p>
             </div>
+            <div>
+              <p className="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Created</p>
+              <p className="text-gray-800 font-medium">
+                {new Date(tournament.createdAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}
+              </p>
+            </div>
+            {tournament.isPrivate && (
+              <div>
+                <p className="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Visibility</p>
+                <p className="text-gray-800 font-medium">Private</p>
+              </div>
+            )}
           </div>
-
-          {tournament.status === "registration" && spotsLeft > 0 && (
-            <button className="mt-6 w-full py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700">
-              Join tournament
-            </button>
-          )}
         </div>
 
         {/* Participants */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
           <h2 className="text-base font-semibold text-gray-800 mb-4">
             Participants ({tournament.participants.length})
           </h2>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="flex flex-col gap-2">
             {tournament.participants.map((p) => (
-              <div key={p.id} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-50">
-                <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-600">
-                  {p.username[0].toUpperCase()}
+              <div
+                key={p.seed}
+                className="flex items-start gap-3 px-4 py-3 rounded-lg bg-gray-50"
+              >
+                <span className="text-xs text-gray-400 font-mono w-6 shrink-0 text-right mt-0.5">
+                  {p.seed}.
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    {p.type === "team" ? (
+                      <div className="w-6 h-6 rounded-full bg-purple-100 flex items-center justify-center text-[10px] font-bold text-purple-600 shrink-0">
+                        {p.displayName[0]?.toUpperCase()}
+                      </div>
+                    ) : (
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                        p.type === "account" ? "bg-indigo-100 text-indigo-600" : "bg-amber-100 text-amber-600"
+                      }`}>
+                        {p.displayName[0]?.toUpperCase()}
+                      </div>
+                    )}
+                    <span className={`text-sm font-medium truncate ${
+                      p.type === "team" ? "text-purple-800" : p.type === "account" ? "text-gray-800" : "text-amber-700"
+                    }`}>
+                      {p.displayName}
+                    </span>
+                    <span className={`text-[10px] uppercase px-1.5 py-0.5 rounded font-medium shrink-0 ${typeColors[p.type]}`}>
+                      {p.type}
+                    </span>
+                  </div>
+                  {p.type === "team" && p.membersSnapshot && p.membersSnapshot.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1.5 ml-8">
+                      {p.membersSnapshot.map((m, mi) => (
+                        <span
+                          key={mi}
+                          className={`text-[11px] px-1.5 py-0.5 rounded ${
+                            m.type === "account" ? "bg-indigo-50 text-indigo-600" : "bg-amber-50 text-amber-600"
+                          }`}
+                        >
+                          {m.name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <span className="text-sm text-gray-700">{p.username}</span>
               </div>
             ))}
-            {Array.from({ length: spotsLeft }).map((_, i) => (
-              <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-gray-200">
-                <div className="w-6 h-6 rounded-full bg-gray-100" />
+            {spotsLeft > 0 && Array.from({ length: Math.min(spotsLeft, 4) }).map((_, i) => (
+              <div key={`empty-${i}`} className="flex items-center gap-3 px-4 py-3 rounded-lg border border-dashed border-gray-200">
+                <span className="text-xs text-gray-300 font-mono w-6 shrink-0 text-right">
+                  {tournament.participants.length + i + 1}.
+                </span>
+                <div className="w-6 h-6 rounded-full bg-gray-100 shrink-0" />
                 <span className="text-sm text-gray-300">Open slot</span>
               </div>
             ))}
+            {spotsLeft > 4 && (
+              <p className="text-xs text-gray-400 text-center mt-1">
+                +{spotsLeft - 4} more open slots
+              </p>
+            )}
           </div>
         </div>
 
+        {/* Bracket placeholder */}
+        {tournament.bracketData && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+            <h2 className="text-base font-semibold text-gray-800 mb-2">Bracket</h2>
+            <p className="text-xs text-gray-400">Bracket visualization coming soon.</p>
+          </div>
+        )}
       </div>
     </div>
   );

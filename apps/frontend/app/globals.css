@@ -115,3 +115,105 @@
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.553 0.013 58.071);
 }
+
+/* ─── Print styles for PDF export ────────────────────────────────────────── */
+@page {
+  size: landscape;
+  margin: 10mm;
+}
+
+@media print {
+  /* Hide nav, toolbar, action buttons, inputs */
+  nav,
+  header,
+  .no-print,
+  button,
+  input,
+  select,
+  textarea,
+  [role="switch"] {
+    display: none !important;
+  }
+
+  /* Show the print-only details summary */
+  .print-details-summary {
+    display: block !important;
+  }
+
+  /* Style TBD slots as light grey blocks on paper */
+  .print-tbd-row {
+    background: #e5e7eb !important;
+    min-height: 28px !important;
+    display: flex !important;
+    align-items: center !important;
+  }
+  .print-tbd-row .print-hide-tbd {
+    visibility: hidden !important;
+  }
+  .print-hide-tbd {
+    visibility: hidden !important;
+    display: inline-block !important;
+    min-width: 100% !important;
+    min-height: 20px !important;
+    background: #e5e7eb !important;
+    border-radius: 3px !important;
+  }
+
+  /* Print layout: details sidebar + bracket side by side */
+  .print-preview-root {
+    display: grid !important;
+    grid-template-columns: 200px 1fr !important;
+    grid-template-rows: auto !important;
+    gap: 12px !important;
+    align-items: start !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  .print-details-summary {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+  }
+  /* Bracket card spans the right side */
+  .print-bracket {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    padding: 8px !important;
+  }
+
+  /* Reset background / shadow / border-radius for print */
+  body {
+    background: white !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Collapse spacing & min-height on page wrappers */
+  .min-h-screen {
+    min-height: 0 !important;
+  }
+  [class*="py-"] {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+  }
+  [class*="mb-"] {
+    margin-bottom: 4px !important;
+  }
+
+  /* Kill ALL overflow / scrollbar constraints */
+  * {
+    overflow: visible !important;
+    max-height: none !important;
+  }
+
+  /* Clean up cards */
+  .shadow-sm {
+    box-shadow: none !important;
+  }
+
+  /* Prevent page breaks inside cards */
+  .rounded-2xl {
+    break-inside: avoid;
+  }
+}

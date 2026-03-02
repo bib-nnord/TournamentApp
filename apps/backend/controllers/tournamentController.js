@@ -3,7 +3,7 @@ const prisma = require('../lib/prisma');
 // ─── POST /tournaments ─────────────────────────────────────────────────────
 // Creates a tournament with participants and bracket data.
 // Body: { name, game, description?, format, isPrivate?, participants, bracketData?, maxParticipants? }
-// participants: [{ name, type: "account"|"guest" }]
+// participants: [{ name, type: "account"|"guest"|"team", members?: [...], existingTeamId? }]
 async function create(req, res) {
   const { name, game, description, format, isPrivate, participants, bracketData, maxParticipants } = req.body;
 
@@ -28,6 +28,68 @@ async function create(req, res) {
   }
 
   try {
+    // ── Resolve account usernames → user_id ──────────────────────────────
+    const accountNames = [];
+    for (const p of participants) {
+      if (p.type === 'account') accountNames.push(p.name);
+      if (p.type === 'team' && Array.isArray(p.members)) {
+        for (const m of p.members) {
+          if (m.type === 'account') accountNames.push(m.name);
+        }
+      }
+    }
+
+    const userMap = {};
+    if (accountNames.length > 0) {
+      const unique = [...new Set(accountNames)];
+      const users = await prisma.user.findMany({
+        where: { username: { in: unique, mode: 'insensitive' } },
+        select: { user_id: true, username: true, display_name: true },
+      });
+      for (const u of users) {
+        userMap[u.username.toLowerCase()] = u;
+      }
+    }
+
+    // ── Build participant create records ──────────────────────────────────
+    const participantRecords = participants.map((p, i) => {
+      const base = { seed: i + 1, display_name: p.name };
+
+      if (p.type === 'team') {
+        const membersSnapshot = (p.members || []).map((m) => {
+          const resolved = m.type === 'account' ? userMap[m.name.toLowerCase()] : null;
+          return {
+            name: resolved ? resolved.display_name || resolved.username : m.name,
+            type: m.type,
+            userId: resolved?.user_id || null,
+          };
+        });
+        return {
+          ...base,
+          participant_type: 'team',
+          team_id: p.existingTeamId || null,
+          members_snapshot: membersSnapshot,
+        };
+      }
+
+      if (p.type === 'account') {
+        const resolved = userMap[p.name.toLowerCase()];
+        return {
+          ...base,
+          participant_type: 'account',
+          user_id: resolved?.user_id || null,
+          display_name: resolved ? resolved.display_name || resolved.username : p.name,
+        };
+      }
+
+      // guest
+      return {
+        ...base,
+        participant_type: 'guest',
+        guest_name: p.name,
+      };
+    });
+
     const tournament = await prisma.tournament.create({
       data: {
         name,
@@ -40,16 +102,12 @@ async function create(req, res) {
         bracket_data: bracketData ?? null,
         created_by: req.user.id,
         participants: {
-          create: participants.map((p, i) => ({
-            seed: i + 1,
-            display_name: p.name,
-            guest_name: p.type === 'guest' ? p.name : null,
-            // user_id lookup could be added later for account participants
-          })),
+          create: participantRecords,
         },
       },
       include: {
         participants: { orderBy: { seed: 'asc' } },
+        creator: { select: { user_id: true, username: true } },
       },
     });
 
@@ -224,7 +282,9 @@ function formatTournament(t) {
           displayName: p.display_name,
           guestName: p.guest_name,
           userId: p.user_id,
-          type: p.guest_name ? 'guest' : 'account',
+          teamId: p.team_id,
+          type: p.participant_type || (p.guest_name ? 'guest' : 'account'),
+          membersSnapshot: p.members_snapshot || null,
         }))
       : undefined,
     matches: t.matches
