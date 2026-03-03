@@ -1,6 +1,7 @@
 const { Router } = require('express');
 const { authenticate } = require('../middleware/auth');
 const { create, list, getById, update, remove } = require('../controllers/tournamentController');
+const { reportResult } = require('../controllers/matchController');
 
 const router = Router();
 
@@ -12,6 +13,7 @@ router.get('/:id', optionalAuth, getById);
 router.post('/', authenticate, create);
 router.patch('/:id', authenticate, update);
 router.delete('/:id', authenticate, remove);
+router.patch('/:id/matches/:matchId', authenticate, reportResult);
 
 /**
  * Optional auth — attaches req.user if a valid token is present,

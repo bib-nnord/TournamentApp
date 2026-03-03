@@ -1,20 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import type { Tournament, TournamentStatus } from "@/types";
+import { useEffect, useState } from "react";
+import type { TournamentStatus } from "@/types";
 import { tournamentStatusLabel } from "@/types";
+import { apiFetch } from "@/lib/api";
 
 type Filter = "all" | TournamentStatus;
 
-const tournaments: Tournament[] = [
-  { id: 1, name: "Spring Open 2025", status: "registration", startDate: "2025-03-15T10:00:00Z", participants: 12, max: 16, game: "Chess" },
-  { id: 2, name: "Weekly Blitz #42", status: "active", startDate: "2025-02-23T18:00:00Z", participants: 8, max: 8, game: "Chess" },
-  { id: 3, name: "City Chess Cup", status: "completed", startDate: "2025-01-10T09:00:00Z", participants: 32, max: 32, game: "Chess" },
-  { id: 4, name: "Winter Championship", status: "completed", startDate: "2024-12-05T14:00:00Z", participants: 16, max: 16, game: "Chess" },
-  { id: 5, name: "Easter Invitational", status: "registration", startDate: "2025-04-20T12:00:00Z", participants: 4, max: 16, game: "Chess" },
-  { id: 6, name: "Club Night #7", status: "active", startDate: "2025-02-23T19:00:00Z", participants: 6, max: 8, game: "Chess" },
-];
+interface TournamentSummary {
+  id: number;
+  name: string;
+  game: string;
+  format: string;
+  status: TournamentStatus;
+  isPrivate: boolean;
+  participants: number;
+  max: number;
+  creator: { id: number; username: string };
+  createdAt: string;
+  startDate: string | null;
+}
 
 const filters: { label: string; value: Filter }[] = [
   { label: "All", value: "all" },
@@ -34,7 +40,30 @@ const statusColors: Record<TournamentStatus, string> = {
 };
 
 export default function TournamentList() {
+  const [tournaments, setTournaments] = useState<TournamentSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeFilters, setActiveFilters] = useState<Filter[]>(["all"]);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const res = await apiFetch("/tournaments");
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          setError(body.error ?? "Failed to load tournaments");
+          return;
+        }
+        const data = await res.json();
+        setTournaments(data.tournaments ?? []);
+      } catch {
+        setError("Network error");
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
 
   function toggleFilter(value: Filter) {
     if (value === "all") {
@@ -57,7 +86,7 @@ export default function TournamentList() {
 
   return (
     <div>
-      <div className="flex gap-2 mb-6">
+      <div className="flex gap-2 mb-6 flex-wrap">
         {filters.map((f) => {
           const isActive = activeFilters.includes(f.value);
           return (
@@ -76,7 +105,11 @@ export default function TournamentList() {
         })}
       </div>
 
-      {filtered.length === 0 ? (
+      {loading ? (
+        <p className="text-sm text-gray-400">Loading…</p>
+      ) : error ? (
+        <p className="text-sm text-red-500">{error}</p>
+      ) : filtered.length === 0 ? (
         <p className="text-sm text-gray-500">No tournaments found.</p>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -86,16 +119,20 @@ export default function TournamentList() {
               href={`/tournaments/view/${t.id}`}
               className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-shadow flex flex-col gap-3"
             >
-              <div className="flex items-start justify-between">
+              <div className="flex items-start justify-between gap-2">
                 <h2 className="text-sm font-semibold text-gray-900">{t.name}</h2>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColors[t.status]}`}>
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${statusColors[t.status]}`}>
                   {tournamentStatusLabel[t.status]}
                 </span>
               </div>
               <div className="text-xs text-gray-500 flex flex-col gap-1">
-                <span>{t.startDate ? new Date(t.startDate).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) : "No date"}</span>
+                <span className="text-gray-700 font-medium">{t.game}</span>
+                {t.startDate && (
+                  <span>{new Date(t.startDate).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}</span>
+                )}
                 <span>{t.participants} / {t.max} participants</span>
               </div>
+              <div className="text-[11px] text-gray-400">by {t.creator.username}</div>
             </Link>
           ))}
         </div>

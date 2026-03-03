@@ -5,7 +5,7 @@ import type { Bracket, BracketRound, BracketMatch } from "@/lib/generateBracket"
 
 // ─── Main entry point ─────────────────────────────────────────────────────────
 
-export default function BracketView({ bracket, onSwapParticipants, advancersPerGroup, onAdvancersChange, autoAdvanceGroups, onAutoAdvanceGroupsChange, onMoveParticipant }: {
+export default function BracketView({ bracket, onSwapParticipants, advancersPerGroup, onAdvancersChange, autoAdvanceGroups, onAutoAdvanceGroupsChange, onMoveParticipant, onReportResult }: {
   bracket: Bracket;
   onSwapParticipants?: (a: string, b: string) => void;
   advancersPerGroup?: number;
@@ -13,10 +13,11 @@ export default function BracketView({ bracket, onSwapParticipants, advancersPerG
   autoAdvanceGroups?: string[][];
   onAutoAdvanceGroupsChange?: (groups: string[][]) => void;
   onMoveParticipant?: (name: string, fromGroupIndex: number, toGroupIndex: number) => void;
+  onReportResult?: (matchId: string, winner: "a" | "b", scoreA?: number, scoreB?: number) => Promise<void>;
 }) {
   switch (bracket.format) {
     case "single_elimination":
-      return <EliminationBracket rounds={bracket.rounds} onSwapParticipants={onSwapParticipants} />;
+      return <EliminationBracket rounds={bracket.rounds} onSwapParticipants={onSwapParticipants} onReportResult={onReportResult} />;
     case "double_elimination": {
       const allLosers = bracket.losersRounds ?? [];
       const grandFinalRound = allLosers.length > 0 && allLosers[allLosers.length - 1].name === "Grand Final"
@@ -32,6 +33,7 @@ export default function BracketView({ bracket, onSwapParticipants, advancersPerG
               rounds={bracket.rounds}
               onSwapParticipants={onSwapParticipants}
               grandFinal={grandFinalRound?.matches[0]}
+              onReportResult={onReportResult}
             />
           </div>
           {losersOnly.length > 0 && (
@@ -41,6 +43,7 @@ export default function BracketView({ bracket, onSwapParticipants, advancersPerG
                 rounds={losersOnly}
                 onSwapParticipants={onSwapParticipants}
                 showOutputConnector={!!grandFinalRound}
+                onReportResult={onReportResult}
               />
             </div>
           )}
@@ -49,9 +52,9 @@ export default function BracketView({ bracket, onSwapParticipants, advancersPerG
     }
     case "round_robin":
     case "double_round_robin":
-      return <RoundRobinView rounds={bracket.rounds} isDouble={bracket.format === "double_round_robin"} />;
+      return <RoundRobinView rounds={bracket.rounds} isDouble={bracket.format === "double_round_robin"} onReportResult={onReportResult} />;
     case "swiss":
-      return <SwissView rounds={bracket.rounds} />;
+      return <SwissView rounds={bracket.rounds} onReportResult={onReportResult} />;
     case "combination":
       return (
         <CombinationView
@@ -62,6 +65,7 @@ export default function BracketView({ bracket, onSwapParticipants, advancersPerG
           autoAdvanceGroups={autoAdvanceGroups}
           onAutoAdvanceGroupsChange={onAutoAdvanceGroupsChange}
           onMoveParticipant={onMoveParticipant}
+          onReportResult={onReportResult}
         />
       );
   }
@@ -70,7 +74,7 @@ export default function BracketView({ bracket, onSwapParticipants, advancersPerG
 // ─── Elimination bracket (tree with connector lines) ──────────────────────────
 
 const MATCH_W = 176;
-const MATCH_H = 64;
+const MATCH_H = 72; // slightly taller to accommodate result info
 const ROUND_GAP = 48;
 const CONNECTOR_W = 32;
 const COL_W = MATCH_W + ROUND_GAP;
@@ -80,11 +84,13 @@ function EliminationBracket({
   onSwapParticipants,
   grandFinal,
   showOutputConnector,
+  onReportResult,
 }: {
   rounds: BracketRound[];
   onSwapParticipants?: (a: string, b: string) => void;
   grandFinal?: BracketMatch;
   showOutputConnector?: boolean;
+  onReportResult?: (matchId: string, winner: "a" | "b", scoreA?: number, scoreB?: number) => Promise<void>;
 }) {
   if (rounds.length === 0) return null;
 
@@ -256,7 +262,7 @@ function EliminationBracket({
                 className="absolute"
                 style={{ left: ri * COL_W, top: y, width: MATCH_W }}
               >
-                <MatchCard match={match} onSwapParticipants={onSwapParticipants} />
+                <MatchCard match={match} onSwapParticipants={onSwapParticipants} onReportResult={onReportResult} />
               </div>
             );
           });
@@ -268,7 +274,7 @@ function EliminationBracket({
             className="absolute"
             style={{ left: extraX, top: extraY - MATCH_H / 2, width: MATCH_W }}
           >
-            <MatchCard match={grandFinal} />
+            <MatchCard match={grandFinal} onReportResult={onReportResult} />
           </div>
         )}
       </div>
@@ -278,8 +284,22 @@ function EliminationBracket({
 
 // ─── Match Card ───────────────────────────────────────────────────────────────
 
-function MatchCard({ match, onSwapParticipants }: { match: BracketMatch; onSwapParticipants?: (a: string, b: string) => void }) {
+function MatchCard({
+  match,
+  onSwapParticipants,
+  onReportResult,
+}: {
+  match: BracketMatch;
+  onSwapParticipants?: (a: string, b: string) => void;
+  onReportResult?: (matchId: string, winner: "a" | "b", scoreA?: number, scoreB?: number) => Promise<void>;
+}) {
   const [dropTarget, setDropTarget] = useState<"a" | "b" | null>(null);
+  const [reporting, setReporting] = useState(false);
+  const [selectedWinner, setSelectedWinner] = useState<"a" | "b" | null>(null);
+  const [scoreA, setScoreA] = useState("");
+  const [scoreB, setScoreB] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   function handleDragStart(e: React.DragEvent, name: string) {
     e.dataTransfer.setData("text/participant", name);
@@ -305,46 +325,190 @@ function MatchCard({ match, onSwapParticipants }: { match: BracketMatch; onSwapP
     }
   }
 
+  async function handleSubmit() {
+    if (!selectedWinner || !onReportResult) return;
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      const sA = scoreA !== "" ? Number(scoreA) : undefined;
+      const sB = scoreB !== "" ? Number(scoreB) : undefined;
+      await onReportResult(match.id, selectedWinner, sA, sB);
+      setReporting(false);
+      setSelectedWinner(null);
+      setScoreA("");
+      setScoreB("");
+    } catch (e) {
+      setSubmitError(e instanceof Error ? e.message : "Failed to submit");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  function handleCancel() {
+    setReporting(false);
+    setSelectedWinner(null);
+    setScoreA("");
+    setScoreB("");
+    setSubmitError(null);
+  }
+
   function renderName(name: string | null | undefined) {
     if (!name || name === "TBD") return <span className="print-hide-tbd text-gray-300 italic">TBD</span>;
     return <>{name}</>;
   }
 
   const canDrag = !!onSwapParticipants;
+  const canReport = !!onReportResult && !!match.participantA && !!match.participantB && !match.completed;
   const wbA = match.wbDropDown === "a" || match.wbDropDown === "both";
   const wbB = match.wbDropDown === "b" || match.wbDropDown === "both";
 
+  const isWinnerA = match.completed && match.winner === match.participantA;
+  const isWinnerB = match.completed && match.winner === match.participantB;
+
+  // ── Reporting overlay ─────────────────────────────────────────────────
+  if (reporting) {
+    return (
+      <div className="border border-indigo-300 rounded-lg overflow-hidden text-sm bg-white shadow-md">
+        <div className="px-3 py-2 bg-indigo-50 border-b border-indigo-100">
+          <p className="text-xs font-semibold text-indigo-700 mb-2">Who won?</p>
+          <div className="flex gap-1.5 mb-2">
+            <button
+              type="button"
+              onClick={() => setSelectedWinner("a")}
+              className={`flex-1 py-1 rounded text-xs font-medium transition-colors truncate ${
+                selectedWinner === "a"
+                  ? "bg-indigo-600 text-white"
+                  : "bg-white border border-gray-200 text-gray-700 hover:border-indigo-400"
+              }`}
+            >
+              {match.participantA}
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedWinner("b")}
+              className={`flex-1 py-1 rounded text-xs font-medium transition-colors truncate ${
+                selectedWinner === "b"
+                  ? "bg-indigo-600 text-white"
+                  : "bg-white border border-gray-200 text-gray-700 hover:border-indigo-400"
+              }`}
+            >
+              {match.participantB}
+            </button>
+          </div>
+          <div className="flex items-center gap-1 mb-2">
+            <input
+              type="number"
+              min={0}
+              placeholder="—"
+              value={scoreA}
+              onChange={e => setScoreA(e.target.value)}
+              className="w-12 text-center border border-gray-200 rounded px-1 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400"
+            />
+            <span className="text-[10px] text-gray-400 flex-1 text-center">score (optional)</span>
+            <input
+              type="number"
+              min={0}
+              placeholder="—"
+              value={scoreB}
+              onChange={e => setScoreB(e.target.value)}
+              className="w-12 text-center border border-gray-200 rounded px-1 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400"
+            />
+          </div>
+          {submitError && <p className="text-[10px] text-red-500 mb-1">{submitError}</p>}
+          <div className="flex gap-1.5">
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={!selectedWinner || submitting}
+              className="flex-1 py-1 rounded text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40 transition-colors"
+            >
+              {submitting ? "Saving…" : "Confirm"}
+            </button>
+            <button
+              type="button"
+              onClick={handleCancel}
+              disabled={submitting}
+              className="px-3 py-1 rounded text-xs text-gray-500 hover:text-gray-700 border border-gray-200 hover:border-gray-300 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Normal card ────────────────────────────────────────────────────────
   return (
-    <div className="border border-gray-200 rounded-lg overflow-hidden text-sm bg-white">
+    <div
+      className={`border rounded-lg overflow-hidden text-sm bg-white ${
+        match.completed
+          ? "border-gray-200"
+          : canReport
+            ? "border-gray-200 hover:border-indigo-300 cursor-pointer transition-colors"
+            : "border-gray-200"
+      }`}
+      onClick={canReport ? () => setReporting(true) : undefined}
+      title={canReport ? "Click to report result" : undefined}
+    >
+      {/* Side A */}
       <div
         draggable={!!match.participantA && canDrag}
         onDragStart={(e) => match.participantA && handleDragStart(e, match.participantA)}
         onDragOver={(e) => match.participantA && handleDragOver(e, "a")}
         onDragLeave={handleDragLeave}
         onDrop={(e) => handleDrop(e, match.participantA)}
+        onClick={canReport ? e => e.stopPropagation() : undefined}
         className={`flex items-center gap-2 px-3 py-1.5 border-b border-gray-100 transition-colors ${
-          dropTarget === "a" ? "bg-indigo-50" : wbA ? "bg-amber-50/60" : "bg-gray-50"
+          isWinnerA
+            ? "bg-emerald-50"
+            : dropTarget === "a"
+              ? "bg-indigo-50"
+              : wbA
+                ? "bg-amber-50/60"
+                : "bg-gray-50"
         } ${match.participantA && canDrag ? "cursor-grab active:cursor-grabbing" : ""} ${!match.participantA || match.participantA === "TBD" ? "print-tbd-row" : ""}`}
       >
         {wbA && <span className="text-[9px] text-amber-500 font-semibold shrink-0" title="From Winners Bracket">WB</span>}
-        <span className={match.participantA && match.participantA !== "TBD" ? "text-gray-800" : "text-gray-300 italic"}>
+        {isWinnerA && <span className="text-[9px] text-emerald-600 font-bold shrink-0">W</span>}
+        <span className={`flex-1 truncate ${isWinnerA ? "text-emerald-700 font-semibold" : match.participantA && match.participantA !== "TBD" ? "text-gray-800" : "text-gray-300 italic"}`}>
           {renderName(match.participantA)}
         </span>
+        {match.completed && match.scoreA != null && (
+          <span className={`text-xs font-mono shrink-0 ${isWinnerA ? "text-emerald-700 font-bold" : "text-gray-400"}`}>
+            {match.scoreA}
+          </span>
+        )}
       </div>
+
+      {/* Side B */}
       <div
         draggable={!!match.participantB && canDrag}
         onDragStart={(e) => match.participantB && handleDragStart(e, match.participantB)}
         onDragOver={(e) => match.participantB && handleDragOver(e, "b")}
         onDragLeave={handleDragLeave}
         onDrop={(e) => handleDrop(e, match.participantB)}
+        onClick={canReport ? e => e.stopPropagation() : undefined}
         className={`flex items-center gap-2 px-3 py-1.5 transition-colors ${
-          dropTarget === "b" ? "bg-indigo-50" : wbB ? "bg-amber-50/60" : ""
+          isWinnerB
+            ? "bg-emerald-50"
+            : dropTarget === "b"
+              ? "bg-indigo-50"
+              : wbB
+                ? "bg-amber-50/60"
+                : ""
         } ${match.participantB && canDrag ? "cursor-grab active:cursor-grabbing" : ""} ${!match.participantB || match.participantB === "TBD" ? "print-tbd-row" : ""}`}
       >
         {wbB && <span className="text-[9px] text-amber-500 font-semibold shrink-0" title="From Winners Bracket">WB</span>}
-        <span className={match.participantB && match.participantB !== "TBD" ? "text-gray-800" : "text-gray-300 italic"}>
+        {isWinnerB && <span className="text-[9px] text-emerald-600 font-bold shrink-0">W</span>}
+        <span className={`flex-1 truncate ${isWinnerB ? "text-emerald-700 font-semibold" : match.participantB && match.participantB !== "TBD" ? "text-gray-800" : "text-gray-300 italic"}`}>
           {renderName(match.participantB)}
         </span>
+        {match.completed && match.scoreB != null && (
+          <span className={`text-xs font-mono shrink-0 ${isWinnerB ? "text-emerald-700 font-bold" : "text-gray-400"}`}>
+            {match.scoreB}
+          </span>
+        )}
       </div>
     </div>
   );
@@ -352,7 +516,15 @@ function MatchCard({ match, onSwapParticipants }: { match: BracketMatch; onSwapP
 
 // ─── Round Robin (grid + matchup list) ────────────────────────────────────────
 
-function RoundRobinView({ rounds, isDouble }: { rounds: BracketRound[]; isDouble: boolean }) {
+function RoundRobinView({
+  rounds,
+  isDouble,
+  onReportResult,
+}: {
+  rounds: BracketRound[];
+  isDouble: boolean;
+  onReportResult?: (matchId: string, winner: "a" | "b", scoreA?: number, scoreB?: number) => Promise<void>;
+}) {
   const participantSet = new Set<string>();
   for (const round of rounds) {
     for (const match of round.matches) {
@@ -361,6 +533,17 @@ function RoundRobinView({ rounds, isDouble }: { rounds: BracketRound[]; isDouble
     }
   }
   const participants = Array.from(participantSet);
+
+  // Build win counts for standings
+  const wins = new Map<string, number>();
+  for (const p of participants) wins.set(p, 0);
+  for (const round of rounds) {
+    for (const match of round.matches) {
+      if (match.completed && match.winner) {
+        wins.set(match.winner, (wins.get(match.winner) ?? 0) + 1);
+      }
+    }
+  }
 
   const matchups = new Map<string, number[]>();
   let totalGames = 0;
@@ -399,6 +582,7 @@ function RoundRobinView({ rounds, isDouble }: { rounds: BracketRound[]; isDouble
                   {p}
                 </th>
               ))}
+              {wins.size > 0 && <th className="p-2 text-center text-gray-500 font-medium sticky top-5 bg-white z-10">W</th>}
             </tr>
           </thead>
           <tbody>
@@ -415,6 +599,11 @@ function RoundRobinView({ rounds, isDouble }: { rounds: BracketRound[]; isDouble
                     {rowP === colP ? "—" : getRound(rowP, colP)}
                   </td>
                 ))}
+                {wins.size > 0 && (
+                  <td className="p-2 text-center border border-gray-100 font-semibold text-gray-700">
+                    {wins.get(rowP) ?? 0}
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -431,14 +620,7 @@ function RoundRobinView({ rounds, isDouble }: { rounds: BracketRound[]; isDouble
                 <div className="text-[10px] text-gray-400 uppercase tracking-wide mt-2 mb-1">{round.name}</div>
                 <div className="space-y-1">
                   {round.matches.map((match) => (
-                    <div
-                      key={match.id}
-                      className="flex items-center text-xs border border-gray-100 rounded px-2.5 py-1.5"
-                    >
-                      <span className={`flex-1 text-gray-800 truncate ${!match.participantA || match.participantA === "TBD" ? "print-tbd-row" : ""}`}>{!match.participantA || match.participantA === "TBD" ? <span className="print-hide-tbd text-gray-300 italic">TBD</span> : match.participantA}</span>
-                      <span className="px-2 text-gray-400">vs</span>
-                      <span className={`flex-1 text-gray-800 truncate text-right ${!match.participantB || match.participantB === "TBD" ? "print-tbd-row" : ""}`}>{!match.participantB || match.participantB === "TBD" ? <span className="print-hide-tbd text-gray-300 italic">TBD</span> : match.participantB}</span>
-                    </div>
+                    <MatchRow key={match.id} match={match} onReportResult={onReportResult} />
                   ))}
                 </div>
               </div>
@@ -452,7 +634,13 @@ function RoundRobinView({ rounds, isDouble }: { rounds: BracketRound[]; isDouble
 
 // ─── Swiss (round-by-round list) ──────────────────────────────────────────────
 
-function SwissView({ rounds }: { rounds: BracketRound[] }) {
+function SwissView({
+  rounds,
+  onReportResult,
+}: {
+  rounds: BracketRound[];
+  onReportResult?: (matchId: string, winner: "a" | "b", scoreA?: number, scoreB?: number) => Promise<void>;
+}) {
   return (
     <div className="flex flex-col gap-4">
       {rounds.map((round, ri) => (
@@ -460,19 +648,109 @@ function SwissView({ rounds }: { rounds: BracketRound[] }) {
           <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{round.name}</div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {round.matches.map((match) => (
-              <div key={match.id} className="flex items-center border border-gray-200 rounded-lg text-sm overflow-hidden">
-                <span className={`flex-1 px-3 py-2 text-gray-800 bg-gray-50 ${!match.participantA || match.participantA === "TBD" ? "print-tbd-row" : ""}`}>
-                  {!match.participantA || match.participantA === "TBD" ? <span className="text-gray-300 italic print-hide-tbd">TBD</span> : match.participantA}
-                </span>
-                <span className="px-2 text-xs text-gray-400">vs</span>
-                <span className={`flex-1 px-3 py-2 text-gray-800 text-right ${!match.participantB || match.participantB === "TBD" ? "print-tbd-row" : ""}`}>
-                  {!match.participantB || match.participantB === "TBD" ? <span className="text-gray-300 italic print-hide-tbd">TBD</span> : match.participantB}
-                </span>
-              </div>
+              <MatchRow key={match.id} match={match} onReportResult={onReportResult} />
             ))}
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+// ─── Shared flat match row (round robin / swiss) ───────────────────────────────
+
+function MatchRow({
+  match,
+  onReportResult,
+}: {
+  match: BracketMatch;
+  onReportResult?: (matchId: string, winner: "a" | "b", scoreA?: number, scoreB?: number) => Promise<void>;
+}) {
+  const [reporting, setReporting] = useState(false);
+  const [selectedWinner, setSelectedWinner] = useState<"a" | "b" | null>(null);
+  const [scoreA, setScoreA] = useState("");
+  const [scoreB, setScoreB] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const canReport = !!onReportResult && !!match.participantA && !!match.participantB && !match.completed;
+  const isWinnerA = match.completed && match.winner === match.participantA;
+  const isWinnerB = match.completed && match.winner === match.participantB;
+
+  async function handleSubmit() {
+    if (!selectedWinner || !onReportResult) return;
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      const sA = scoreA !== "" ? Number(scoreA) : undefined;
+      const sB = scoreB !== "" ? Number(scoreB) : undefined;
+      await onReportResult(match.id, selectedWinner, sA, sB);
+      setReporting(false);
+      setSelectedWinner(null);
+      setScoreA("");
+      setScoreB("");
+    } catch (e) {
+      setSubmitError(e instanceof Error ? e.message : "Failed to submit");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (reporting) {
+    return (
+      <div className="border border-indigo-300 rounded-lg p-2 bg-white text-xs">
+        <div className="flex gap-1.5 mb-1.5">
+          <button
+            type="button"
+            onClick={() => setSelectedWinner("a")}
+            className={`flex-1 py-1 rounded font-medium truncate transition-colors ${selectedWinner === "a" ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-indigo-50"}`}
+          >
+            {match.participantA}
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedWinner("b")}
+            className={`flex-1 py-1 rounded font-medium truncate transition-colors ${selectedWinner === "b" ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-indigo-50"}`}
+          >
+            {match.participantB}
+          </button>
+        </div>
+        <div className="flex items-center gap-1 mb-1.5">
+          <input type="number" min={0} placeholder="—" value={scoreA} onChange={e => setScoreA(e.target.value)} className="w-10 text-center border border-gray-200 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-indigo-400" />
+          <span className="flex-1 text-center text-gray-400">vs</span>
+          <input type="number" min={0} placeholder="—" value={scoreB} onChange={e => setScoreB(e.target.value)} className="w-10 text-center border border-gray-200 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-indigo-400" />
+        </div>
+        {submitError && <p className="text-red-500 mb-1">{submitError}</p>}
+        <div className="flex gap-1">
+          <button type="button" onClick={handleSubmit} disabled={!selectedWinner || submitting} className="flex-1 py-1 rounded font-semibold bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40">
+            {submitting ? "Saving…" : "Confirm"}
+          </button>
+          <button type="button" onClick={() => { setReporting(false); setSelectedWinner(null); setScoreA(""); setScoreB(""); setSubmitError(null); }} className="px-2 py-1 rounded text-gray-500 border border-gray-200 hover:border-gray-300">
+            ✕
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      onClick={canReport ? () => setReporting(true) : undefined}
+      className={`flex items-center border rounded-lg text-xs overflow-hidden ${
+        match.completed ? "border-gray-200" : canReport ? "border-gray-200 hover:border-indigo-300 cursor-pointer transition-colors" : "border-gray-200"
+      }`}
+    >
+      <span className={`flex-1 px-2.5 py-1.5 truncate ${isWinnerA ? "bg-emerald-50 text-emerald-700 font-semibold" : "bg-gray-50 text-gray-800"} ${!match.participantA || match.participantA === "TBD" ? "print-tbd-row" : ""}`}>
+        {isWinnerA && <span className="text-[9px] font-bold mr-1">W</span>}
+        {!match.participantA || match.participantA === "TBD" ? <span className="text-gray-300 italic print-hide-tbd">TBD</span> : match.participantA}
+        {match.completed && match.scoreA != null && <span className="ml-1 text-gray-400">{match.scoreA}</span>}
+      </span>
+      <span className="px-2 text-gray-400">vs</span>
+      <span className={`flex-1 px-2.5 py-1.5 truncate text-right ${isWinnerB ? "bg-emerald-50 text-emerald-700 font-semibold" : "text-gray-800"} ${!match.participantB || match.participantB === "TBD" ? "print-tbd-row" : ""}`}>
+        {!match.participantB || match.participantB === "TBD" ? <span className="text-gray-300 italic print-hide-tbd">TBD</span> : match.participantB}
+        {match.completed && match.scoreB != null && <span className="ml-1 text-gray-400">{match.scoreB}</span>}
+        {isWinnerB && <span className="text-[9px] font-bold ml-1">W</span>}
+      </span>
     </div>
   );
 }
@@ -487,6 +765,7 @@ function CombinationView({
   autoAdvanceGroups = [],
   onAutoAdvanceGroupsChange,
   onMoveParticipant,
+  onReportResult,
 }: {
   bracket: Bracket;
   onSwapParticipants?: (a: string, b: string) => void;
@@ -495,6 +774,7 @@ function CombinationView({
   autoAdvanceGroups?: string[][];
   onAutoAdvanceGroupsChange?: (groups: string[][]) => void;
   onMoveParticipant?: (name: string, fromGroupIndex: number, toGroupIndex: number) => void;
+  onReportResult?: (matchId: string, winner: "a" | "b", scoreA?: number, scoreB?: number) => Promise<void>;
 }) {
   const [dragName, setDragName] = useState<string | null>(null);
   const [dragFromGroup, setDragFromGroup] = useState<number | null>(null);
@@ -679,10 +959,21 @@ function CombinationView({
                     ))}
                   </div>
                   {!isAutoAdvance && group.rounds.length > 0 && (
-                    <div className="text-xs text-gray-500">
-                      {group.rounds.length} round{group.rounds.length !== 1 ? "s" : ""},{" "}
-                      {group.rounds.reduce((sum, r) => sum + r.matches.length, 0)} matches
-                      {` · top ${advancersPerGroup} advance`}
+                    <div className="flex flex-col gap-1">
+                      <div className="text-xs text-gray-500">
+                        {group.rounds.length} round{group.rounds.length !== 1 ? "s" : ""},{" "}
+                        {group.rounds.reduce((sum, r) => sum + r.matches.length, 0)} matches
+                        {` · top ${advancersPerGroup} advance`}
+                      </div>
+                      {onReportResult && (
+                        <div className="mt-2 space-y-1">
+                          {group.rounds.map((round) =>
+                            round.matches.map((match) => (
+                              <MatchRow key={match.id} match={match} onReportResult={onReportResult} />
+                            ))
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
                   {isAutoAdvance && group.participants.length > 0 && (
@@ -699,7 +990,7 @@ function CombinationView({
       {bracket.knockoutRounds && (
         <div>
           <h3 className="text-sm font-semibold text-gray-600 mb-3">Knockout Stage</h3>
-          <EliminationBracket rounds={bracket.knockoutRounds} />
+          <EliminationBracket rounds={bracket.knockoutRounds} onReportResult={onReportResult} />
         </div>
       )}
     </div>

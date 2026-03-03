@@ -59,6 +59,13 @@ async function create(req, res) {
       for (const u of users) {
         userMap[u.username.toLowerCase()] = u;
       }
+
+      // Reject any account name that wasn't found in the database
+      for (const name of unique) {
+        if (!userMap[name.toLowerCase()]) {
+          return res.status(400).json({ error: `Account not found: "${name}"` });
+        }
+      }
     }
 
     // ── Build participant create records ──────────────────────────────────

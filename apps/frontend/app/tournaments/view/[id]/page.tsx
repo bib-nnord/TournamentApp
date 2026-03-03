@@ -106,6 +106,19 @@ export default function TournamentPage() {
   const spotsLeft = tournament.max - tournament.participants.length;
   const isCreator = currentUser?.id === tournament.creator.id;
 
+  async function handleReportResult(matchId: string, winner: "a" | "b", scoreA?: number, scoreB?: number) {
+    const res = await apiFetch(`/tournaments/${tournament!.id}/matches/${matchId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ winner, scoreA, scoreB }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error ?? "Failed to report result");
+    }
+    const { bracketData } = await res.json();
+    setTournament(prev => prev ? { ...prev, bracketData } : prev);
+  }
+
   async function handleDelete() {
     if (!confirmDelete) {
       setConfirmDelete(true);
@@ -270,7 +283,13 @@ export default function TournamentPage() {
         {tournament.bracketData && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
             <h2 className="text-base font-semibold text-gray-800 mb-4">Bracket</h2>
-            <BracketView bracket={tournament.bracketData} />
+            {isCreator && tournament.status === "active" && (
+              <p className="text-xs text-gray-400 mb-3">Click a match to report the result.</p>
+            )}
+            <BracketView
+              bracket={tournament.bracketData}
+              onReportResult={isCreator && tournament.status === "active" ? handleReportResult : undefined}
+            />
           </div>
         )}
 

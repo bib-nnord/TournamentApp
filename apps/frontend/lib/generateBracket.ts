@@ -10,6 +10,11 @@ export interface BracketMatch {
   participantB: string | null;
   /** Which slots receive a drop-down from the winners bracket */
   wbDropDown?: "a" | "b" | "both";
+  /** Result fields — populated after the match is played */
+  winner?: string | null;
+  scoreA?: number | null;
+  scoreB?: number | null;
+  completed?: boolean;
 }
 
 export interface BracketRound {
