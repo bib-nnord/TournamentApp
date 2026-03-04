@@ -5,6 +5,12 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { logoutAsync } from "@/store/authSlice";
 import type { RootState, AppDispatch } from "@/store/store";
+import {
+  LABEL_CHANGE_PASSWORD,
+  LABEL_CHANGE_EMAIL,
+  LABEL_LOG_OUT,
+  LABEL_DELETE_ACCOUNT,
+} from "@/constants/labels";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -101,19 +107,19 @@ export default function SettingsPage() {
           <p className="text-sm text-gray-500 mb-4">Signed in as <span className="font-medium text-gray-700">{user.email}</span></p>
           <div className="flex flex-col gap-3">
             <button className="w-full text-left text-sm px-4 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700">
-              Change password
+              {LABEL_CHANGE_PASSWORD}
             </button>
             <button className="w-full text-left text-sm px-4 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700">
-              Change email
+              {LABEL_CHANGE_EMAIL}
             </button>
             <button
               onClick={handleLogout}
               className="w-full text-left text-sm px-4 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700"
             >
-              Log out
+              {LABEL_LOG_OUT}
             </button>
             <button className="w-full text-left text-sm px-4 py-2.5 border border-red-200 rounded-lg hover:bg-red-50 text-red-500">
-              Delete account
+              {LABEL_DELETE_ACCOUNT}
             </button>
           </div>
         </section>

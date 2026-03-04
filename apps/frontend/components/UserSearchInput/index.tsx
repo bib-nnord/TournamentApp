@@ -2,22 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { apiFetch } from "@/lib/api";
-
-interface UserResult {
-  id: number;
-  username: string;
-  displayName: string | null;
-  avatarUrl: string | null;
-}
-
-interface UserSearchInputProps {
-  /** Called when a user is selected from the dropdown or entered manually */
-  onSelect: (username: string) => void;
-  placeholder?: string;
-  className?: string;
-  /** Size variant */
-  size?: "sm" | "md";
-}
+import type { UserResult, UserSearchInputProps } from "./types";
 
 export default function UserSearchInput({
   onSelect,

@@ -5,6 +5,18 @@ import Link from "next/link";
 import type { TeamRelation as TeamRole } from "@/types";
 import Modal from "@/components/Modal";
 import TeamSettingsForm from "@/components/TeamSettingsForm";
+import {
+  LABEL_BACK_TO_TEAMS,
+  LABEL_JOIN_TEAM,
+  LABEL_REQUEST_TO_JOIN,
+  LABEL_LEAVE_TEAM,
+  LABEL_INVITE_MEMBER,
+  LABEL_EDIT_TEAM,
+  LABEL_DISBAND_TEAM,
+  LABEL_DEMOTE,
+  LABEL_PROMOTE,
+  LABEL_KICK,
+} from "@/constants/labels";
 
 // Placeholder — replace with real data + role derived from auth once backend is ready
 const team = {
@@ -50,7 +62,7 @@ export default function TeamPage() {
       <div className="max-w-3xl mx-auto px-4 py-10">
 
         <Link href="/teams" className="text-sm text-gray-500 hover:text-gray-700 mb-6 inline-block">
-          ← Back to teams
+          {LABEL_BACK_TO_TEAMS}
         </Link>
 
         {/* Team header */}
@@ -81,14 +93,14 @@ export default function TeamPage() {
             {/* Unrelated: join or request */}
             {isUnrelated && (
               <button className="text-sm px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
-                {team.open ? "Join team" : "Request to join"}
+                {team.open ? LABEL_JOIN_TEAM : LABEL_REQUEST_TO_JOIN}
               </button>
             )}
 
             {/* Member: leave */}
             {isMember && (
               <button className="text-sm px-4 py-2 border border-red-300 text-red-500 rounded-lg hover:bg-red-50">
-                Leave team
+                {LABEL_LEAVE_TEAM}
               </button>
             )}
 
@@ -103,13 +115,13 @@ export default function TeamPage() {
             {isLead && (
               <>
                 <button className="text-sm px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
-                  Edit team
+                  {LABEL_EDIT_TEAM}
                 </button>
                 <button className="text-sm px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
-                  Invite member
+                  {LABEL_INVITE_MEMBER}
                 </button>
                 <button className="text-sm px-4 py-2 border border-red-300 text-red-500 rounded-lg hover:bg-red-50">
-                  Disband team
+                  {LABEL_DISBAND_TEAM}
                 </button>
               </>
             )}
@@ -140,13 +152,13 @@ export default function TeamPage() {
                     {/* Lead can promote/demote */}
                     {isLead && (
                       <button className="text-xs px-2 py-1 border border-gray-300 rounded hover:bg-gray-100 text-gray-600">
-                        {m.role === "moderator" ? "Demote" : "Promote"}
+                        {m.role === "moderator" ? LABEL_DEMOTE : LABEL_PROMOTE}
                       </button>
                     )}
                     {/* Lead and moderator can kick members (moderator can't kick other mods) */}
                     {(isLead || (isModerator && m.role === "member")) && (
                       <button className="text-xs px-2 py-1 border border-red-200 rounded hover:bg-red-50 text-red-500">
-                        Kick
+                        {LABEL_KICK}
                       </button>
                     )}
                   </div>

@@ -4,20 +4,13 @@ import { useState, useMemo, useRef, type KeyboardEvent } from "react";
 import { useSelector } from "react-redux";
 import { tournamentFormatInfo, tournamentStatusLabel, type TournamentFormat, type TournamentStatus } from "@/types";
 import { generateBracket, type Bracket, type BracketOptions } from "@/lib/generateBracket";
-import type { QuickTournamentData, Participant } from "./QuickTournamentForm";
-import UserSearchInput from "./UserSearchInput";
-import BracketView from "./BracketView";
+import type { QuickTournamentData, Participant } from "../QuickTournamentForm";
+import UserSearchInput from "../UserSearchInput";
+import BracketView from "../BracketView";
 import type { RootState } from "@/store/store";
+import type { TournamentPreviewProps } from "./types";
 
-interface Props {
-  data: QuickTournamentData;
-  onBack: () => void;
-  onConfirm: (data: QuickTournamentData, bracket: Bracket) => void;
-  submitting?: boolean;
-  submitError?: string | null;
-}
-
-export default function TournamentPreview({ data, onBack, onConfirm, submitting, submitError }: Props) {
+export default function TournamentPreview({ data, onBack, onConfirm, submitting, submitError }: TournamentPreviewProps) {
   const currentUser = useSelector((state: RootState) => state.auth.user);
   const [name, setName] = useState(data.name);
   const [game, setGame] = useState(data.game);

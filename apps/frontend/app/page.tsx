@@ -2,6 +2,7 @@ import Link from "next/link";
 import TournamentList from "@/components/TournamentList";
 import TeamList from "@/components/TeamList";
 import AuthButtons from "@/components/AuthButtons";
+import { LABEL_ALL_TOURNAMENTS, LABEL_ALL_TEAMS } from "@/constants/labels";
 export default function Home() {
   return (
     <div className="min-h-screen bg-gray-50">
@@ -27,7 +28,7 @@ export default function Home() {
             href="/tournaments"
             className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
           >
-            All Tournaments →
+            {LABEL_ALL_TOURNAMENTS}
           </Link>
         </div>
         <TournamentList />
@@ -41,7 +42,7 @@ export default function Home() {
             href="/teams"
             className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
           >
-            All Teams →
+            {LABEL_ALL_TEAMS}
           </Link>
         </div>
         <TeamList />

@@ -8,6 +8,12 @@ import { login } from "@/store/authSlice";
 import type { AppDispatch, RootState } from "@/store/store";
 import Modal from "@/components/Modal";
 import ForgotPasswordForm from "@/components/ForgotPasswordForm";
+import {
+  LABEL_FORGOT_PASSWORD,
+  LABEL_SIGN_IN,
+  LABEL_SIGNING_IN,
+  LABEL_REGISTER,
+} from "@/constants/labels";
 
 export default function LoginPage() {
   const dispatch = useDispatch<AppDispatch>();
@@ -53,7 +59,7 @@ export default function LoginPage() {
                 Password
               </label>
               <button type="button" onClick={() => setShowForgot(true)} className="text-xs text-blue-600 hover:underline">
-                Forgot password?
+                {LABEL_FORGOT_PASSWORD}
               </button>
             </div>
             <input
@@ -73,14 +79,14 @@ export default function LoginPage() {
             disabled={loading}
             className="mt-2 w-full py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
           >
-            {loading ? 'Signing in...' : 'Sign in'}
+            {loading ? LABEL_SIGNING_IN : LABEL_SIGN_IN}
           </button>
         </form>
 
         <p className="text-sm text-center text-gray-500 mt-6">
           Don&apos;t have an account?{" "}
           <Link href="/register" className="text-blue-600 hover:underline">
-            Register
+            {LABEL_REGISTER}
           </Link>
         </p>
       </div>

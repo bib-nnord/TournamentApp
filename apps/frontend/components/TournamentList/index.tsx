@@ -2,25 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import type { TournamentStatus } from "@/types";
 import { tournamentStatusLabel } from "@/types";
+import type { TournamentStatus } from "@/types";
 import { apiFetch } from "@/lib/api";
-
-type Filter = "all" | TournamentStatus;
-
-interface TournamentSummary {
-  id: number;
-  name: string;
-  game: string;
-  format: string;
-  status: TournamentStatus;
-  isPrivate: boolean;
-  participants: number;
-  max: number;
-  creator: { id: number; username: string };
-  createdAt: string;
-  startDate: string | null;
-}
+import type { Filter, TournamentSummary } from "./types";
 
 const filters: { label: string; value: Filter }[] = [
   { label: "All", value: "all" },

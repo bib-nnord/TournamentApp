@@ -1,5 +1,6 @@
 import Link from "next/link";
 import TournamentList from "@/components/TournamentList";
+import { LABEL_CREATE } from "@/constants/labels";
 
 export default function TournamentsPage() {
   return (
@@ -11,7 +12,7 @@ export default function TournamentsPage() {
             href="/tournaments/create"
             className="text-sm px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
           >
-            + Create
+            {LABEL_CREATE}
           </Link>
         </div>
         <TournamentList />

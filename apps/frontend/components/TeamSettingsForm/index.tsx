@@ -1,12 +1,7 @@
 "use client";
 
 import { useState } from "react";
-
-interface TeamSettingsFormProps {
-  team: { name: string; description: string; open: boolean };
-  isLead: boolean;
-  onSuccess?: () => void;
-}
+import type { TeamSettingsFormProps } from "./types";
 
 export default function TeamSettingsForm({ team, isLead, onSuccess }: TeamSettingsFormProps) {
   const [form, setForm] = useState({

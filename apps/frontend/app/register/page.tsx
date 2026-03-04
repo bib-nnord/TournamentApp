@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
 import { register } from "@/store/authSlice";
 import type { AppDispatch, RootState } from "@/store/store";
+import { LABEL_CREATE_ACCOUNT, LABEL_CREATING_ACCOUNT, LABEL_SIGN_IN } from "@/constants/labels";
 
 export default function RegisterPage() {
   const dispatch = useDispatch<AppDispatch>();
@@ -171,14 +172,14 @@ export default function RegisterPage() {
             disabled={loading}
             className="mt-2 w-full py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
           >
-            {loading ? 'Creating account...' : 'Create account'}
+            {loading ? LABEL_CREATING_ACCOUNT : LABEL_CREATE_ACCOUNT}
           </button>
         </form>
 
         <p className="text-sm text-center text-gray-500 mt-6">
           Already have an account?{" "}
           <Link href="/login" className="text-blue-600 hover:underline">
-            Sign in
+            {LABEL_SIGN_IN}
           </Link>
         </p>
       </div>

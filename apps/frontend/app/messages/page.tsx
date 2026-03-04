@@ -1,6 +1,19 @@
 "use client";
 
 import { useState } from "react";
+import {
+  LABEL_BACK_TO_MESSAGES,
+  LABEL_NEWER,
+  LABEL_OLDER,
+  LABEL_MARK_READ,
+  LABEL_MARK_UNREAD,
+  LABEL_MARK_ALL_AS_READ,
+  LABEL_FILTER_ALL,
+  LABEL_FILTER_USERS,
+  LABEL_FILTER_TEAMS,
+  LABEL_FILTER_TOURNAMENTS,
+  LABEL_FILTER_WEBSITE,
+} from "@/constants/labels";
 
 type MessageCategory = "users" | "teams" | "tournaments" | "website";
 type Filter = "all" | MessageCategory;
@@ -29,11 +42,11 @@ const initialMessages: Message[] = [
 ];
 
 const filters: { label: string; value: Filter }[] = [
-  { label: "All", value: "all" },
-  { label: "Users", value: "users" },
-  { label: "Teams", value: "teams" },
-  { label: "Tournaments", value: "tournaments" },
-  { label: "Website", value: "website" },
+  { label: LABEL_FILTER_ALL, value: "all" },
+  { label: LABEL_FILTER_USERS, value: "users" },
+  { label: LABEL_FILTER_TEAMS, value: "teams" },
+  { label: LABEL_FILTER_TOURNAMENTS, value: "tournaments" },
+  { label: LABEL_FILTER_WEBSITE, value: "website" },
 ];
 
 const categoryBadge: Record<MessageCategory, string> = {
@@ -121,7 +134,7 @@ export default function MessagesPage() {
               onClick={() => setOpenId(null)}
               className="text-sm text-gray-500 hover:text-gray-700"
             >
-              ← Back to messages
+              {LABEL_BACK_TO_MESSAGES}
             </button>
             <div className="flex items-center gap-2">
               <button
@@ -129,14 +142,14 @@ export default function MessagesPage() {
                 disabled={!prev}
                 className="text-xs px-2 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed"
               >
-                ↑ Newer
+                {LABEL_NEWER}
               </button>
               <button
                 onClick={() => next && openAndRead(next.id)}
                 disabled={!next}
                 className="text-xs px-2 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed"
               >
-                ↓ Older
+                {LABEL_OLDER}
               </button>
             </div>
           </div>
@@ -158,7 +171,7 @@ export default function MessagesPage() {
                 onClick={() => setMessages((prev) => prev.map((m) => m.id === openMessage.id ? { ...m, read: !m.read } : m))}
                 className="text-xs px-3 py-1.5 border border-gray-300 rounded-lg text-gray-500 hover:bg-gray-50 flex-shrink-0"
               >
-                {openMessage.read ? "Mark unread" : "Mark read"}
+                {openMessage.read ? LABEL_MARK_UNREAD : LABEL_MARK_READ}
               </button>
             </div>
 
@@ -192,7 +205,7 @@ export default function MessagesPage() {
             disabled={unreadCount === 0}
             className="text-sm px-3 py-1.5 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            Mark all as read
+            {LABEL_MARK_ALL_AS_READ}
           </button>
         </div>
 
@@ -236,13 +249,13 @@ export default function MessagesPage() {
                 onClick={() => markSelected(true)}
                 className="text-xs px-3 py-1 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50"
               >
-                Mark read
+                {LABEL_MARK_READ}
               </button>
               <button
                 onClick={() => markSelected(false)}
                 className="text-xs px-3 py-1 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50"
               >
-                Mark unread
+                {LABEL_MARK_UNREAD}
               </button>
             </div>
           )}

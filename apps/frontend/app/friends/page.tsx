@@ -1,6 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import {
+  LABEL_SEND_REQUEST,
+  LABEL_ACCEPT,
+  LABEL_DECLINE,
+  LABEL_CANCEL,
+  LABEL_REMOVE,
+} from "@/constants/labels";
 
 // Placeholder — replace with real data once backend is ready
 const initialFriends = [
@@ -47,7 +54,7 @@ export default function FriendsPage() {
               onClick={() => setAddInput("")}
               className="text-sm px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
             >
-              Send request
+              {LABEL_SEND_REQUEST}
             </button>
           </div>
         </div>
@@ -72,10 +79,10 @@ export default function FriendsPage() {
                   </div>
                   <div className="flex gap-2">
                     <button className="text-xs px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700">
-                      Accept
+                      {LABEL_ACCEPT}
                     </button>
                     <button className="text-xs px-3 py-1 border border-gray-300 rounded-lg hover:bg-gray-100">
-                      Decline
+                      {LABEL_DECLINE}
                     </button>
                   </div>
                 </div>
@@ -98,7 +105,7 @@ export default function FriendsPage() {
                     <span className="text-sm text-gray-500">{r.username}</span>
                   </div>
                   <button className="text-xs px-3 py-1 border border-gray-300 rounded-lg hover:bg-gray-100 text-gray-500">
-                    Cancel
+                    {LABEL_CANCEL}
                   </button>
                 </div>
               ))}
@@ -141,7 +148,7 @@ export default function FriendsPage() {
                     onClick={() => setFriends((prev) => prev.filter((x) => x.id !== f.id))}
                     className="text-xs text-gray-400 hover:text-red-500"
                   >
-                    Remove
+                    {LABEL_REMOVE}
                   </button>
                 </div>
               ))}

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import ForgotPasswordForm from "@/components/ForgotPasswordForm";
+import { LABEL_BACK_TO_LOGIN } from "@/constants/labels";
 
 export default function ForgotPasswordPage() {
   return (
@@ -9,7 +10,7 @@ export default function ForgotPasswordPage() {
         <ForgotPasswordForm />
         <p className="text-sm text-center text-gray-500 mt-6">
           <Link href="/login" className="text-blue-600 hover:underline">
-            Back to login
+            {LABEL_BACK_TO_LOGIN}
           </Link>
         </p>
       </div>

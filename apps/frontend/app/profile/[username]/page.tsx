@@ -5,6 +5,7 @@ import { useSelector } from "react-redux";
 import { useParams } from "next/navigation";
 import type { RootState } from "@/store/store";
 import type { TeamRole } from "@/types";
+import { LABEL_EDIT_PROFILE, LABEL_VIEW_ALL } from "@/constants/labels";
 
 // Placeholder data — replace with API calls once endpoints are ready
 const friends = [
@@ -68,7 +69,7 @@ export default function ProfilePage() {
           </div>
           {isOwnProfile && (
             <button className="text-sm px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
-              Edit profile
+              {LABEL_EDIT_PROFILE}
             </button>
           )}
         </div>
@@ -79,7 +80,7 @@ export default function ProfilePage() {
             <h2 className="text-base font-semibold text-gray-800">
               Friends <span className="text-gray-400 font-normal">({friends.length})</span>
             </h2>
-            <Link href="/friends" className="text-xs text-blue-600 hover:underline">View all</Link>
+            <Link href="/friends" className="text-xs text-blue-600 hover:underline">{LABEL_VIEW_ALL}</Link>
           </div>
           <div className="flex flex-col gap-2">
             {friends.map((f) => (

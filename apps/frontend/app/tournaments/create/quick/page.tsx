@@ -3,6 +3,13 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import {
+  LABEL_BACK_TO_TOURNAMENT_TYPE,
+  LABEL_DISCARD_DRAFT,
+  LABEL_SAVE_AS_FILE,
+  LABEL_LOAD_FROM_FILE,
+  LABEL_EXPORT_PDF,
+} from "@/constants/labels";
 import QuickTournamentForm, { type QuickTournamentData } from "@/components/QuickTournamentForm";
 import TournamentPreview from "@/components/TournamentPreview";
 import type { Bracket } from "@/lib/generateBracket";
@@ -185,7 +192,7 @@ export default function QuickTournamentPage() {
           href="/tournaments/create"
           className="text-sm text-gray-500 hover:text-gray-700 mb-6 inline-block no-print"
         >
-          ← Back to tournament type
+          {LABEL_BACK_TO_TOURNAMENT_TYPE}
         </Link>
 
         {showDraftBanner && (
@@ -196,7 +203,7 @@ export default function QuickTournamentPage() {
               onClick={handleDiscard}
               className="text-amber-600 hover:text-amber-800 font-medium underline underline-offset-2"
             >
-              Discard draft
+              {LABEL_DISCARD_DRAFT}
             </button>
             <button
               type="button"
@@ -226,7 +233,7 @@ export default function QuickTournamentPage() {
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed"
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17v3a2 2 0 002 2h14a2 2 0 002-2v-3" /></svg>
-            Save as file
+            {LABEL_SAVE_AS_FILE}
           </button>
           <button
             type="button"
@@ -234,7 +241,7 @@ export default function QuickTournamentPage() {
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50"
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 14V8m0 0l-3 3m3-3l3 3M3 7v-3a2 2 0 012-2h14a2 2 0 012 2v3" /></svg>
-            Load from file
+            {LABEL_LOAD_FROM_FILE}
           </button>
           {step === "preview" && (
             <button
@@ -243,7 +250,7 @@ export default function QuickTournamentPage() {
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50"
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2z" /></svg>
-              Export PDF
+              {LABEL_EXPORT_PDF}
             </button>
           )}
         </div>

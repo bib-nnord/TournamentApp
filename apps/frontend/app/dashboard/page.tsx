@@ -5,6 +5,7 @@ import { useSelector } from "react-redux";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import type { RootState } from "@/store/store";
+import { LABEL_CREATE_TOURNAMENT, LABEL_BROWSE_TOURNAMENTS } from "@/constants/labels";
 
 
 // Placeholder — replace with real tournament data from API
@@ -63,13 +64,13 @@ export default function DashboardPage() {
             href="/tournaments/create"
             className="text-sm px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
           >
-            + Create tournament
+            {LABEL_CREATE_TOURNAMENT}
           </Link>
           <Link
             href="/tournaments"
             className="text-sm px-4 py-2 border border-gray-300 bg-white rounded-lg hover:bg-gray-50"
           >
-            Browse tournaments
+            {LABEL_BROWSE_TOURNAMENTS}
           </Link>
         </div>
 

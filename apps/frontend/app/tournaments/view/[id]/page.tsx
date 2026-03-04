@@ -4,6 +4,19 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useSelector } from "react-redux";
+import {
+  LABEL_BACK_TO_TOURNAMENTS,
+  LABEL_FINISH_TOURNAMENT,
+  LABEL_FINISHING,
+  LABEL_CANCEL_TOURNAMENT,
+  LABEL_CONFIRM_CANCEL,
+  LABEL_CANCELLING,
+  LABEL_NEVER_MIND,
+  LABEL_DELETE_TOURNAMENT,
+  LABEL_CONFIRM_DELETE,
+  LABEL_DELETING,
+  LABEL_CANCEL,
+} from "@/constants/labels";
 import type { TournamentStatus, TournamentFormat } from "@/types";
 import { tournamentStatusLabel, tournamentFormatInfo } from "@/types";
 import { apiFetch } from "@/lib/api";
@@ -96,7 +109,7 @@ export default function TournamentPage() {
       <div className="min-h-screen bg-gray-50">
         <div className="max-w-3xl mx-auto px-4 py-10">
           <Link href="/tournaments" className="text-sm text-gray-500 hover:text-gray-700 mb-6 inline-block">
-            ← Back to tournaments
+            {LABEL_BACK_TO_TOURNAMENTS}
           </Link>
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center">
             <p className="text-red-600 text-sm">{error ?? "Tournament not found"}</p>
@@ -442,7 +455,7 @@ export default function TournamentPage() {
                 title={!tournamentWinner ? "Available once a winner is determined" : undefined}
                 className="text-sm px-4 py-2 rounded-lg font-medium transition-colors bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                {finishing ? "Finishing…" : "Finish tournament"}
+                {finishing ? LABEL_FINISHING : LABEL_FINISH_TOURNAMENT}
               </button>
             )}
             {!["completed", "cancelled"].includes(tournament.status) && (
@@ -457,7 +470,7 @@ export default function TournamentPage() {
                       : "border border-orange-300 text-orange-600 hover:bg-orange-50"
                   } disabled:opacity-50`}
                 >
-                  {cancelling ? "Cancelling…" : confirmCancel ? "Confirm cancel" : "Cancel tournament"}
+                  {cancelling ? LABEL_CANCELLING : confirmCancel ? LABEL_CONFIRM_CANCEL : LABEL_CANCEL_TOURNAMENT}
                 </button>
                 {confirmCancel && (
                   <button
@@ -465,7 +478,7 @@ export default function TournamentPage() {
                     onClick={() => setConfirmCancel(false)}
                     className="text-sm text-gray-500 hover:text-gray-700"
                   >
-                    Never mind
+                    {LABEL_NEVER_MIND}
                   </button>
                 )}
               </>
@@ -480,7 +493,7 @@ export default function TournamentPage() {
                   : "border border-red-200 text-red-600 hover:bg-red-50"
               } disabled:opacity-50`}
             >
-              {deleting ? "Deleting…" : confirmDelete ? "Confirm delete" : "Delete tournament"}
+              {deleting ? LABEL_DELETING : confirmDelete ? LABEL_CONFIRM_DELETE : LABEL_DELETE_TOURNAMENT}
             </button>
             {confirmDelete && (
               <button
@@ -488,7 +501,7 @@ export default function TournamentPage() {
                 onClick={() => setConfirmDelete(false)}
                 className="text-sm text-gray-500 hover:text-gray-700"
               >
-                Cancel
+                {LABEL_CANCEL}
               </button>
             )}
           </div>
