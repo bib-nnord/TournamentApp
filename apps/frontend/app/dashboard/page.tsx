@@ -36,6 +36,7 @@ const upcomingMatches = [
   { id: "m3", tournament: "Easter Invitational", opponent: "TBD", date: "Apr 20, 2025", time: "10:00" },
 ];
 
+
 export default function DashboardPage() {
   const router = useRouter();
   const user = useSelector((state: RootState) => state.auth.user);
@@ -55,7 +56,7 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-bold text-gray-900">
             Welcome back, {user.username}
           </h1>
-          <p className="text-sm text-gray-500 mt-1">Here&apos;s what&apos;s going on with your tournaments.</p>
+          <p className="text-sm text-gray-500 mt-1">Latest Tournaments:</p>
         </div>
 
         {/* Quick actions */}

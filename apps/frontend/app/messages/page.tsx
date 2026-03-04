@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import FilterTabs from "@/components/FilterTabs";
 import {
   LABEL_BACK_TO_MESSAGES,
   LABEL_NEWER,

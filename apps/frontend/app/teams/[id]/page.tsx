@@ -5,6 +5,8 @@ import Link from "next/link";
 import type { TeamRelation as TeamRole } from "@/types";
 import Modal from "@/components/Modal";
 import TeamSettingsForm from "@/components/TeamSettingsForm";
+import StatusBadge from "@/components/StatusBadge";
+import { teamRoleColors } from "@/lib/colors";
 import {
   LABEL_BACK_TO_TEAMS,
   LABEL_JOIN_TEAM,

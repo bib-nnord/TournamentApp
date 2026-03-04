@@ -1,6 +1,8 @@
 import Link from "next/link";
 import type { Match, MatchStatus } from "@/types";
 import { matchStatusLabel } from "@/types";
+import StatusBadge from "@/components/StatusBadge";
+import { matchStatusColors } from "@/lib/colors";
 
 // Placeholder — replace with real fetch by id once backend is ready
 const match: Match = {
