@@ -1,10 +1,10 @@
 "use client";
 
-import { useSelector, useDispatch } from "react-redux";
+import { useDispatch } from "react-redux";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
 import { logoutAsync } from "@/store/authSlice";
-import type { RootState, AppDispatch } from "@/store/store";
+import type { AppDispatch } from "@/store/store";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
 import {
   LABEL_CHANGE_PASSWORD,
   LABEL_CHANGE_EMAIL,
@@ -15,11 +15,7 @@ import {
 export default function SettingsPage() {
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
-  const user = useSelector((state: RootState) => state.auth.user);
-
-  useEffect(() => {
-    if (!user) router.replace("/login");
-  }, [user, router]);
+  const user = useRequireAuth();
 
   if (!user) return null;
 

@@ -5,7 +5,10 @@ import { useSelector } from "react-redux";
 import { useParams } from "next/navigation";
 import type { RootState } from "@/store/store";
 import type { TeamRole } from "@/types";
+import { tournamentStatusLabel } from "@/types";
 import { LABEL_EDIT_PROFILE, LABEL_VIEW_ALL } from "@/constants/labels";
+import { teamRoleColors, tournamentStatusColors } from "@/lib/colors";
+import { getUserInitial } from "@/lib/helpers";
 
 // Placeholder data — replace with API calls once endpoints are ready
 const friends = [
@@ -24,11 +27,7 @@ const followedTeams = [
   { id: "t4", name: "Rapid Rookies", members: 8, open: false },
 ];
 
-const teamRoleColors: Record<TeamRole, string> = {
-  lead: "bg-yellow-100 text-yellow-700",
-  moderator: "bg-blue-100 text-blue-700",
-  member: "bg-gray-100 text-gray-600",
-};
+
 
 const myTournaments = [
   { id: "1", name: "Spring Open 2025", status: "registration", role: "participant" },
@@ -36,13 +35,7 @@ const myTournaments = [
   { id: "3", name: "Weekly Blitz", status: "active", role: "participant" },
 ];
 
-const statusColors: Record<string, string> = {
-  draft: "bg-gray-100 text-gray-500",
-  registration: "bg-blue-100 text-blue-700",
-  active: "bg-green-100 text-green-700",
-  completed: "bg-gray-100 text-gray-500",
-  cancelled: "bg-red-100 text-red-600",
-};
+
 
 export default function ProfilePage() {
   const { username } = useParams<{ username: string }>();
@@ -59,7 +52,7 @@ export default function ProfilePage() {
         {/* Profile header */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 flex items-center gap-6 mb-6">
           <div className="w-16 h-16 rounded-full bg-indigo-100 flex items-center justify-center text-2xl font-bold text-indigo-600">
-            {username[0].toUpperCase()}
+            {getUserInitial(username)}
           </div>
           <div className="flex-1">
             <h1 className="text-xl font-bold text-gray-900">{username}</h1>
@@ -87,7 +80,7 @@ export default function ProfilePage() {
               <div key={f.id} className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-50">
                 <div className="relative">
                   <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-600">
-                    {f.username[0].toUpperCase()}
+                    {getUserInitial(f.username)}
                   </div>
                   <span className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-white ${f.online ? "bg-green-500" : "bg-gray-300"}`} />
                 </div>
@@ -156,8 +149,8 @@ export default function ProfilePage() {
                 <span className="text-sm font-medium text-gray-800">{t.name}</span>
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-gray-400 capitalize">{t.role}</span>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColors[t.status]}`}>
-                    {t.status}
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${tournamentStatusColors[t.status as keyof typeof tournamentStatusColors]}`}>
+                    {tournamentStatusLabel[t.status as keyof typeof tournamentStatusLabel]}
                   </span>
                 </div>
               </Link>

@@ -96,3 +96,19 @@ export const LABEL_FILTER_USERS = "Users";
 export const LABEL_FILTER_TEAMS = "Teams";
 export const LABEL_FILTER_TOURNAMENTS = "Tournaments";
 export const LABEL_FILTER_WEBSITE = "Website";
+
+// ─── Message categories ──────────────────────────────────────────────────────
+export const messageCategoryLabel: Record<string, string> = {
+  users: "User",
+  teams: "Team",
+  tournaments: "Tournament",
+  website: "Website",
+};
+
+// ─── Team roles ──────────────────────────────────────────────────────────────
+export const teamRoleLabel: Record<string, string> = {
+  lead: "Lead",
+  moderator: "Moderator",
+  member: "Member",
+  none: "",
+};

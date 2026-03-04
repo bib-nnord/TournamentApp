@@ -14,14 +14,9 @@ import QuickTournamentForm, { type QuickTournamentData } from "@/components/Quic
 import TournamentPreview from "@/components/TournamentPreview";
 import type { Bracket } from "@/lib/generateBracket";
 import { apiFetch } from "@/lib/api";
+import type { SavedDraft } from "./types";
 
 const STORAGE_KEY = "quick-tournament-draft";
-
-interface SavedDraft {
-  step: "form" | "preview";
-  data: QuickTournamentData;
-  savedAt: number;
-}
 
 function loadDraft(): SavedDraft | null {
   try {

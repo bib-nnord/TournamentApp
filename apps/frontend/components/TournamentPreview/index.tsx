@@ -8,6 +8,7 @@ import type { QuickTournamentData, Participant } from "../QuickTournamentForm";
 import UserSearchInput from "../UserSearchInput";
 import BracketView from "../BracketView";
 import type { RootState } from "@/store/store";
+import { shuffleArray, generateUniqueName } from "@/lib/helpers";
 import type { TournamentPreviewProps } from "./types";
 
 export default function TournamentPreview({ data, onBack, onConfirm, submitting, submitError }: TournamentPreviewProps) {
@@ -82,12 +83,7 @@ export default function TournamentPreview({ data, onBack, onConfirm, submitting,
   }
 
   function shuffleParticipants() {
-    const shuffled = [...participants];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    setParticipants(shuffled);
+    setParticipants(shuffleArray(participants));
   }
 
   // ─── Live add / remove participants ───────────────────────────────────────
@@ -98,14 +94,8 @@ export default function TournamentPreview({ data, onBack, onConfirm, submitting,
   const [expandedTeam, setExpandedTeam] = useState<number | null>(null);
 
   function addParticipant(name: string, type: "account" | "guest" | "team") {
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    let finalName = trimmed;
-    if (participantNames.includes(trimmed)) {
-      let n = 2;
-      while (participantNames.includes(`${trimmed} (${n})`)) n++;
-      finalName = `${trimmed} (${n})`;
-    }
+    const finalName = generateUniqueName(name, participantNames);
+    if (!finalName) return;
     setParticipants((prev) => [...prev, {
       name: finalName,
       type,

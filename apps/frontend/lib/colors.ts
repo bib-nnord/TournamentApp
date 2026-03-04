@@ -27,3 +27,10 @@ export const participantTypeColors: Record<string, string> = {
   guest: "bg-amber-100 text-amber-600",
   team: "bg-purple-100 text-purple-600",
 };
+
+export const messageCategoryColors: Record<string, string> = {
+  users: "bg-indigo-100 text-indigo-700",
+  teams: "bg-yellow-100 text-yellow-700",
+  tournaments: "bg-blue-100 text-blue-700",
+  website: "bg-gray-100 text-gray-600",
+};

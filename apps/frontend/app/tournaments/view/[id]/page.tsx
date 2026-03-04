@@ -24,48 +24,11 @@ import type { Bracket } from "@/lib/generateBracket";
 import BracketView from "@/components/BracketView";
 import StatusBadge from "@/components/StatusBadge";
 import { tournamentStatusColors, participantTypeColors } from "@/lib/colors";
-import { formatDate } from "@/lib/helpers";
+import { formatDate, getTournamentWinner } from "@/lib/helpers";
 import type { RootState } from "@/store/store";
+import type { TournamentParticipantData, TournamentData } from "./types";
 
-interface TournamentParticipantData {
-  seed: number;
-  displayName: string;
-  guestName: string | null;
-  userId: number | null;
-  teamId: number | null;
-  type: "account" | "guest" | "team";
-  membersSnapshot: { name: string; type: string; userId: number | null }[] | null;
-}
 
-interface TournamentData {
-  id: number;
-  name: string;
-  game: string;
-  description: string | null;
-  format: TournamentFormat;
-  status: TournamentStatus;
-  isPrivate: boolean;
-  max: number;
-  bracketData: Bracket | null;
-  startDate: string | null;
-  creator: { id: number; username: string };
-  participants: TournamentParticipantData[];
-  createdAt: string;
-}
-
-const statusColors: Record<TournamentStatus, string> = {
-  draft: "bg-gray-100 text-gray-500",
-  registration: "bg-blue-100 text-blue-700",
-  active: "bg-green-100 text-green-700",
-  completed: "bg-gray-100 text-gray-500",
-  cancelled: "bg-red-100 text-red-600",
-};
-
-const typeColors: Record<string, string> = {
-  account: "bg-indigo-100 text-indigo-600",
-  guest: "bg-amber-100 text-amber-600",
-  team: "bg-purple-100 text-purple-600",
-};
 
 export default function TournamentPage() {
   const params = useParams<{ id: string }>();
@@ -124,55 +87,6 @@ export default function TournamentPage() {
 
   const spotsLeft = tournament.max - tournament.participants.length;
   const isCreator = currentUser?.id === tournament.creator.id;
-
-  function getTournamentWinner(bracket: Bracket): string | null {
-    // Tiebreaker result takes precedence
-    if (bracket.tiebreaker?.completed && bracket.tiebreaker.winner) {
-      return bracket.tiebreaker.winner;
-    }
-
-    switch (bracket.format) {
-      case "single_elimination": {
-        const last = bracket.rounds[bracket.rounds.length - 1];
-        if (!last) return null;
-        const m = last.matches[0];
-        if (!m?.completed) return null;
-        if (m.tie) return null; // tiebreaker pending
-        return m.winner ?? null;
-      }
-      case "double_elimination": {
-        if (!bracket.losersRounds?.length) return null;
-        const gf = bracket.losersRounds[bracket.losersRounds.length - 1].matches[0];
-        if (!gf?.completed) return null;
-        if (gf.tie) return null; // tiebreaker pending
-        return gf.winner ?? null;
-      }
-      case "combination": {
-        if (!bracket.knockoutRounds?.length) return null;
-        const last = bracket.knockoutRounds[bracket.knockoutRounds.length - 1];
-        const m = last?.matches[0];
-        if (!m?.completed) return null;
-        if (m.tie) return null; // tiebreaker pending
-        return m.winner ?? null;
-      }
-      case "round_robin":
-      case "double_round_robin":
-      case "swiss": {
-        const allMatches = bracket.rounds.flatMap(r => r.matches);
-        if (!allMatches.length || !allMatches.every(m => m.completed)) return null;
-        const wins = new Map<string, number>();
-        for (const m of allMatches) {
-          if (m.winner) wins.set(m.winner, (wins.get(m.winner) ?? 0) + 1);
-        }
-        const sorted = [...wins.entries()].sort((a, b) => b[1] - a[1]);
-        // If top two share the same score, a tiebreaker is needed
-        if (sorted.length > 1 && sorted[0][1] === sorted[1][1]) return null;
-        return sorted[0]?.[0] ?? null;
-      }
-      default:
-        return null;
-    }
-  }
 
   const tournamentWinner = tournament.bracketData ? getTournamentWinner(tournament.bracketData) : null;
 
@@ -305,7 +219,7 @@ export default function TournamentPage() {
           <div className="flex items-start justify-between mb-4">
             <h1 className="text-2xl font-bold text-gray-900">{tournament.name}</h1>
             <div className="flex items-center gap-2">
-              <span className={`text-xs px-2 py-1 rounded-full font-medium ${statusColors[tournament.status]}`}>
+              <span className={`text-xs px-2 py-1 rounded-full font-medium ${tournamentStatusColors[tournament.status]}`}>
                 {tournamentStatusLabel[tournament.status]}
               </span>
             </div>
@@ -341,14 +255,14 @@ export default function TournamentPage() {
             <div>
               <p className="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Created</p>
               <p className="text-gray-800 font-medium">
-                {new Date(tournament.createdAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}
+                {formatDate(tournament.createdAt)}
               </p>
             </div>
             {tournament.startDate && (
               <div>
                 <p className="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Start date</p>
                 <p className="text-gray-800 font-medium">
-                  {new Date(tournament.startDate).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                  {formatDate(tournament.startDate, { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
                 </p>
               </div>
             )}
@@ -393,7 +307,7 @@ export default function TournamentPage() {
                     }`}>
                       {p.displayName}
                     </span>
-                    <span className={`text-[10px] uppercase px-1.5 py-0.5 rounded font-medium shrink-0 ${typeColors[p.type]}`}>
+                    <span className={`text-[10px] uppercase px-1.5 py-0.5 rounded font-medium shrink-0 ${participantTypeColors[p.type]}`}>
                       {p.type}
                     </span>
                   </div>

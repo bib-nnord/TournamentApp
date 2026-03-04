@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef, type KeyboardEvent } from "react";
 import { tournamentFormatInfo, type TournamentFormat } from "@/types";
 import { apiFetch } from "@/lib/api";
+import { generateUniqueName } from "@/lib/helpers";
+import { useTagInput } from "@/hooks/useTagInput";
 import UserSearchInput from "../UserSearchInput";
 import type { Participant, TeamSearchResult, QuickTournamentData } from "./types";
 
@@ -108,6 +110,8 @@ export default function QuickTournamentForm({ initial, onSubmit, onChange }: Pro
     ? teams.map((t) => t.name)
     : [...accounts, ...guests];
 
+  const { addTag, removeTag, handleKeyDown, handleBlur } = useTagInput(allNames);
+
   // ─── Auto-save draft (debounced) ──────────────────────────────────────
   useEffect(() => {
     if (!onChange) return;
@@ -127,51 +131,6 @@ export default function QuickTournamentForm({ initial, onSubmit, onChange }: Pro
     }, 500);
     return () => clearTimeout(timer);
   }, [name, game, description, format, isPrivate, teamMode, accounts, guests, teams, onChange]);
-
-  function addTag(value: string, setList: React.Dispatch<React.SetStateAction<string[]>>) {
-    const trimmed = value.trim();
-    if (!trimmed) return;
-    // Allow duplicates — auto-number with (2), (3), etc.
-    let finalName = trimmed;
-    if (allNames.includes(trimmed)) {
-      let n = 2;
-      while (allNames.includes(`${trimmed} (${n})`)) n++;
-      finalName = `${trimmed} (${n})`;
-    }
-    setList((prev) => [...prev, finalName]);
-  }
-
-  function removeTag(index: number, setList: React.Dispatch<React.SetStateAction<string[]>>) {
-    setList((prev) => prev.filter((_, i) => i !== index));
-  }
-
-  function handleKeyDown(
-    e: KeyboardEvent<HTMLInputElement>,
-    input: string,
-    setInput: React.Dispatch<React.SetStateAction<string>>,
-    list: string[],
-    setList: React.Dispatch<React.SetStateAction<string[]>>
-  ) {
-    if (e.key === "Enter" || e.key === ",") {
-      e.preventDefault();
-      addTag(input, setList);
-      setInput("");
-    }
-    if (e.key === "Backspace" && input === "" && list.length > 0) {
-      setList((prev) => prev.slice(0, -1));
-    }
-  }
-
-  function handleBlur(
-    input: string,
-    setInput: React.Dispatch<React.SetStateAction<string>>,
-    setList: React.Dispatch<React.SetStateAction<string[]>>
-  ) {
-    if (input.trim()) {
-      addTag(input, setList);
-      setInput("");
-    }
-  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

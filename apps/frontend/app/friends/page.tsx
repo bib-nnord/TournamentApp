@@ -8,6 +8,7 @@ import {
   LABEL_CANCEL,
   LABEL_REMOVE,
 } from "@/constants/labels";
+import { getUserInitial } from "@/lib/helpers";
 
 // Placeholder — replace with real data once backend is ready
 const initialFriends = [
@@ -73,7 +74,7 @@ export default function FriendsPage() {
                 <div key={r.id} className="flex items-center justify-between px-3 py-2 rounded-lg bg-gray-50">
                   <div className="flex items-center gap-2">
                     <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-600">
-                      {r.username[0].toUpperCase()}
+                      {getUserInitial(r.username)}
                     </div>
                     <span className="text-sm text-gray-800">{r.username}</span>
                   </div>
@@ -100,7 +101,7 @@ export default function FriendsPage() {
                 <div key={r.id} className="flex items-center justify-between px-3 py-2 rounded-lg bg-gray-50">
                   <div className="flex items-center gap-2">
                     <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-500">
-                      {r.username[0].toUpperCase()}
+                      {getUserInitial(r.username)}
                     </div>
                     <span className="text-sm text-gray-500">{r.username}</span>
                   </div>
@@ -137,7 +138,7 @@ export default function FriendsPage() {
                   <div className="flex items-center gap-2">
                     <div className="relative">
                       <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-600">
-                        {f.username[0].toUpperCase()}
+                        {getUserInitial(f.username)}
                       </div>
                       <span className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-white ${f.online ? "bg-green-500" : "bg-gray-300"}`} />
                     </div>

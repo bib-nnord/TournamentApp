@@ -7,6 +7,8 @@ import Modal from "@/components/Modal";
 import TeamSettingsForm from "@/components/TeamSettingsForm";
 import StatusBadge from "@/components/StatusBadge";
 import { teamRoleColors } from "@/lib/colors";
+import { getUserInitial, getTeamPermissions } from "@/lib/helpers";
+import { teamRoleLabel } from "@/constants/labels";
 import {
   LABEL_BACK_TO_TEAMS,
   LABEL_JOIN_TEAM,
@@ -37,27 +39,11 @@ const team = {
 // Change this to test different views: "lead" | "moderator" | "member" | "none"
 const currentUserRole: TeamRole = "lead";
 
-const roleBadge: Record<TeamRole, string> = {
-  lead: "bg-yellow-100 text-yellow-700",
-  moderator: "bg-blue-100 text-blue-700",
-  member: "bg-gray-100 text-gray-600",
-  none: "",
-};
 
-const roleLabel: Record<TeamRole, string> = {
-  lead: "Lead",
-  moderator: "Moderator",
-  member: "Member",
-  none: "",
-};
 
 export default function TeamPage() {
   const [showSettings, setShowSettings] = useState(false);
-  const isLead = currentUserRole === "lead";
-  const isModerator = currentUserRole === "moderator";
-  const isMember = currentUserRole === "member";
-  const isUnrelated = currentUserRole === "none";
-  const canManage = isLead || isModerator;
+  const { isLead, isModerator, isMember, isUnrelated, canManage } = getTeamPermissions(currentUserRole);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -78,8 +64,8 @@ export default function TeamPage() {
             <div className="flex items-center gap-2">
               {/* Role badge for members */}
               {!isUnrelated && (
-                <span className={`text-xs px-2 py-1 rounded-full font-medium ${roleBadge[currentUserRole]}`}>
-                  {roleLabel[currentUserRole]}
+                <span className={`text-xs px-2 py-1 rounded-full font-medium ${teamRoleColors[currentUserRole]}`}>
+                  {teamRoleLabel[currentUserRole]}
                 </span>
               )}
               {/* Settings — lead and moderator only */}
@@ -140,11 +126,11 @@ export default function TeamPage() {
               <div key={m.id} className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gray-50">
                 <div className="flex items-center gap-3">
                   <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-600">
-                    {m.username[0].toUpperCase()}
+                    {getUserInitial(m.username)}
                   </div>
                   <span className="text-sm text-gray-800">{m.username}</span>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${roleBadge[m.role]}`}>
-                    {roleLabel[m.role]}
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${teamRoleColors[m.role]}`}>
+                    {teamRoleLabel[m.role]}
                   </span>
                 </div>
 

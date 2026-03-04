@@ -1,10 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useSelector } from "react-redux";
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
-import type { RootState } from "@/store/store";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { LABEL_CREATE_TOURNAMENT, LABEL_BROWSE_TOURNAMENTS } from "@/constants/labels";
 
 
@@ -38,12 +35,7 @@ const upcomingMatches = [
 
 
 export default function DashboardPage() {
-  const router = useRouter();
-  const user = useSelector((state: RootState) => state.auth.user);
-
-  useEffect(() => {
-    if (!user) router.replace("/login");
-  }, [user, router]);
+  const user = useRequireAuth();
 
   if (!user) return null;
 

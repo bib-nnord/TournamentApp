@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import FilterTabs from "@/components/FilterTabs";
+import { messageCategoryColors } from "@/lib/colors";
+import { messageCategoryLabel } from "@/constants/labels";
 import {
   LABEL_BACK_TO_MESSAGES,
   LABEL_NEWER,
@@ -15,20 +17,7 @@ import {
   LABEL_FILTER_TOURNAMENTS,
   LABEL_FILTER_WEBSITE,
 } from "@/constants/labels";
-
-type MessageCategory = "users" | "teams" | "tournaments" | "website";
-type Filter = "all" | MessageCategory;
-
-interface Message {
-  id: string;
-  category: MessageCategory;
-  from: string;
-  subject: string;
-  preview: string;
-  body: string;
-  time: string;
-  read: boolean;
-}
+import type { MessageCategory, Filter, Message } from "./types";
 
 const initialMessages: Message[] = [
   { id: "m1", category: "users", from: "alice", subject: "Good game!", preview: "That was a great match, well played in the final round.", body: "That was a great match, well played in the final round. Your opening strategy really caught me off guard — I'd love to play again sometime. Let me know if you're joining any upcoming tournaments!", time: "2h ago", read: false },
@@ -50,19 +39,7 @@ const filters: { label: string; value: Filter }[] = [
   { label: LABEL_FILTER_WEBSITE, value: "website" },
 ];
 
-const categoryBadge: Record<MessageCategory, string> = {
-  users: "bg-indigo-100 text-indigo-700",
-  teams: "bg-yellow-100 text-yellow-700",
-  tournaments: "bg-blue-100 text-blue-700",
-  website: "bg-gray-100 text-gray-600",
-};
 
-const categoryLabel: Record<MessageCategory, string> = {
-  users: "User",
-  teams: "Team",
-  tournaments: "Tournament",
-  website: "Website",
-};
 
 export default function MessagesPage() {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
@@ -161,8 +138,8 @@ export default function MessagesPage() {
               <div className="flex flex-col gap-1.5">
                 <h2 className="text-lg font-semibold text-gray-900">{openMessage.subject}</h2>
                 <div className="flex items-center gap-2">
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${categoryBadge[openMessage.category]}`}>
-                    {categoryLabel[openMessage.category]}
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${messageCategoryColors[openMessage.category]}`}>
+                    {messageCategoryLabel[openMessage.category]}
                   </span>
                   <span className="text-sm text-gray-500">from <span className="font-medium text-gray-700">{openMessage.from}</span></span>
                   <span className="text-xs text-gray-400">{openMessage.time}</span>
@@ -292,8 +269,8 @@ export default function MessagesPage() {
                   <span className={`w-2 h-2 rounded-full flex-shrink-0 ${!m.read ? "bg-indigo-500" : "bg-transparent"}`} />
 
                   {/* Category badge */}
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${categoryBadge[m.category]}`}>
-                    {categoryLabel[m.category]}
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${messageCategoryColors[m.category]}`}>
+                    {messageCategoryLabel[m.category]}
                   </span>
 
                   {/* From */}

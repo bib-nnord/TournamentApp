@@ -19,6 +19,7 @@ async function create(req, res) {
     'combination',
     'swiss',
   ];
+  
   if (!validFormats.includes(format)) {
     return res.status(400).json({ error: `Invalid format. Must be one of: ${validFormats.join(', ')}` });
   }

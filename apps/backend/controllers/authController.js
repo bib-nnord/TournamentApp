@@ -17,9 +17,25 @@ async function register(req, res) {
     return res.status(400).json({ error: 'username, email, and password are required' });
   }
 
-  if (typeof password !== 'string' || password.length < 8) {
+  //add proper verification later (cases and symbols)
+  if (password.length < 8) {
     return res.status(400).json({ error: 'Password must be at least 8 characters' });
   }
+
+  if (date_of_birth) {
+  const dob = new Date(date_of_birth);
+  if (isNaN(dob.getTime())) {
+    return res.status(400).json({ error: 'Invalid date of birth' });
+  }
+  if (dob > new Date()) {
+    return res.status(400).json({ error: 'Date of birth cannot be in the future' });
+  }
+
+  //100 years
+  if ( Math.floor((Date.now() - dob.getTime()) / (365 * 24 * 3600 * 1000)) > 100) {
+    return res.status(400).json({ error: 'Invalid date of birth' });
+  }
+}
 
   try {
     const existing = await prisma.user.findFirst({
@@ -30,10 +46,10 @@ async function register(req, res) {
 
     if (existing) {
       const field = existing.email === email.toLowerCase() ? 'email' : 'username';
-      return res.status(409).json({ error: `An account with that ${field} already exists` });
+      return res.status(409).json({ error: `An account with that ${field} has already been created` });
     }
 
-    const password_hash = await bcrypt.hash(password, 12);
+    const password_hash = await bcrypt.hash(password, 16);
 
     await prisma.user.create({
       data: {
@@ -58,24 +74,23 @@ async function register(req, res) {
 // Body: { email, password }
 // Response 200: { token: string, user: { id, username, email } }
 async function login(req, res) {
-  const { email, password } = req.body;
+  const { email, username, password } = req.body;
 
-  if (!email || !password) {
-    return res.status(400).json({ error: 'email and password are required' });
+  if ((!email && !username) || !password) {
+    return res.status(400).json({ error: 'email/username and password are required' });
   }
 
   try {
-    const user = await prisma.user.findUnique({
-      where: { email: email.toLowerCase() },
+    const user = await prisma.user.findFirst({
+      where: email
+        ? { email: email.toLowerCase() }
+        : { username },
     });
 
-    if (!user) {
-      return res.status(401).json({ error: 'Invalid email or password' });
-    }
 
     const passwordMatch = await bcrypt.compare(password, user.password_hash);
-    if (!passwordMatch) {
-      return res.status(401).json({ error: 'Invalid email or password' });
+    if (!passwordMatch || !user) {
+      return res.status(401).json({ error: 'Invalid credentials' });
     }
 
     const accessToken = jwt.sign(
@@ -85,7 +100,8 @@ async function login(req, res) {
     );
 
     const refreshToken = crypto.randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    //7 days
+    const expiresAt = new Date(Date.now() + 7 * 24 * 3600 * 1000);
 
     await prisma.refreshToken.create({
       data: {
