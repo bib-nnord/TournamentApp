@@ -2,6 +2,13 @@
 
 import { useState } from "react";
 import type { Bracket, BracketRound, BracketMatch, TiebreakerMatch } from "@/lib/generateBracket";
+import {
+  LABEL_CANCEL,
+  LABEL_CONFIRM,
+  LABEL_CONFIRM_WINNER,
+  LABEL_TIE,
+  LABEL_UNDO,
+} from "@/constants/labels";
 
 // ─── Main entry point ─────────────────────────────────────────────────────────
 
@@ -142,7 +149,7 @@ function TiebreakerPanel({
             disabled={undoing}
             className="text-xs px-3 py-1.5 rounded border border-amber-300 text-amber-700 hover:bg-amber-100 disabled:opacity-50 transition-colors"
           >
-            {undoing ? "Undoing…" : "Undo"}
+            {undoing ? "Undoing…" : LABEL_UNDO}
           </button>
         )}
         {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
@@ -180,7 +187,7 @@ function TiebreakerPanel({
           disabled={!selected || submitting}
           className="px-4 py-2 rounded text-sm font-semibold bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-40 transition-colors"
         >
-          {submitting ? "Saving…" : "Confirm Winner"}
+          {submitting ? "Saving…" : LABEL_CONFIRM_WINNER}
         </button>
       )}
     </div>
@@ -621,7 +628,7 @@ function MatchCard({
                   : "bg-gray-100 text-gray-500 hover:bg-gray-200 border border-gray-200"
               }`}
             >
-              Tie
+              {LABEL_TIE}
             </button>
             <div className="flex items-center gap-2 mb-3">
               <input
@@ -650,7 +657,7 @@ function MatchCard({
                 disabled={!selectedWinner || submitting}
                 className="flex-1 py-2 rounded text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40 transition-colors"
               >
-                {submitting ? "Saving…" : "Confirm"}
+                {submitting ? "Saving…" : LABEL_CONFIRM}
               </button>
               <button
                 type="button"
@@ -658,7 +665,7 @@ function MatchCard({
                 disabled={submitting}
                 className="px-4 py-2 rounded text-sm text-gray-500 hover:text-gray-700 border border-gray-200 hover:border-gray-300 transition-colors"
               >
-                Cancel
+                {LABEL_CANCEL}
               </button>
             </div>
           </div>
@@ -979,7 +986,7 @@ function MatchRow({
               onClick={() => setSelectedWinner("tie")}
               className={`w-full py-1.5 rounded text-sm font-medium transition-colors mb-3 ${selectedWinner === "tie" ? "bg-gray-500 text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200 border border-gray-200"}`}
             >
-              Tie
+              {LABEL_TIE}
             </button>
             <div className="flex items-center gap-2 mb-3">
               <input type="number" min={0} placeholder="—" value={scoreA} onChange={e => setScoreA(e.target.value)} className="w-14 text-center border border-gray-200 rounded px-1 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400" />
@@ -989,10 +996,10 @@ function MatchRow({
             {submitError && <p className="text-[10px] text-red-500 mb-2">{submitError}</p>}
             <div className="flex gap-1.5">
               <button type="button" onClick={handleSubmit} disabled={!selectedWinner || submitting} className="flex-1 py-1.5 rounded text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40 transition-colors">
-                {submitting ? "Saving…" : "Confirm"}
+                {submitting ? "Saving…" : LABEL_CONFIRM}
               </button>
               <button type="button" onClick={handleCancel} disabled={submitting} className="px-3 py-1.5 rounded text-xs text-gray-500 hover:text-gray-700 border border-gray-200 hover:border-gray-300 transition-colors">
-                Cancel
+                {LABEL_CANCEL}
               </button>
             </div>
           </div>

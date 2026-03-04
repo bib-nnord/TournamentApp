@@ -5,6 +5,11 @@ import { tournamentFormatInfo, type TournamentFormat } from "@/types";
 import { apiFetch } from "@/lib/api";
 import { generateUniqueName } from "@/lib/helpers";
 import { useTagInput } from "@/hooks/useTagInput";
+import {
+  LABEL_ADD_TEAM,
+  LABEL_GENERATE_BRACKET,
+  LABEL_TEAM_MODE,
+} from "@/constants/labels";
 import UserSearchInput from "../UserSearchInput";
 import type { Participant, TeamSearchResult, QuickTournamentData } from "./types";
 
@@ -223,7 +228,7 @@ export default function QuickTournamentForm({ initial, onSubmit, onChange }: Pro
           />
         </button>
         <span className="text-sm text-gray-700">
-          Team mode{" "}
+          {LABEL_TEAM_MODE}{" "}
           <span className="text-gray-400">— teams compete instead of individuals</span>
         </span>
       </div>
@@ -307,7 +312,7 @@ export default function QuickTournamentForm({ initial, onSubmit, onChange }: Pro
             onClick={() => setTeams((prev) => [...prev, { name: "", members: [] }])}
             className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
           >
-            + Add team
+            {LABEL_ADD_TEAM}
           </button>
         </div>
       ) : (
@@ -374,7 +379,7 @@ export default function QuickTournamentForm({ initial, onSubmit, onChange }: Pro
         disabled={totalCompetitors < 2}
         className="mt-2 w-full py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed"
       >
-        Generate Bracket →
+        {LABEL_GENERATE_BRACKET}
       </button>
     </form>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { LABEL_SAVE_CHANGES, LABEL_DISBAND } from "@/constants/labels";
 import type { TeamSettingsFormProps } from "./types";
 
 export default function TeamSettingsForm({ team, isLead, onSuccess }: TeamSettingsFormProps) {
@@ -71,7 +72,7 @@ export default function TeamSettingsForm({ team, isLead, onSuccess }: TeamSettin
             type="submit"
             className="mt-2 w-full py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700"
           >
-            Save changes
+            {LABEL_SAVE_CHANGES}
           </button>
         </form>
       </div>
@@ -86,7 +87,7 @@ export default function TeamSettingsForm({ team, isLead, onSuccess }: TeamSettin
               <p className="text-xs text-gray-400 mt-0.5">Permanently delete this team and remove all members.</p>
             </div>
             <button className="text-sm px-4 py-2 border border-red-300 text-red-500 rounded-lg hover:bg-red-50">
-              Disband
+              {LABEL_DISBAND}
             </button>
           </div>
         </div>

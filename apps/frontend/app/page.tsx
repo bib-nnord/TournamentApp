@@ -11,10 +11,10 @@ export default function Home() {
       <div className="bg-white border-b">
         <div className="max-w-4xl mx-auto px-4 py-16 flex flex-col items-center text-center gap-4">
           <h1 className="text-5xl font-bold text-gray-900 tracking-tight">
-            Compete. Organise. Win.
+            Host your Tournaments.
           </h1>
           <p className="text-lg text-gray-500 max-w-xl">
-            Create and join tournaments for any game or sport. Track results, manage teams, and climb the leaderboard.
+            Create and join tournaments for any game or sport. Track results, manage teams or plan matches.
           </p>
           <AuthButtons />
         </div>

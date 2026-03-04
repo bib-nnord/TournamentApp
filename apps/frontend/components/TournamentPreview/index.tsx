@@ -9,6 +9,12 @@ import UserSearchInput from "../UserSearchInput";
 import BracketView from "../BracketView";
 import type { RootState } from "@/store/store";
 import { shuffleArray, generateUniqueName } from "@/lib/helpers";
+import {
+  LABEL_BACK_TO_FORM,
+  LABEL_CONFIRM_START,
+  LABEL_SHUFFLE,
+  LABEL_REMOVE_QUESTION,
+} from "@/constants/labels";
 import type { TournamentPreviewProps } from "./types";
 
 export default function TournamentPreview({ data, onBack, onConfirm, submitting, submitError }: TournamentPreviewProps) {
@@ -262,7 +268,7 @@ export default function TournamentPreview({ data, onBack, onConfirm, submitting,
               onClick={shuffleParticipants}
               className="text-xs px-2.5 py-1 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50"
             >
-              Shuffle
+              {LABEL_SHUFFLE}
             </button>
           </div>
           <div className="flex flex-col gap-3 overflow-y-auto pr-1 min-h-0">
@@ -341,7 +347,7 @@ export default function TournamentPreview({ data, onBack, onConfirm, submitting,
                         type="button"
                         onClick={(e) => { e.stopPropagation(); removeParticipant(i); }}
                         className="text-[10px] text-red-600 hover:text-red-800 font-medium"
-                      >Remove?</button>
+                      >{LABEL_REMOVE_QUESTION}</button>
                     </span>
                   ) : (
                     <button
@@ -488,7 +494,7 @@ export default function TournamentPreview({ data, onBack, onConfirm, submitting,
           disabled={submitting}
           className="px-5 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-40"
         >
-          ← Back to form
+          {LABEL_BACK_TO_FORM}
         </button>
         <button
           type="button"
@@ -496,7 +502,7 @@ export default function TournamentPreview({ data, onBack, onConfirm, submitting,
           disabled={participants.length < 2 || submitting}
           className="flex-1 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          {submitting ? "Creating…" : "Confirm & Start Tournament"}
+          {submitting ? "Creating…" : LABEL_CONFIRM_START}
         </button>
       </div>
     </div>

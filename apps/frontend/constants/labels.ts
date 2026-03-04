@@ -112,3 +112,20 @@ export const teamRoleLabel: Record<string, string> = {
   member: "Member",
   none: "",
 };
+
+// ─── Bracket buttons ─────────────────────────────────────────────────────────
+export const LABEL_CONFIRM_WINNER = "Confirm Winner";
+export const LABEL_CONFIRM = "Confirm";
+export const LABEL_UNDO = "Undo";
+export const LABEL_TIE = "Tie";
+
+// ─── Match page ──────────────────────────────────────────────────────────────
+export const LABEL_GENERATE_BRACKET = "Generate Bracket →";
+export const LABEL_BACK_TO_FORM = "← Back to form";
+export const LABEL_CONFIRM_START = "Confirm & Start Tournament";
+export const LABEL_SHUFFLE = "Shuffle";
+export const LABEL_REMOVE_QUESTION = "Remove?";
+export const LABEL_ADD_TEAM = "+ Add team";
+export const LABEL_TEAM_MODE = "Team mode";
+export const LABEL_SAVE_CHANGES = "Save changes";
+export const LABEL_DISBAND = "Disband";
