@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import type { Bracket, BracketRound, BracketMatch } from "@/lib/generateBracket";
+import type { Bracket, BracketRound, BracketMatch, TiebreakerMatch } from "@/lib/generateBracket";
 
 // ─── Main entry point ─────────────────────────────────────────────────────────
 
-export default function BracketView({ bracket, onSwapParticipants, advancersPerGroup, onAdvancersChange, autoAdvanceGroups, onAutoAdvanceGroupsChange, onMoveParticipant, onReportResult }: {
+export default function BracketView({ bracket, onSwapParticipants, advancersPerGroup, onAdvancersChange, autoAdvanceGroups, onAutoAdvanceGroupsChange, onMoveParticipant, onReportResult, onReportTiebreaker, onUndoTiebreaker }: {
   bracket: Bracket;
   onSwapParticipants?: (a: string, b: string) => void;
   advancersPerGroup?: number;
@@ -13,62 +13,178 @@ export default function BracketView({ bracket, onSwapParticipants, advancersPerG
   autoAdvanceGroups?: string[][];
   onAutoAdvanceGroupsChange?: (groups: string[][]) => void;
   onMoveParticipant?: (name: string, fromGroupIndex: number, toGroupIndex: number) => void;
-  onReportResult?: (matchId: string, winner: "a" | "b", scoreA?: number, scoreB?: number) => Promise<void>;
+  onReportResult?: (matchId: string, winner: "a" | "b" | "tie", scoreA?: number, scoreB?: number) => Promise<void>;
+  onReportTiebreaker?: (matchId: string, winnerName: string) => Promise<void>;
+  onUndoTiebreaker?: () => Promise<void>;
 }) {
-  switch (bracket.format) {
-    case "single_elimination":
-      return <EliminationBracket rounds={bracket.rounds} onSwapParticipants={onSwapParticipants} onReportResult={onReportResult} />;
-    case "double_elimination": {
-      const allLosers = bracket.losersRounds ?? [];
-      const grandFinalRound = allLosers.length > 0 && allLosers[allLosers.length - 1].name === "Grand Final"
-        ? allLosers[allLosers.length - 1]
-        : null;
-      const losersOnly = grandFinalRound ? allLosers.slice(0, -1) : allLosers;
+  const mainContent = (() => {
+    switch (bracket.format) {
+      case "single_elimination":
+        return <EliminationBracket rounds={bracket.rounds} onSwapParticipants={onSwapParticipants} onReportResult={onReportResult} />;
+      case "double_elimination": {
+        const allLosers = bracket.losersRounds ?? [];
+        const grandFinalRound = allLosers.length > 0 && allLosers[allLosers.length - 1].name === "Grand Final"
+          ? allLosers[allLosers.length - 1]
+          : null;
+        const losersOnly = grandFinalRound ? allLosers.slice(0, -1) : allLosers;
 
-      return (
-        <div className="flex flex-col gap-6">
-          <div>
-            <h3 className="text-sm font-semibold text-gray-600 mb-3">Winners Bracket</h3>
-            <EliminationBracket
-              rounds={bracket.rounds}
-              onSwapParticipants={onSwapParticipants}
-              grandFinal={grandFinalRound?.matches[0]}
-              onReportResult={onReportResult}
-            />
-          </div>
-          {losersOnly.length > 0 && (
+        return (
+          <div className="flex flex-col gap-6">
             <div>
-              <h3 className="text-sm font-semibold text-gray-600 mb-3">Losers Bracket</h3>
+              <h3 className="text-sm font-semibold text-gray-600 mb-3">Winners Bracket</h3>
               <EliminationBracket
-                rounds={losersOnly}
+                rounds={bracket.rounds}
                 onSwapParticipants={onSwapParticipants}
-                showOutputConnector={!!grandFinalRound}
+                grandFinal={grandFinalRound?.matches[0]}
                 onReportResult={onReportResult}
               />
             </div>
-          )}
-        </div>
-      );
+            {losersOnly.length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold text-gray-600 mb-3">Losers Bracket</h3>
+                <EliminationBracket
+                  rounds={losersOnly}
+                  onSwapParticipants={onSwapParticipants}
+                  showOutputConnector={!!grandFinalRound}
+                  onReportResult={onReportResult}
+                />
+              </div>
+            )}
+          </div>
+        );
+      }
+      case "round_robin":
+      case "double_round_robin":
+        return <RoundRobinView rounds={bracket.rounds} isDouble={bracket.format === "double_round_robin"} onReportResult={onReportResult} />;
+      case "swiss":
+        return <SwissView rounds={bracket.rounds} onReportResult={onReportResult} />;
+      case "combination":
+        return (
+          <CombinationView
+            bracket={bracket}
+            onSwapParticipants={onSwapParticipants}
+            advancersPerGroup={advancersPerGroup}
+            onAdvancersChange={onAdvancersChange}
+            autoAdvanceGroups={autoAdvanceGroups}
+            onAutoAdvanceGroupsChange={onAutoAdvanceGroupsChange}
+            onMoveParticipant={onMoveParticipant}
+            onReportResult={onReportResult}
+          />
+        );
     }
-    case "round_robin":
-    case "double_round_robin":
-      return <RoundRobinView rounds={bracket.rounds} isDouble={bracket.format === "double_round_robin"} onReportResult={onReportResult} />;
-    case "swiss":
-      return <SwissView rounds={bracket.rounds} onReportResult={onReportResult} />;
-    case "combination":
-      return (
-        <CombinationView
-          bracket={bracket}
-          onSwapParticipants={onSwapParticipants}
-          advancersPerGroup={advancersPerGroup}
-          onAdvancersChange={onAdvancersChange}
-          autoAdvanceGroups={autoAdvanceGroups}
-          onAutoAdvanceGroupsChange={onAutoAdvanceGroupsChange}
-          onMoveParticipant={onMoveParticipant}
-          onReportResult={onReportResult}
-        />
-      );
+  })();
+
+  return (
+    <>
+      {mainContent}
+      {bracket.tiebreaker && (
+        <TiebreakerPanel tiebreaker={bracket.tiebreaker} onReport={onReportTiebreaker} onUndo={onUndoTiebreaker} />
+      )}
+    </>
+  );
+}
+
+// ─── Tiebreaker panel ─────────────────────────────────────────────────────────
+
+function TiebreakerPanel({
+  tiebreaker,
+  onReport,
+  onUndo,
+}: {
+  tiebreaker: TiebreakerMatch;
+  onReport?: (matchId: string, winnerName: string) => Promise<void>;
+  onUndo?: () => Promise<void>;
+}) {
+  const [selected, setSelected] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [undoing, setUndoing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleConfirm() {
+    if (!selected || !onReport) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      await onReport(tiebreaker.id, selected);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to submit");
+    } finally {
+      setSubmitting(false);
+    }
   }
+
+  async function handleUndo() {
+    if (!onUndo) return;
+    setUndoing(true);
+    setError(null);
+    try {
+      await onUndo();
+      setSelected(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to undo");
+    } finally {
+      setUndoing(false);
+    }
+  }
+
+  if (tiebreaker.completed) {
+    return (
+      <div className="mt-6 border border-amber-200 rounded-xl bg-amber-50 p-4 flex items-center gap-3">
+        <span className="text-xl">👑</span>
+        <div className="flex-1">
+          <p className="text-[10px] font-semibold text-amber-600 uppercase tracking-wide">Tiebreaker Winner</p>
+          <p className="text-sm font-bold text-amber-900">{tiebreaker.winner}</p>
+        </div>
+        {onUndo && (
+          <button
+            type="button"
+            onClick={handleUndo}
+            disabled={undoing}
+            className="text-xs px-3 py-1.5 rounded border border-amber-300 text-amber-700 hover:bg-amber-100 disabled:opacity-50 transition-colors"
+          >
+            {undoing ? "Undoing…" : "Undo"}
+          </button>
+        )}
+        {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-6 border-2 border-amber-300 rounded-xl bg-amber-50 p-4">
+      <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-1">Tiebreaker</p>
+      <p className="text-sm text-amber-800 mb-3">
+        {tiebreaker.participants.length} participants are tied. Select the tiebreaker winner:
+      </p>
+      <div className="flex flex-wrap gap-2 mb-3">
+        {tiebreaker.participants.map((name) => (
+          <button
+            key={name}
+            type="button"
+            onClick={() => setSelected(name)}
+            className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
+              selected === name
+                ? "bg-amber-600 text-white"
+                : "bg-white text-amber-800 border border-amber-300 hover:bg-amber-100"
+            }`}
+          >
+            {name}
+          </button>
+        ))}
+      </div>
+      {error && <p className="text-xs text-red-500 mb-2">{error}</p>}
+      {onReport && (
+        <button
+          type="button"
+          onClick={handleConfirm}
+          disabled={!selected || submitting}
+          className="px-4 py-2 rounded text-sm font-semibold bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-40 transition-colors"
+        >
+          {submitting ? "Saving…" : "Confirm Winner"}
+        </button>
+      )}
+    </div>
+  );
 }
 
 // ─── Elimination bracket (tree with connector lines) ──────────────────────────
@@ -90,7 +206,7 @@ function EliminationBracket({
   onSwapParticipants?: (a: string, b: string) => void;
   grandFinal?: BracketMatch;
   showOutputConnector?: boolean;
-  onReportResult?: (matchId: string, winner: "a" | "b", scoreA?: number, scoreB?: number) => Promise<void>;
+  onReportResult?: (matchId: string, winner: "a" | "b" | "tie", scoreA?: number, scoreB?: number) => Promise<void>;
 }) {
   if (rounds.length === 0) return null;
 
@@ -254,6 +370,7 @@ function EliminationBracket({
         {/* Match cards */}
         {rounds.map((round, ri) => {
           const slots = getRoundSlots(ri);
+          const isFinalRound = ri === rounds.length - 1 && !grandFinal;
           return round.matches.map((match) => {
             const y = getMatchYByPosition(slots, match.position) - MATCH_H / 2;
             return (
@@ -262,7 +379,7 @@ function EliminationBracket({
                 className="absolute"
                 style={{ left: ri * COL_W, top: y, width: MATCH_W }}
               >
-                <MatchCard match={match} onSwapParticipants={onSwapParticipants} onReportResult={onReportResult} />
+                <MatchCard match={match} onSwapParticipants={onSwapParticipants} onReportResult={onReportResult} isFinal={isFinalRound} />
               </div>
             );
           });
@@ -274,7 +391,7 @@ function EliminationBracket({
             className="absolute"
             style={{ left: extraX, top: extraY - MATCH_H / 2, width: MATCH_W }}
           >
-            <MatchCard match={grandFinal} onReportResult={onReportResult} />
+            <MatchCard match={grandFinal} onReportResult={onReportResult} isFinal={true} />
           </div>
         )}
       </div>
@@ -288,16 +405,18 @@ function MatchCard({
   match,
   onSwapParticipants,
   onReportResult,
+  isFinal = false,
 }: {
   match: BracketMatch;
   onSwapParticipants?: (a: string, b: string) => void;
-  onReportResult?: (matchId: string, winner: "a" | "b", scoreA?: number, scoreB?: number) => Promise<void>;
+  onReportResult?: (matchId: string, winner: "a" | "b" | "tie", scoreA?: number, scoreB?: number) => Promise<void>;
+  isFinal?: boolean;
 }) {
   const [dropTarget, setDropTarget] = useState<"a" | "b" | null>(null);
   const [reporting, setReporting] = useState(false);
-  const [selectedWinner, setSelectedWinner] = useState<"a" | "b" | null>(null);
-  const [scoreA, setScoreA] = useState("");
-  const [scoreB, setScoreB] = useState("");
+  const [selectedWinner, setSelectedWinner] = useState<"a" | "b" | "tie" | null>(null);
+  const [scoreA, setScoreA] = useState("0");
+  const [scoreB, setScoreB] = useState("0");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -335,8 +454,8 @@ function MatchCard({
       await onReportResult(match.id, selectedWinner, sA, sB);
       setReporting(false);
       setSelectedWinner(null);
-      setScoreA("");
-      setScoreB("");
+      setScoreA("0");
+      setScoreB("0");
     } catch (e) {
       setSubmitError(e instanceof Error ? e.message : "Failed to submit");
     } finally {
@@ -347,8 +466,8 @@ function MatchCard({
   function handleCancel() {
     setReporting(false);
     setSelectedWinner(null);
-    setScoreA("");
-    setScoreB("");
+    setScoreA("0");
+    setScoreB("0");
     setSubmitError(null);
   }
 
@@ -358,159 +477,194 @@ function MatchCard({
   }
 
   const canDrag = !!onSwapParticipants;
-  const canReport = !!onReportResult && !!match.participantA && !!match.participantB && !match.completed;
+  const canReport = !!onReportResult
+    && !!match.participantA && match.participantA !== "TBD"
+    && !!match.participantB && match.participantB !== "TBD";
   const wbA = match.wbDropDown === "a" || match.wbDropDown === "both";
   const wbB = match.wbDropDown === "b" || match.wbDropDown === "both";
 
-  const isWinnerA = match.completed && match.winner === match.participantA;
-  const isWinnerB = match.completed && match.winner === match.participantB;
+  const isWinnerA = match.completed && !match.tie && match.winner === match.participantA;
+  const isWinnerB = match.completed && !match.tie && match.winner === match.participantB;
+  const isTie = match.completed && match.tie;
 
-  // ── Reporting overlay ─────────────────────────────────────────────────
-  if (reporting) {
-    return (
-      <div className="border border-indigo-300 rounded-lg overflow-hidden text-sm bg-white shadow-md">
-        <div className="px-3 py-2 bg-indigo-50 border-b border-indigo-100">
-          <p className="text-xs font-semibold text-indigo-700 mb-2">Who won?</p>
-          <div className="flex gap-1.5 mb-2">
-            <button
-              type="button"
-              onClick={() => setSelectedWinner("a")}
-              className={`flex-1 py-1 rounded text-xs font-medium transition-colors truncate ${
-                selectedWinner === "a"
-                  ? "bg-indigo-600 text-white"
-                  : "bg-white border border-gray-200 text-gray-700 hover:border-indigo-400"
-              }`}
-            >
-              {match.participantA}
-            </button>
-            <button
-              type="button"
-              onClick={() => setSelectedWinner("b")}
-              className={`flex-1 py-1 rounded text-xs font-medium transition-colors truncate ${
-                selectedWinner === "b"
-                  ? "bg-indigo-600 text-white"
-                  : "bg-white border border-gray-200 text-gray-700 hover:border-indigo-400"
-              }`}
-            >
-              {match.participantB}
-            </button>
-          </div>
-          <div className="flex items-center gap-1 mb-2">
-            <input
-              type="number"
-              min={0}
-              placeholder="—"
-              value={scoreA}
-              onChange={e => setScoreA(e.target.value)}
-              className="w-12 text-center border border-gray-200 rounded px-1 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400"
-            />
-            <span className="text-[10px] text-gray-400 flex-1 text-center">score (optional)</span>
-            <input
-              type="number"
-              min={0}
-              placeholder="—"
-              value={scoreB}
-              onChange={e => setScoreB(e.target.value)}
-              className="w-12 text-center border border-gray-200 rounded px-1 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400"
-            />
-          </div>
-          {submitError && <p className="text-[10px] text-red-500 mb-1">{submitError}</p>}
-          <div className="flex gap-1.5">
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={!selectedWinner || submitting}
-              className="flex-1 py-1 rounded text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40 transition-colors"
-            >
-              {submitting ? "Saving…" : "Confirm"}
-            </button>
-            <button
-              type="button"
-              onClick={handleCancel}
-              disabled={submitting}
-              className="px-3 py-1 rounded text-xs text-gray-500 hover:text-gray-700 border border-gray-200 hover:border-gray-300 transition-colors"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      </div>
-    );
+  function openReporting() {
+    if (match.completed) {
+      if (match.tie) {
+        setSelectedWinner("tie");
+      } else if (match.winner) {
+        setSelectedWinner(match.winner === match.participantA ? "a" : "b");
+      }
+      setScoreA(match.scoreA != null ? String(match.scoreA) : "0");
+      setScoreB(match.scoreB != null ? String(match.scoreB) : "0");
+    }
+    setReporting(true);
   }
 
-  // ── Normal card ────────────────────────────────────────────────────────
   return (
-    <div
-      className={`border rounded-lg overflow-hidden text-sm bg-white ${
-        match.completed
-          ? "border-gray-200"
-          : canReport
+    <>
+      {/* ── Normal card ──────────────────────────────────────────────── */}
+      <div
+        className={`border rounded-lg overflow-hidden text-sm bg-white ${
+          canReport
             ? "border-gray-200 hover:border-indigo-300 cursor-pointer transition-colors"
             : "border-gray-200"
-      }`}
-      onClick={canReport ? () => setReporting(true) : undefined}
-      title={canReport ? "Click to report result" : undefined}
-    >
-      {/* Side A */}
-      <div
-        draggable={!!match.participantA && canDrag}
-        onDragStart={(e) => match.participantA && handleDragStart(e, match.participantA)}
-        onDragOver={(e) => match.participantA && handleDragOver(e, "a")}
-        onDragLeave={handleDragLeave}
-        onDrop={(e) => handleDrop(e, match.participantA)}
-        onClick={canReport ? e => e.stopPropagation() : undefined}
-        className={`flex items-center gap-2 px-3 py-1.5 border-b border-gray-100 transition-colors ${
-          isWinnerA
-            ? "bg-emerald-50"
-            : dropTarget === "a"
-              ? "bg-indigo-50"
-              : wbA
-                ? "bg-amber-50/60"
-                : "bg-gray-50"
-        } ${match.participantA && canDrag ? "cursor-grab active:cursor-grabbing" : ""} ${!match.participantA || match.participantA === "TBD" ? "print-tbd-row" : ""}`}
+        }`}
+        onClick={canReport ? openReporting : undefined}
+        title={canReport ? (match.completed ? "Click to update result" : "Click to report result") : undefined}
       >
-        {wbA && <span className="text-[9px] text-amber-500 font-semibold shrink-0" title="From Winners Bracket">WB</span>}
-        {isWinnerA && <span className="text-[9px] text-emerald-600 font-bold shrink-0">W</span>}
-        <span className={`flex-1 truncate ${isWinnerA ? "text-emerald-700 font-semibold" : match.participantA && match.participantA !== "TBD" ? "text-gray-800" : "text-gray-300 italic"}`}>
-          {renderName(match.participantA)}
-        </span>
-        {match.completed && match.scoreA != null && (
-          <span className={`text-xs font-mono shrink-0 ${isWinnerA ? "text-emerald-700 font-bold" : "text-gray-400"}`}>
-            {match.scoreA}
+        {/* Side A */}
+        <div
+          draggable={!!match.participantA && canDrag}
+          onDragStart={(e) => match.participantA && handleDragStart(e, match.participantA)}
+          onDragOver={(e) => match.participantA && handleDragOver(e, "a")}
+          onDragLeave={handleDragLeave}
+          onDrop={(e) => handleDrop(e, match.participantA)}
+          className={`flex items-center gap-2 px-3 py-1.5 border-b border-gray-100 transition-colors ${
+            isWinnerA
+              ? "bg-emerald-50"
+              : dropTarget === "a"
+                ? "bg-indigo-50"
+                : wbA
+                  ? "bg-amber-50/60"
+                  : "bg-gray-50"
+          } ${match.participantA && canDrag ? "cursor-grab active:cursor-grabbing" : ""} ${!match.participantA || match.participantA === "TBD" ? "print-tbd-row" : ""}`}
+        >
+          {wbA && <span className="text-[9px] text-amber-500 font-semibold shrink-0" title="From Winners Bracket">WB</span>}
+          {isWinnerA && !isFinal && <span className="text-[9px] text-emerald-600 font-bold shrink-0">W</span>}
+          {isWinnerA && isFinal && <span className="text-sm shrink-0">👑</span>}
+          {isTie && <span className="text-[9px] text-gray-400 font-bold shrink-0">TIE</span>}
+          <span className={`flex-1 truncate ${isWinnerA ? "text-emerald-700 font-semibold" : isTie ? "text-gray-500" : match.participantA && match.participantA !== "TBD" ? "text-gray-800" : "text-gray-300 italic"}`}>
+            {renderName(match.participantA)}
           </span>
-        )}
+          {match.completed && match.scoreA != null && (
+            <span className={`text-xs font-mono shrink-0 ${isWinnerA ? "text-emerald-700 font-bold" : "text-gray-400"}`}>
+              {match.scoreA}
+            </span>
+          )}
+        </div>
+
+        {/* Side B */}
+        <div
+          draggable={!!match.participantB && canDrag}
+          onDragStart={(e) => match.participantB && handleDragStart(e, match.participantB)}
+          onDragOver={(e) => match.participantB && handleDragOver(e, "b")}
+          onDragLeave={handleDragLeave}
+          onDrop={(e) => handleDrop(e, match.participantB)}
+          className={`flex items-center gap-2 px-3 py-1.5 transition-colors ${
+            isWinnerB
+              ? "bg-emerald-50"
+              : dropTarget === "b"
+                ? "bg-indigo-50"
+                : wbB
+                  ? "bg-amber-50/60"
+                  : ""
+          } ${match.participantB && canDrag ? "cursor-grab active:cursor-grabbing" : ""} ${!match.participantB || match.participantB === "TBD" ? "print-tbd-row" : ""}`}
+        >
+          {wbB && <span className="text-[9px] text-amber-500 font-semibold shrink-0" title="From Winners Bracket">WB</span>}
+          {isWinnerB && !isFinal && <span className="text-[9px] text-emerald-600 font-bold shrink-0">W</span>}
+          {isWinnerB && isFinal && <span className="text-sm shrink-0">👑</span>}
+          {isTie && <span className="text-[9px] text-gray-400 font-bold shrink-0">TIE</span>}
+          <span className={`flex-1 truncate ${isWinnerB ? "text-emerald-700 font-semibold" : isTie ? "text-gray-500" : match.participantB && match.participantB !== "TBD" ? "text-gray-800" : "text-gray-300 italic"}`}>
+            {renderName(match.participantB)}
+          </span>
+          {match.completed && match.scoreB != null && (
+            <span className={`text-xs font-mono shrink-0 ${isWinnerB ? "text-emerald-700 font-bold" : "text-gray-400"}`}>
+              {match.scoreB}
+            </span>
+          )}
+        </div>
       </div>
 
-      {/* Side B */}
-      <div
-        draggable={!!match.participantB && canDrag}
-        onDragStart={(e) => match.participantB && handleDragStart(e, match.participantB)}
-        onDragOver={(e) => match.participantB && handleDragOver(e, "b")}
-        onDragLeave={handleDragLeave}
-        onDrop={(e) => handleDrop(e, match.participantB)}
-        onClick={canReport ? e => e.stopPropagation() : undefined}
-        className={`flex items-center gap-2 px-3 py-1.5 transition-colors ${
-          isWinnerB
-            ? "bg-emerald-50"
-            : dropTarget === "b"
-              ? "bg-indigo-50"
-              : wbB
-                ? "bg-amber-50/60"
-                : ""
-        } ${match.participantB && canDrag ? "cursor-grab active:cursor-grabbing" : ""} ${!match.participantB || match.participantB === "TBD" ? "print-tbd-row" : ""}`}
-      >
-        {wbB && <span className="text-[9px] text-amber-500 font-semibold shrink-0" title="From Winners Bracket">WB</span>}
-        {isWinnerB && <span className="text-[9px] text-emerald-600 font-bold shrink-0">W</span>}
-        <span className={`flex-1 truncate ${isWinnerB ? "text-emerald-700 font-semibold" : match.participantB && match.participantB !== "TBD" ? "text-gray-800" : "text-gray-300 italic"}`}>
-          {renderName(match.participantB)}
-        </span>
-        {match.completed && match.scoreB != null && (
-          <span className={`text-xs font-mono shrink-0 ${isWinnerB ? "text-emerald-700 font-bold" : "text-gray-400"}`}>
-            {match.scoreB}
-          </span>
-        )}
-      </div>
-    </div>
+      {/* ── Reporting modal (fixed, above all overflow containers) ──── */}
+      {reporting && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          onClick={handleCancel}
+        >
+          <div
+            className="bg-white rounded-xl shadow-xl border border-indigo-200 p-4 w-64"
+            onClick={e => e.stopPropagation()}
+          >
+            <p className="text-sm font-semibold text-indigo-700 mb-3">
+              {match.completed ? "Update result" : "Who won?"}
+            </p>
+            <div className="flex gap-1.5 mb-2">
+              <button
+                type="button"
+                onClick={() => setSelectedWinner("a")}
+                className={`flex-1 py-2.5 rounded text-sm font-medium transition-colors truncate ${
+                  selectedWinner === "a"
+                    ? "bg-indigo-600 text-white"
+                    : "bg-gray-100 text-gray-700 hover:bg-indigo-50 border border-gray-200 hover:border-indigo-400"
+                }`}
+              >
+                {match.participantA}
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedWinner("b")}
+                className={`flex-1 py-2.5 rounded text-sm font-medium transition-colors truncate ${
+                  selectedWinner === "b"
+                    ? "bg-indigo-600 text-white"
+                    : "bg-gray-100 text-gray-700 hover:bg-indigo-50 border border-gray-200 hover:border-indigo-400"
+                }`}
+              >
+                {match.participantB}
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSelectedWinner("tie")}
+              className={`w-full py-1.5 rounded text-sm font-medium transition-colors mb-3 ${
+                selectedWinner === "tie"
+                  ? "bg-gray-500 text-white"
+                  : "bg-gray-100 text-gray-500 hover:bg-gray-200 border border-gray-200"
+              }`}
+            >
+              Tie
+            </button>
+            <div className="flex items-center gap-2 mb-3">
+              <input
+                type="number"
+                min={0}
+                placeholder="—"
+                value={scoreA}
+                onChange={e => setScoreA(e.target.value)}
+                className="w-14 text-center border border-gray-200 rounded px-1 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400"
+              />
+              <span className="flex-1 text-center text-[10px] text-gray-400">score (optional)</span>
+              <input
+                type="number"
+                min={0}
+                placeholder="—"
+                value={scoreB}
+                onChange={e => setScoreB(e.target.value)}
+                className="w-14 text-center border border-gray-200 rounded px-1 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400"
+              />
+            </div>
+            {submitError && <p className="text-[10px] text-red-500 mb-2">{submitError}</p>}
+            <div className="flex gap-1.5">
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={!selectedWinner || submitting}
+                className="flex-1 py-2 rounded text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40 transition-colors"
+              >
+                {submitting ? "Saving…" : "Confirm"}
+              </button>
+              <button
+                type="button"
+                onClick={handleCancel}
+                disabled={submitting}
+                className="px-4 py-2 rounded text-sm text-gray-500 hover:text-gray-700 border border-gray-200 hover:border-gray-300 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -523,7 +677,7 @@ function RoundRobinView({
 }: {
   rounds: BracketRound[];
   isDouble: boolean;
-  onReportResult?: (matchId: string, winner: "a" | "b", scoreA?: number, scoreB?: number) => Promise<void>;
+  onReportResult?: (matchId: string, winner: "a" | "b" | "tie", scoreA?: number, scoreB?: number) => Promise<void>;
 }) {
   const participantSet = new Set<string>();
   for (const round of rounds) {
@@ -534,15 +688,36 @@ function RoundRobinView({
   }
   const participants = Array.from(participantSet);
 
-  // Build win counts for standings
+  // Build points for standings (win=1, tie=0.5)
   const wins = new Map<string, number>();
   for (const p of participants) wins.set(p, 0);
   for (const round of rounds) {
     for (const match of round.matches) {
-      if (match.completed && match.winner) {
+      if (!match.completed) continue;
+      if (match.winner) {
         wins.set(match.winner, (wins.get(match.winner) ?? 0) + 1);
+      } else if (match.tie) {
+        if (match.participantA) wins.set(match.participantA, (wins.get(match.participantA) ?? 0) + 0.5);
+        if (match.participantB) wins.set(match.participantB, (wins.get(match.participantB) ?? 0) + 0.5);
       }
     }
+  }
+
+  const allComplete = rounds.every(r => r.matches.every(m => m.completed));
+  const anyComplete = rounds.some(r => r.matches.some(m => m.completed));
+
+  // Build sorted standings with tied-rank detection
+  const sortedByPoints = [...participants].sort((a, b) => (wins.get(b) ?? 0) - (wins.get(a) ?? 0));
+  const standingRows: { name: string; pts: number; rank: number; isTied: boolean }[] = [];
+  for (let i = 0; i < sortedByPoints.length; ) {
+    const pts = wins.get(sortedByPoints[i]) ?? 0;
+    let j = i;
+    while (j < sortedByPoints.length && (wins.get(sortedByPoints[j]) ?? 0) === pts) j++;
+    const isTied = j - i > 1;
+    for (let k = i; k < j; k++) {
+      standingRows.push({ name: sortedByPoints[k], pts, rank: i + 1, isTied });
+    }
+    i = j;
   }
 
   const matchups = new Map<string, number[]>();
@@ -567,6 +742,34 @@ function RoundRobinView({
 
   return (
     <div className="flex flex-col gap-6 min-w-0">
+      {/* Standings */}
+      {anyComplete && (
+        <div>
+          <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+            {allComplete ? "Final Standings" : "Current Standings"}
+          </div>
+          <div className="divide-y divide-gray-100 border border-gray-100 rounded-lg overflow-hidden text-sm">
+            {standingRows.map((row) => (
+              <div
+                key={row.name}
+                className={`flex items-center gap-3 px-3 py-2 ${row.isTied ? "bg-amber-50" : "bg-white"}`}
+              >
+                <span className="text-xs font-mono text-gray-400 w-5 shrink-0">{row.rank}.</span>
+                <span className={`flex-1 ${row.rank === 1 && !row.isTied ? "font-semibold text-gray-900" : row.isTied && row.rank === 1 ? "font-semibold text-amber-900" : "text-gray-700"}`}>
+                  {row.name}
+                </span>
+                {row.isTied && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-medium">tied</span>
+                )}
+                <span className={`text-xs font-bold tabular-nums ${row.isTied ? "text-amber-700" : "text-gray-600"}`}>
+                  {row.pts} pts
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Grid */}
       <div className="overflow-auto max-h-[400px] min-w-0">
         <div className="text-xs text-gray-500 mb-2 sticky top-0 bg-white z-10">
@@ -582,7 +785,7 @@ function RoundRobinView({
                   {p}
                 </th>
               ))}
-              {wins.size > 0 && <th className="p-2 text-center text-gray-500 font-medium sticky top-5 bg-white z-10">W</th>}
+              {wins.size > 0 && <th className="p-2 text-center text-gray-500 font-medium sticky top-5 bg-white z-10">Pts</th>}
             </tr>
           </thead>
           <tbody>
@@ -639,7 +842,7 @@ function SwissView({
   onReportResult,
 }: {
   rounds: BracketRound[];
-  onReportResult?: (matchId: string, winner: "a" | "b", scoreA?: number, scoreB?: number) => Promise<void>;
+  onReportResult?: (matchId: string, winner: "a" | "b" | "tie", scoreA?: number, scoreB?: number) => Promise<void>;
 }) {
   return (
     <div className="flex flex-col gap-4">
@@ -664,18 +867,21 @@ function MatchRow({
   onReportResult,
 }: {
   match: BracketMatch;
-  onReportResult?: (matchId: string, winner: "a" | "b", scoreA?: number, scoreB?: number) => Promise<void>;
+  onReportResult?: (matchId: string, winner: "a" | "b" | "tie", scoreA?: number, scoreB?: number) => Promise<void>;
 }) {
   const [reporting, setReporting] = useState(false);
-  const [selectedWinner, setSelectedWinner] = useState<"a" | "b" | null>(null);
-  const [scoreA, setScoreA] = useState("");
-  const [scoreB, setScoreB] = useState("");
+  const [selectedWinner, setSelectedWinner] = useState<"a" | "b" | "tie" | null>(null);
+  const [scoreA, setScoreA] = useState("0");
+  const [scoreB, setScoreB] = useState("0");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const canReport = !!onReportResult && !!match.participantA && !!match.participantB && !match.completed;
-  const isWinnerA = match.completed && match.winner === match.participantA;
-  const isWinnerB = match.completed && match.winner === match.participantB;
+  const canReport = !!onReportResult
+    && !!match.participantA && match.participantA !== "TBD"
+    && !!match.participantB && match.participantB !== "TBD";
+  const isWinnerA = match.completed && !match.tie && match.winner === match.participantA;
+  const isWinnerB = match.completed && !match.tie && match.winner === match.participantB;
+  const isTie = match.completed && match.tie;
 
   async function handleSubmit() {
     if (!selectedWinner || !onReportResult) return;
@@ -687,8 +893,8 @@ function MatchRow({
       await onReportResult(match.id, selectedWinner, sA, sB);
       setReporting(false);
       setSelectedWinner(null);
-      setScoreA("");
-      setScoreB("");
+      setScoreA("0");
+      setScoreB("0");
     } catch (e) {
       setSubmitError(e instanceof Error ? e.message : "Failed to submit");
     } finally {
@@ -696,62 +902,103 @@ function MatchRow({
     }
   }
 
-  if (reporting) {
-    return (
-      <div className="border border-indigo-300 rounded-lg p-2 bg-white text-xs">
-        <div className="flex gap-1.5 mb-1.5">
-          <button
-            type="button"
-            onClick={() => setSelectedWinner("a")}
-            className={`flex-1 py-1 rounded font-medium truncate transition-colors ${selectedWinner === "a" ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-indigo-50"}`}
-          >
-            {match.participantA}
-          </button>
-          <button
-            type="button"
-            onClick={() => setSelectedWinner("b")}
-            className={`flex-1 py-1 rounded font-medium truncate transition-colors ${selectedWinner === "b" ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-indigo-50"}`}
-          >
-            {match.participantB}
-          </button>
-        </div>
-        <div className="flex items-center gap-1 mb-1.5">
-          <input type="number" min={0} placeholder="—" value={scoreA} onChange={e => setScoreA(e.target.value)} className="w-10 text-center border border-gray-200 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-indigo-400" />
-          <span className="flex-1 text-center text-gray-400">vs</span>
-          <input type="number" min={0} placeholder="—" value={scoreB} onChange={e => setScoreB(e.target.value)} className="w-10 text-center border border-gray-200 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-indigo-400" />
-        </div>
-        {submitError && <p className="text-red-500 mb-1">{submitError}</p>}
-        <div className="flex gap-1">
-          <button type="button" onClick={handleSubmit} disabled={!selectedWinner || submitting} className="flex-1 py-1 rounded font-semibold bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40">
-            {submitting ? "Saving…" : "Confirm"}
-          </button>
-          <button type="button" onClick={() => { setReporting(false); setSelectedWinner(null); setScoreA(""); setScoreB(""); setSubmitError(null); }} className="px-2 py-1 rounded text-gray-500 border border-gray-200 hover:border-gray-300">
-            ✕
-          </button>
-        </div>
-      </div>
-    );
+  function openReporting() {
+    if (match.completed) {
+      if (match.tie) {
+        setSelectedWinner("tie");
+      } else if (match.winner) {
+        setSelectedWinner(match.winner === match.participantA ? "a" : "b");
+      }
+      setScoreA(match.scoreA != null ? String(match.scoreA) : "0");
+      setScoreB(match.scoreB != null ? String(match.scoreB) : "0");
+    }
+    setReporting(true);
+  }
+
+  function handleCancel() {
+    setReporting(false);
+    setSelectedWinner(null);
+    setScoreA("0");
+    setScoreB("0");
+    setSubmitError(null);
   }
 
   return (
-    <div
-      onClick={canReport ? () => setReporting(true) : undefined}
-      className={`flex items-center border rounded-lg text-xs overflow-hidden ${
-        match.completed ? "border-gray-200" : canReport ? "border-gray-200 hover:border-indigo-300 cursor-pointer transition-colors" : "border-gray-200"
-      }`}
-    >
-      <span className={`flex-1 px-2.5 py-1.5 truncate ${isWinnerA ? "bg-emerald-50 text-emerald-700 font-semibold" : "bg-gray-50 text-gray-800"} ${!match.participantA || match.participantA === "TBD" ? "print-tbd-row" : ""}`}>
-        {isWinnerA && <span className="text-[9px] font-bold mr-1">W</span>}
-        {!match.participantA || match.participantA === "TBD" ? <span className="text-gray-300 italic print-hide-tbd">TBD</span> : match.participantA}
-        {match.completed && match.scoreA != null && <span className="ml-1 text-gray-400">{match.scoreA}</span>}
-      </span>
-      <span className="px-2 text-gray-400">vs</span>
-      <span className={`flex-1 px-2.5 py-1.5 truncate text-right ${isWinnerB ? "bg-emerald-50 text-emerald-700 font-semibold" : "text-gray-800"} ${!match.participantB || match.participantB === "TBD" ? "print-tbd-row" : ""}`}>
-        {!match.participantB || match.participantB === "TBD" ? <span className="text-gray-300 italic print-hide-tbd">TBD</span> : match.participantB}
-        {match.completed && match.scoreB != null && <span className="ml-1 text-gray-400">{match.scoreB}</span>}
-        {isWinnerB && <span className="text-[9px] font-bold ml-1">W</span>}
-      </span>
-    </div>
+    <>
+      <div
+        onClick={canReport ? openReporting : undefined}
+        className={`flex items-center border rounded-lg text-xs overflow-hidden ${
+          canReport ? "border-gray-200 hover:border-indigo-300 cursor-pointer transition-colors" : "border-gray-200"
+        }`}
+      >
+        <span className={`flex-1 px-2.5 py-1.5 truncate ${isWinnerA || isTie ? "bg-emerald-50 text-emerald-700 font-semibold" : "bg-gray-50 text-gray-800"} ${!match.participantA || match.participantA === "TBD" ? "print-tbd-row" : ""}`}>
+          {isWinnerA && <span className="text-[9px] font-bold mr-1">W</span>}
+          {isTie && <span className="text-[9px] font-bold mr-1 text-emerald-600">T</span>}
+          {!match.participantA || match.participantA === "TBD" ? <span className="text-gray-300 italic print-hide-tbd">TBD</span> : match.participantA}
+          {match.completed && match.scoreA != null && <span className="ml-1 text-emerald-600">{match.scoreA}</span>}
+        </span>
+        <span className="px-2 text-gray-400">vs</span>
+        <span className={`flex-1 px-2.5 py-1.5 truncate text-right ${isWinnerB || isTie ? "bg-emerald-50 text-emerald-700 font-semibold" : "text-gray-800"} ${!match.participantB || match.participantB === "TBD" ? "print-tbd-row" : ""}`}>
+          {isTie && <span className="text-[9px] font-bold ml-1 text-emerald-600">T</span>}
+          {!match.participantB || match.participantB === "TBD" ? <span className="text-gray-300 italic print-hide-tbd">TBD</span> : match.participantB}
+          {match.completed && match.scoreB != null && <span className="ml-1 text-emerald-600">{match.scoreB}</span>}
+          {isWinnerB && <span className="text-[9px] font-bold ml-1">W</span>}
+        </span>
+      </div>
+
+      {reporting && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          onClick={handleCancel}
+        >
+          <div
+            className="bg-white rounded-xl shadow-xl border border-indigo-200 p-4 w-64"
+            onClick={e => e.stopPropagation()}
+          >
+            <p className="text-sm font-semibold text-indigo-700 mb-3">
+              {match.completed ? "Update result" : "Who won?"}
+            </p>
+            <div className="flex gap-1.5 mb-2">
+              <button
+                type="button"
+                onClick={() => setSelectedWinner("a")}
+                className={`flex-1 py-2.5 rounded text-sm font-medium truncate transition-colors ${selectedWinner === "a" ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-indigo-50 border border-gray-200 hover:border-indigo-400"}`}
+              >
+                {match.participantA}
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedWinner("b")}
+                className={`flex-1 py-2.5 rounded text-sm font-medium truncate transition-colors ${selectedWinner === "b" ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-indigo-50 border border-gray-200 hover:border-indigo-400"}`}
+              >
+                {match.participantB}
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSelectedWinner("tie")}
+              className={`w-full py-1.5 rounded text-sm font-medium transition-colors mb-3 ${selectedWinner === "tie" ? "bg-gray-500 text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200 border border-gray-200"}`}
+            >
+              Tie
+            </button>
+            <div className="flex items-center gap-2 mb-3">
+              <input type="number" min={0} placeholder="—" value={scoreA} onChange={e => setScoreA(e.target.value)} className="w-14 text-center border border-gray-200 rounded px-1 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400" />
+              <span className="flex-1 text-center text-[10px] text-gray-400">score (optional)</span>
+              <input type="number" min={0} placeholder="—" value={scoreB} onChange={e => setScoreB(e.target.value)} className="w-14 text-center border border-gray-200 rounded px-1 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400" />
+            </div>
+            {submitError && <p className="text-[10px] text-red-500 mb-2">{submitError}</p>}
+            <div className="flex gap-1.5">
+              <button type="button" onClick={handleSubmit} disabled={!selectedWinner || submitting} className="flex-1 py-1.5 rounded text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40 transition-colors">
+                {submitting ? "Saving…" : "Confirm"}
+              </button>
+              <button type="button" onClick={handleCancel} disabled={submitting} className="px-3 py-1.5 rounded text-xs text-gray-500 hover:text-gray-700 border border-gray-200 hover:border-gray-300 transition-colors">
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -774,7 +1021,7 @@ function CombinationView({
   autoAdvanceGroups?: string[][];
   onAutoAdvanceGroupsChange?: (groups: string[][]) => void;
   onMoveParticipant?: (name: string, fromGroupIndex: number, toGroupIndex: number) => void;
-  onReportResult?: (matchId: string, winner: "a" | "b", scoreA?: number, scoreB?: number) => Promise<void>;
+  onReportResult?: (matchId: string, winner: "a" | "b" | "tie", scoreA?: number, scoreB?: number) => Promise<void>;
 }) {
   const [dragName, setDragName] = useState<string | null>(null);
   const [dragFromGroup, setDragFromGroup] = useState<number | null>(null);

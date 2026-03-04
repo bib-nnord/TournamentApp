@@ -15,6 +15,7 @@ export interface BracketMatch {
   scoreA?: number | null;
   scoreB?: number | null;
   completed?: boolean;
+  tie?: boolean;
 }
 
 export interface BracketRound {
@@ -26,6 +27,14 @@ export interface BracketRound {
   isDropDown?: boolean;
 }
 
+export interface TiebreakerMatch {
+  id: string;
+  /** All participants who are tied (2 for elimination finals, 2+ for round robin) */
+  participants: string[];
+  winner?: string | null;
+  completed?: boolean;
+}
+
 export interface Bracket {
   format: TournamentFormat;
   rounds: BracketRound[];
@@ -35,6 +44,10 @@ export interface Bracket {
   groups?: { name: string; participants: string[]; rounds: BracketRound[]; autoAdvance?: boolean }[];
   /** Combination only: knockout stage following group stage */
   knockoutRounds?: BracketRound[];
+  /** Combination only: how many players advance from each regular group */
+  advancersPerGroup?: number;
+  /** Set when the final match (or final standings) ends in a tie */
+  tiebreaker?: TiebreakerMatch;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -361,7 +374,7 @@ export function generateBracket(participants: string[], format: TournamentFormat
         options?.advancersPerGroup,
         options?.autoAdvanceGroups,
       );
-      return { format, rounds: [], groups, knockoutRounds };
+      return { format, rounds: [], groups, knockoutRounds, advancersPerGroup: options?.advancersPerGroup ?? 2 };
     }
   }
 }

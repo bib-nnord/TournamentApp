@@ -60,6 +60,9 @@ export default function TournamentPage() {
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [finishing, setFinishing] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [confirmCancel, setConfirmCancel] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -106,7 +109,78 @@ export default function TournamentPage() {
   const spotsLeft = tournament.max - tournament.participants.length;
   const isCreator = currentUser?.id === tournament.creator.id;
 
-  async function handleReportResult(matchId: string, winner: "a" | "b", scoreA?: number, scoreB?: number) {
+  function getTournamentWinner(bracket: Bracket): string | null {
+    // Tiebreaker result takes precedence
+    if (bracket.tiebreaker?.completed && bracket.tiebreaker.winner) {
+      return bracket.tiebreaker.winner;
+    }
+
+    switch (bracket.format) {
+      case "single_elimination": {
+        const last = bracket.rounds[bracket.rounds.length - 1];
+        if (!last) return null;
+        const m = last.matches[0];
+        if (!m?.completed) return null;
+        if (m.tie) return null; // tiebreaker pending
+        return m.winner ?? null;
+      }
+      case "double_elimination": {
+        if (!bracket.losersRounds?.length) return null;
+        const gf = bracket.losersRounds[bracket.losersRounds.length - 1].matches[0];
+        if (!gf?.completed) return null;
+        if (gf.tie) return null; // tiebreaker pending
+        return gf.winner ?? null;
+      }
+      case "combination": {
+        if (!bracket.knockoutRounds?.length) return null;
+        const last = bracket.knockoutRounds[bracket.knockoutRounds.length - 1];
+        const m = last?.matches[0];
+        if (!m?.completed) return null;
+        if (m.tie) return null; // tiebreaker pending
+        return m.winner ?? null;
+      }
+      case "round_robin":
+      case "double_round_robin":
+      case "swiss": {
+        const allMatches = bracket.rounds.flatMap(r => r.matches);
+        if (!allMatches.length || !allMatches.every(m => m.completed)) return null;
+        const wins = new Map<string, number>();
+        for (const m of allMatches) {
+          if (m.winner) wins.set(m.winner, (wins.get(m.winner) ?? 0) + 1);
+        }
+        const sorted = [...wins.entries()].sort((a, b) => b[1] - a[1]);
+        // If top two share the same score, a tiebreaker is needed
+        if (sorted.length > 1 && sorted[0][1] === sorted[1][1]) return null;
+        return sorted[0]?.[0] ?? null;
+      }
+      default:
+        return null;
+    }
+  }
+
+  const tournamentWinner = tournament.bracketData ? getTournamentWinner(tournament.bracketData) : null;
+
+  async function handleFinish() {
+    setFinishing(true);
+    try {
+      const res = await apiFetch(`/tournaments/${tournament!.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "completed" }),
+      });
+      if (res.ok) {
+        setTournament(prev => prev ? { ...prev, status: "completed" } : prev);
+      } else {
+        const body = await res.json().catch(() => ({}));
+        setError(body.error ?? "Failed to finish tournament");
+      }
+    } catch {
+      setError("Network error");
+    } finally {
+      setFinishing(false);
+    }
+  }
+
+  async function handleReportResult(matchId: string, winner: "a" | "b" | "tie", scoreA?: number, scoreB?: number) {
     const res = await apiFetch(`/tournaments/${tournament!.id}/matches/${matchId}`, {
       method: "PATCH",
       body: JSON.stringify({ winner, scoreA, scoreB }),
@@ -119,6 +193,57 @@ export default function TournamentPage() {
     setTournament(prev => prev ? { ...prev, bracketData } : prev);
   }
 
+  async function handleReportTiebreaker(matchId: string, winnerName: string) {
+    const res = await apiFetch(`/tournaments/${tournament!.id}/matches/${matchId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ winner: winnerName }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error ?? "Failed to report tiebreaker result");
+    }
+    const { bracketData } = await res.json();
+    setTournament(prev => prev ? { ...prev, bracketData } : prev);
+  }
+
+  async function handleUndoTiebreaker() {
+    const res = await apiFetch(`/tournaments/${tournament!.id}/matches/tiebreaker`, {
+      method: "PATCH",
+      body: JSON.stringify({ reset: true }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error ?? "Failed to undo tiebreaker");
+    }
+    const { bracketData } = await res.json();
+    setTournament(prev => prev ? { ...prev, bracketData } : prev);
+  }
+
+  async function handleCancel() {
+    if (!confirmCancel) {
+      setConfirmCancel(true);
+      return;
+    }
+    setCancelling(true);
+    try {
+      const res = await apiFetch(`/tournaments/${tournament!.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "cancelled" }),
+      });
+      if (res.ok) {
+        setTournament(prev => prev ? { ...prev, status: "cancelled" } : prev);
+        setConfirmCancel(false);
+      } else {
+        const body = await res.json().catch(() => ({}));
+        setError(body.error ?? "Failed to cancel tournament");
+      }
+    } catch {
+      setError("Network error");
+    } finally {
+      setCancelling(false);
+    }
+  }
+
   async function handleDelete() {
     if (!confirmDelete) {
       setConfirmDelete(true);
@@ -126,7 +251,7 @@ export default function TournamentPage() {
     }
     setDeleting(true);
     try {
-      const res = await apiFetch(`/tournaments/${tournament.id}`, { method: "DELETE" });
+      const res = await apiFetch(`/tournaments/${tournament!.id}`, { method: "DELETE" });
       if (res.ok) {
         router.push("/tournaments");
       } else {
@@ -147,6 +272,17 @@ export default function TournamentPage() {
         <Link href="/tournaments" className="text-sm text-gray-500 hover:text-gray-700 mb-6 inline-block">
           ← Back to tournaments
         </Link>
+
+        {/* Winner banner */}
+        {tournamentWinner && (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl px-6 py-4 mb-6 flex items-center gap-3">
+            <span className="text-2xl">👑</span>
+            <div>
+              <p className="text-xs text-amber-600 font-medium uppercase tracking-wide">Tournament Winner</p>
+              <p className="text-lg font-bold text-amber-800">{tournamentWinner}</p>
+            </div>
+          </div>
+        )}
 
         {/* Header */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 mb-6">
@@ -289,13 +425,51 @@ export default function TournamentPage() {
             <BracketView
               bracket={tournament.bracketData}
               onReportResult={isCreator && tournament.status === "active" ? handleReportResult : undefined}
+              onReportTiebreaker={isCreator && tournament.status === "active" ? handleReportTiebreaker : undefined}
+              onUndoTiebreaker={isCreator && tournament.status === "active" ? handleUndoTiebreaker : undefined}
             />
           </div>
         )}
 
         {/* Actions (creator only) */}
         {isCreator && (
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
+            {tournament.status === "active" && (
+              <button
+                type="button"
+                onClick={handleFinish}
+                disabled={!tournamentWinner || finishing}
+                title={!tournamentWinner ? "Available once a winner is determined" : undefined}
+                className="text-sm px-4 py-2 rounded-lg font-medium transition-colors bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {finishing ? "Finishing…" : "Finish tournament"}
+              </button>
+            )}
+            {!["completed", "cancelled"].includes(tournament.status) && (
+              <>
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  disabled={cancelling}
+                  className={`text-sm px-4 py-2 rounded-lg font-medium transition-colors ${
+                    confirmCancel
+                      ? "bg-orange-500 text-white hover:bg-orange-600"
+                      : "border border-orange-300 text-orange-600 hover:bg-orange-50"
+                  } disabled:opacity-50`}
+                >
+                  {cancelling ? "Cancelling…" : confirmCancel ? "Confirm cancel" : "Cancel tournament"}
+                </button>
+                {confirmCancel && (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmCancel(false)}
+                    className="text-sm text-gray-500 hover:text-gray-700"
+                  >
+                    Never mind
+                  </button>
+                )}
+              </>
+            )}
             <button
               type="button"
               onClick={handleDelete}

@@ -14,8 +14,8 @@ async function reportResult(req, res) {
 
   const { winner, scoreA, scoreB } = req.body;
 
-  if (!winner || !['a', 'b'].includes(winner)) {
-    return res.status(400).json({ error: 'winner must be "a" or "b"' });
+  if (!winner || typeof winner !== 'string') {
+    return res.status(400).json({ error: 'winner is required' });
   }
 
   try {
@@ -45,25 +45,78 @@ async function reportResult(req, res) {
 
     const { match, section, roundIndex } = found;
 
+    // ── Tiebreaker match ────────────────────────────────────────────────────
+    if (section === 'tiebreaker') {
+      // Reset tiebreaker (undo)
+      if (req.body.reset === true) {
+        bracket.tiebreaker = { id: 'tiebreaker', participants: bracket.tiebreaker.participants };
+        const updated = await prisma.tournament.update({
+          where: { tournament_id: tournamentId },
+          data:  { bracket_data: bracket },
+        });
+        return res.json({ bracketData: updated.bracket_data });
+      }
+      if (!bracket.tiebreaker.participants.includes(winner)) {
+        return res.status(400).json({ error: 'Invalid tiebreaker winner' });
+      }
+      bracket.tiebreaker.winner = winner;
+      bracket.tiebreaker.completed = true;
+      const updated = await prisma.tournament.update({
+        where: { tournament_id: tournamentId },
+        data:  { bracket_data: bracket },
+      });
+      return res.json({ bracketData: updated.bracket_data });
+    }
+
+    // ── Regular match ───────────────────────────────────────────────────────
+    if (!['a', 'b', 'tie'].includes(winner)) {
+      return res.status(400).json({ error: 'winner must be "a", "b", or "tie"' });
+    }
+
     if (!match.participantA || !match.participantB) {
       return res.status(400).json({ error: 'Match participants are not set yet' });
     }
 
-    if (match.completed) {
-      return res.status(400).json({ error: 'Match result has already been reported' });
-    }
-
-    const winnerName = winner === 'a' ? match.participantA : match.participantB;
-    const loserName  = winner === 'a' ? match.participantB : match.participantA;
+    const isTie     = winner === 'tie';
+    const winnerName = isTie ? null : (winner === 'a' ? match.participantA : match.participantB);
+    const loserName  = isTie ? null : (winner === 'a' ? match.participantB : match.participantA);
 
     // Record result on the match object
     match.winner    = winnerName;
+    match.tie       = isTie;
     match.scoreA    = scoreA != null ? Number(scoreA) : null;
     match.scoreB    = scoreB != null ? Number(scoreB) : null;
     match.completed = true;
 
-    // Advance bracket
-    advanceBracket(bracket, section, roundIndex, match, winnerName, loserName);
+    // Advance bracket (ties leave the next slot as TBD)
+    if (!isTie) {
+      advanceBracket(bracket, section, roundIndex, match, winnerName, loserName);
+    } else if (section.startsWith('group_')) {
+      // Ties in group matches still count toward group completion
+      populateKnockoutFromGroups(bracket);
+    }
+
+    // ── Tiebreaker detection ────────────────────────────────────────────────
+    // Elimination finals: create/remove tiebreaker based on whether result is a tie
+    if (isTrueFinalMatch(bracket, section, roundIndex)) {
+      if (isTie && !bracket.tiebreaker?.completed) {
+        bracket.tiebreaker = { id: 'tiebreaker', participants: [match.participantA, match.participantB] };
+      } else if (!isTie && !bracket.tiebreaker?.completed) {
+        delete bracket.tiebreaker;
+      }
+    }
+
+    // Round robin / swiss: recompute tiebreaker after every result
+    if (['round_robin', 'double_round_robin', 'swiss'].includes(bracket.format)) {
+      if (!bracket.tiebreaker?.completed) {
+        const tied = findRRTiedParticipants(bracket);
+        if (tied) {
+          bracket.tiebreaker = { id: 'tiebreaker', participants: tied };
+        } else {
+          delete bracket.tiebreaker;
+        }
+      }
+    }
 
     const updated = await prisma.tournament.update({
       where: { tournament_id: tournamentId },
@@ -82,9 +135,14 @@ async function reportResult(req, res) {
 /**
  * Find a match by ID across all bracket sections.
  * Returns { match, section, roundIndex } or null.
- * section: 'winners' | 'losers' | 'group_N' | 'knockout'
+ * section: 'tiebreaker' | 'winners' | 'losers' | 'group_N' | 'knockout'
  */
 function findMatch(bracket, matchId) {
+  // Tiebreaker match
+  if (bracket.tiebreaker && bracket.tiebreaker.id === matchId) {
+    return { match: bracket.tiebreaker, section: 'tiebreaker', roundIndex: -1 };
+  }
+
   // Winners / main rounds
   for (let ri = 0; ri < bracket.rounds.length; ri++) {
     for (const m of bracket.rounds[ri].matches) {
@@ -125,6 +183,55 @@ function findMatch(bracket, matchId) {
   return null;
 }
 
+// ─── Tiebreaker helpers ─────────────────────────────────────────────────────
+
+/**
+ * Returns true if this match is the true tournament final (the match whose
+ * winner would be declared champion).
+ */
+function isTrueFinalMatch(bracket, section, roundIndex) {
+  if (section === 'winners') {
+    // True final only for single_elimination; double_elim final is Grand Final in losers
+    return bracket.format === 'single_elimination' && roundIndex === bracket.rounds.length - 1;
+  }
+  if (section === 'losers') {
+    // Grand Final for double_elimination
+    return roundIndex === (bracket.losersRounds?.length ?? 0) - 1;
+  }
+  if (section === 'knockout') {
+    // Final for combination format
+    return roundIndex === (bracket.knockoutRounds?.length ?? 0) - 1;
+  }
+  return false;
+}
+
+/**
+ * For round-robin and swiss formats: if all matches are complete and two or
+ * more participants are tied for first place, returns their names. Otherwise null.
+ */
+function findRRTiedParticipants(bracket) {
+  const allMatches = bracket.rounds.flatMap(r => r.matches);
+  if (!allMatches.length || !allMatches.every(m => m.completed)) return null;
+
+  const points = new Map();
+  for (const m of allMatches) {
+    if (m.participantA) points.set(m.participantA, points.get(m.participantA) ?? 0);
+    if (m.participantB) points.set(m.participantB, points.get(m.participantB) ?? 0);
+    if (m.winner) {
+      points.set(m.winner, (points.get(m.winner) ?? 0) + 1);
+    } else if (m.tie) {
+      if (m.participantA) points.set(m.participantA, (points.get(m.participantA) ?? 0) + 0.5);
+      if (m.participantB) points.set(m.participantB, (points.get(m.participantB) ?? 0) + 0.5);
+    }
+  }
+
+  const sorted = [...points.entries()].sort((a, b) => b[1] - a[1]);
+  if (!sorted.length) return null;
+  const topPts = sorted[0][1];
+  const tied = sorted.filter(([, pts]) => pts === topPts).map(([name]) => name);
+  return tied.length > 1 ? tied : null;
+}
+
 // ─── Bracket advancement ───────────────────────────────────────────────────
 
 function advanceBracket(bracket, section, roundIndex, match, winnerName, loserName) {
@@ -161,8 +268,10 @@ function advanceBracket(bracket, section, roundIndex, match, winnerName, loserNa
   } else if (section === 'knockout') {
     advanceSingleElim(bracket.knockoutRounds, roundIndex, match, winnerName);
 
+  } else if (section.startsWith('group_')) {
+    // After every group match, try to populate the knockout round 1
+    populateKnockoutFromGroups(bracket);
   }
-  // group_N: round-robin within a group, no advancement
 }
 
 /**
@@ -261,6 +370,100 @@ function advanceLosers(losersRounds, roundIndex, match, winnerName) {
     } else {
       nextMatch.participantB = winnerName;
     }
+  }
+}
+
+// ─── Combination: group → knockout advancement ────────────────────────────────
+
+/** Same seeding algorithm as the frontend's generateSeedPositions. */
+function generateSeedPositions(size) {
+  let positions = [1, 2];
+  while (positions.length < size) {
+    const next = [];
+    const currentSize = positions.length * 2;
+    for (const seed of positions) next.push(seed, currentSize + 1 - seed);
+    positions = next;
+  }
+  return positions;
+}
+
+/**
+ * Compute a group's standings.
+ * Returns null if any match in the group is not yet complete.
+ * Otherwise returns participants sorted by points desc, then score-diff desc.
+ */
+function computeGroupStandings(group) {
+  const points = new Map();
+  const scoreDiff = new Map();
+  for (const p of group.participants) { points.set(p, 0); scoreDiff.set(p, 0); }
+
+  for (const round of group.rounds) {
+    for (const match of round.matches) {
+      if (!match.completed) return null;
+      if (match.winner) {
+        points.set(match.winner, (points.get(match.winner) ?? 0) + 2);
+      } else if (match.tie) {
+        if (match.participantA) points.set(match.participantA, (points.get(match.participantA) ?? 0) + 1);
+        if (match.participantB) points.set(match.participantB, (points.get(match.participantB) ?? 0) + 1);
+      }
+      if (match.scoreA != null && match.participantA)
+        scoreDiff.set(match.participantA, (scoreDiff.get(match.participantA) ?? 0) + match.scoreA - (match.scoreB ?? 0));
+      if (match.scoreB != null && match.participantB)
+        scoreDiff.set(match.participantB, (scoreDiff.get(match.participantB) ?? 0) + match.scoreB - (match.scoreA ?? 0));
+    }
+  }
+
+  return [...group.participants].sort((a, b) => {
+    const pd = (points.get(b) ?? 0) - (points.get(a) ?? 0);
+    return pd !== 0 ? pd : (scoreDiff.get(b) ?? 0) - (scoreDiff.get(a) ?? 0);
+  });
+}
+
+/**
+ * When all regular groups are complete, seed the knockout round 1 using
+ * the same generateSeedPositions algorithm used by the frontend.
+ * Only fills slots that are still TBD / null — never overwrites real names.
+ */
+function populateKnockoutFromGroups(bracket) {
+  if (!bracket.knockoutRounds?.length || !bracket.groups) return;
+
+  const regularGroups = bracket.groups.filter(g => !g.autoAdvance);
+  const autoAdvanceGroups = bracket.groups.filter(g => g.autoAdvance);
+  const advancersPerGroup = bracket.advancersPerGroup ?? 2;
+
+  // Collect advancers — bail out if any regular group isn't finished yet
+  const advancers = [];
+  for (const group of regularGroups) {
+    const standings = computeGroupStandings(group);
+    if (!standings) return; // group still in progress
+    for (let i = 0; i < advancersPerGroup; i++) advancers.push(standings[i] ?? null);
+  }
+  for (const group of autoAdvanceGroups) {
+    for (const p of group.participants) advancers.push(p);
+  }
+
+  const r1 = bracket.knockoutRounds[0];
+  if (!r1) return;
+
+  // knockoutSize = totalPositions × 2 (same as when bracket was generated)
+  const knockoutSize = (r1.totalPositions ?? r1.matches.length) * 2;
+  const seeds = generateSeedPositions(knockoutSize);
+
+  // Pad advancers list to knockoutSize with nulls
+  while (advancers.length < knockoutSize) advancers.push(null);
+
+  for (let i = 0; i < seeds.length; i += 2) {
+    const advancerA = advancers[seeds[i] - 1] ?? null;
+    const advancerB = advancers[seeds[i + 1] - 1] ?? null;
+    const matchPos = i / 2;
+    const match = r1.matches.find(m => m.position === matchPos);
+    if (!match) continue;
+
+    // Only fill slots that are still TBD / empty
+    if ((!match.participantA || match.participantA === 'TBD') && advancerA)
+      match.participantA = advancerA;
+    if ((!match.participantB || match.participantB === 'TBD') && advancerB)
+      match.participantB = advancerB;
   }
 }
 
