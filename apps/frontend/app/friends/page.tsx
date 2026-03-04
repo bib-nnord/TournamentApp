@@ -8,7 +8,7 @@ import {
   LABEL_CANCEL,
   LABEL_REMOVE,
 } from "@/constants/labels";
-import { getUserInitial } from "@/lib/helpers";
+import UserListItem from "@/components/UserListItem";
 
 // Placeholder — replace with real data once backend is ready
 const initialFriends = [
@@ -71,22 +71,21 @@ export default function FriendsPage() {
             </h2>
             <div className="flex flex-col gap-2">
               {incomingRequests.map((r) => (
-                <div key={r.id} className="flex items-center justify-between px-3 py-2 rounded-lg bg-gray-50">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-600">
-                      {getUserInitial(r.username)}
+                <UserListItem
+                  key={r.id}
+                  username={r.username}
+                  className="bg-gray-50"
+                  actions={
+                    <div className="flex gap-2">
+                      <button className="text-xs px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                        {LABEL_ACCEPT}
+                      </button>
+                      <button className="text-xs px-3 py-1 border border-gray-300 rounded-lg hover:bg-gray-100">
+                        {LABEL_DECLINE}
+                      </button>
                     </div>
-                    <span className="text-sm text-gray-800">{r.username}</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <button className="text-xs px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700">
-                      {LABEL_ACCEPT}
-                    </button>
-                    <button className="text-xs px-3 py-1 border border-gray-300 rounded-lg hover:bg-gray-100">
-                      {LABEL_DECLINE}
-                    </button>
-                  </div>
-                </div>
+                  }
+                />
               ))}
             </div>
           </div>
@@ -98,17 +97,16 @@ export default function FriendsPage() {
             <h2 className="text-sm font-semibold text-gray-800 mb-3">Pending</h2>
             <div className="flex flex-col gap-2">
               {outgoingRequests.map((r) => (
-                <div key={r.id} className="flex items-center justify-between px-3 py-2 rounded-lg bg-gray-50">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-500">
-                      {getUserInitial(r.username)}
-                    </div>
-                    <span className="text-sm text-gray-500">{r.username}</span>
-                  </div>
-                  <button className="text-xs px-3 py-1 border border-gray-300 rounded-lg hover:bg-gray-100 text-gray-500">
-                    {LABEL_CANCEL}
-                  </button>
-                </div>
+                <UserListItem
+                  key={r.id}
+                  username={r.username}
+                  className="bg-gray-50"
+                  actions={
+                    <button className="text-xs px-3 py-1 border border-gray-300 rounded-lg hover:bg-gray-100 text-gray-500">
+                      {LABEL_CANCEL}
+                    </button>
+                  }
+                />
               ))}
             </div>
           </div>
@@ -134,24 +132,20 @@ export default function FriendsPage() {
           ) : (
             <div className="flex flex-col gap-2">
               {filtered.map((f) => (
-                <div key={f.id} className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gray-50">
-                  <div className="flex items-center gap-2">
-                    <div className="relative">
-                      <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-600">
-                        {getUserInitial(f.username)}
-                      </div>
-                      <span className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-white ${f.online ? "bg-green-500" : "bg-gray-300"}`} />
-                    </div>
-                    <span className="text-sm text-gray-800">{f.username}</span>
-                    {f.online && <span className="text-xs text-gray-400">Online</span>}
-                  </div>
-                  <button
-                    onClick={() => setFriends((prev) => prev.filter((x) => x.id !== f.id))}
-                    className="text-xs text-gray-400 hover:text-red-500"
-                  >
-                    {LABEL_REMOVE}
-                  </button>
-                </div>
+                <UserListItem
+                  key={f.id}
+                  username={f.username}
+                  online={f.online}
+                  showStatus
+                  actions={
+                    <button
+                      onClick={() => setFriends((prev) => prev.filter((x) => x.id !== f.id))}
+                      className="text-xs text-gray-400 hover:text-red-500"
+                    >
+                      {LABEL_REMOVE}
+                    </button>
+                  }
+                />
               ))}
             </div>
           )}

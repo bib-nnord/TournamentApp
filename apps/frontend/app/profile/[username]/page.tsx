@@ -9,6 +9,9 @@ import { tournamentStatusLabel } from "@/types";
 import { LABEL_EDIT_PROFILE, LABEL_VIEW_ALL } from "@/constants/labels";
 import { teamRoleColors, tournamentStatusColors } from "@/lib/colors";
 import { getUserInitial } from "@/lib/helpers";
+import { useFetch } from "@/hooks/useFetch";
+import UserListItem from "@/components/UserListItem";
+import type { TournamentSummary } from "@/components/TournamentList/types";
 
 // Placeholder data — replace with API calls once endpoints are ready
 const friends = [
@@ -29,21 +32,15 @@ const followedTeams = [
 
 
 
-const myTournaments = [
-  { id: "1", name: "Spring Open 2025", status: "registration", role: "participant" },
-  { id: "2", name: "City Chess Cup", status: "completed", role: "organizer" },
-  { id: "3", name: "Weekly Blitz", status: "active", role: "participant" },
-];
-
-
-
 export default function ProfilePage() {
   const { username } = useParams<{ username: string }>();
   const user = useSelector((state: RootState) => state.auth.user);
   const isOwnProfile = user?.username === username;
 
-  // TODO: fetch profile data for `username` from API
-  // For now, using placeholder data
+  const { data: tournamentsData, loading: tournamentsLoading } = useFetch<{ tournaments: TournamentSummary[] }>("/tournaments?limit=20");
+  const myTournaments = (tournamentsData?.tournaments ?? []).filter(
+    (t) => t.creator.username === username
+  );
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -77,16 +74,7 @@ export default function ProfilePage() {
           </div>
           <div className="flex flex-col gap-2">
             {friends.map((f) => (
-              <div key={f.id} className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-50">
-                <div className="relative">
-                  <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-600">
-                    {getUserInitial(f.username)}
-                  </div>
-                  <span className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-white ${f.online ? "bg-green-500" : "bg-gray-300"}`} />
-                </div>
-                <span className="text-sm text-gray-800">{f.username}</span>
-                {f.online && <span className="text-xs text-gray-400">Online</span>}
-              </div>
+              <UserListItem key={f.id} username={f.username} online={f.online} showStatus />
             ))}
           </div>
         </div>
@@ -139,23 +127,29 @@ export default function ProfilePage() {
         {/* Tournaments */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
           <h2 className="text-base font-semibold text-gray-800 mb-4">{isOwnProfile ? "My tournaments" : "Tournaments"}</h2>
-          <div className="flex flex-col gap-3">
-            {myTournaments.map((t) => (
-              <Link
-                key={t.id}
-                href={`/tournaments/view/${t.id}`}
-                className="flex items-center justify-between px-4 py-3 rounded-lg border border-gray-100 hover:bg-gray-50"
-              >
-                <span className="text-sm font-medium text-gray-800">{t.name}</span>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-400 capitalize">{t.role}</span>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${tournamentStatusColors[t.status as keyof typeof tournamentStatusColors]}`}>
-                    {tournamentStatusLabel[t.status as keyof typeof tournamentStatusLabel]}
-                  </span>
-                </div>
-              </Link>
-            ))}
-          </div>
+          {tournamentsLoading ? (
+            <p className="text-sm text-gray-400">Loading…</p>
+          ) : myTournaments.length === 0 ? (
+            <p className="text-sm text-gray-400">No tournaments yet.</p>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {myTournaments.map((t) => (
+                <Link
+                  key={t.id}
+                  href={`/tournaments/view/${t.id}`}
+                  className="flex items-center justify-between px-4 py-3 rounded-lg border border-gray-100 hover:bg-gray-50"
+                >
+                  <span className="text-sm font-medium text-gray-800">{t.name}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-400">{t.game}</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${tournamentStatusColors[t.status]}`}>
+                      {tournamentStatusLabel[t.status]}
+                    </span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
 
       </div>

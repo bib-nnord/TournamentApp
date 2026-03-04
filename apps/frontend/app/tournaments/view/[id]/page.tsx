@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useSelector } from "react-redux";
+import { useConfirmAction } from "@/hooks/useConfirmAction";
 import {
   LABEL_BACK_TO_TOURNAMENTS,
   LABEL_FINISH_TOURNAMENT,
@@ -37,11 +38,38 @@ export default function TournamentPage() {
   const [tournament, setTournament] = useState<TournamentData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
   const [finishing, setFinishing] = useState(false);
-  const [cancelling, setCancelling] = useState(false);
-  const [confirmCancel, setConfirmCancel] = useState(false);
+
+  const cancelAction = useConfirmAction(useCallback(async () => {
+    try {
+      const res = await apiFetch(`/tournaments/${tournament!.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "cancelled" }),
+      });
+      if (res.ok) {
+        setTournament(prev => prev ? { ...prev, status: "cancelled" } : prev);
+      } else {
+        const body = await res.json().catch(() => ({}));
+        setError(body.error ?? "Failed to cancel tournament");
+      }
+    } catch {
+      setError("Network error");
+    }
+  }, [tournament]));
+
+  const deleteAction = useConfirmAction(useCallback(async () => {
+    try {
+      const res = await apiFetch(`/tournaments/${tournament!.id}`, { method: "DELETE" });
+      if (res.ok) {
+        router.push("/tournaments");
+      } else {
+        const body = await res.json().catch(() => ({}));
+        setError(body.error ?? "Failed to delete");
+      }
+    } catch {
+      setError("Network error");
+    }
+  }, [tournament, router]));
 
   useEffect(() => {
     async function load() {
@@ -147,52 +175,6 @@ export default function TournamentPage() {
     }
     const { bracketData } = await res.json();
     setTournament(prev => prev ? { ...prev, bracketData } : prev);
-  }
-
-  async function handleCancel() {
-    if (!confirmCancel) {
-      setConfirmCancel(true);
-      return;
-    }
-    setCancelling(true);
-    try {
-      const res = await apiFetch(`/tournaments/${tournament!.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ status: "cancelled" }),
-      });
-      if (res.ok) {
-        setTournament(prev => prev ? { ...prev, status: "cancelled" } : prev);
-        setConfirmCancel(false);
-      } else {
-        const body = await res.json().catch(() => ({}));
-        setError(body.error ?? "Failed to cancel tournament");
-      }
-    } catch {
-      setError("Network error");
-    } finally {
-      setCancelling(false);
-    }
-  }
-
-  async function handleDelete() {
-    if (!confirmDelete) {
-      setConfirmDelete(true);
-      return;
-    }
-    setDeleting(true);
-    try {
-      const res = await apiFetch(`/tournaments/${tournament!.id}`, { method: "DELETE" });
-      if (res.ok) {
-        router.push("/tournaments");
-      } else {
-        const body = await res.json().catch(() => ({}));
-        setError(body.error ?? "Failed to delete");
-      }
-    } catch {
-      setError("Network error");
-    } finally {
-      setDeleting(false);
-    }
   }
 
   return (
@@ -379,20 +361,20 @@ export default function TournamentPage() {
               <>
                 <button
                   type="button"
-                  onClick={handleCancel}
-                  disabled={cancelling}
+                  onClick={cancelAction.trigger}
+                  disabled={cancelAction.loading}
                   className={`text-sm px-4 py-2 rounded-lg font-medium transition-colors ${
-                    confirmCancel
+                    cancelAction.confirmed
                       ? "bg-orange-500 text-white hover:bg-orange-600"
                       : "border border-orange-300 text-orange-600 hover:bg-orange-50"
                   } disabled:opacity-50`}
                 >
-                  {cancelling ? LABEL_CANCELLING : confirmCancel ? LABEL_CONFIRM_CANCEL : LABEL_CANCEL_TOURNAMENT}
+                  {cancelAction.loading ? LABEL_CANCELLING : cancelAction.confirmed ? LABEL_CONFIRM_CANCEL : LABEL_CANCEL_TOURNAMENT}
                 </button>
-                {confirmCancel && (
+                {cancelAction.confirmed && (
                   <button
                     type="button"
-                    onClick={() => setConfirmCancel(false)}
+                    onClick={cancelAction.reset}
                     className="text-sm text-gray-500 hover:text-gray-700"
                   >
                     {LABEL_NEVER_MIND}
@@ -402,20 +384,20 @@ export default function TournamentPage() {
             )}
             <button
               type="button"
-              onClick={handleDelete}
-              disabled={deleting}
+              onClick={deleteAction.trigger}
+              disabled={deleteAction.loading}
               className={`text-sm px-4 py-2 rounded-lg font-medium transition-colors ${
-                confirmDelete
+                deleteAction.confirmed
                   ? "bg-red-600 text-white hover:bg-red-700"
                   : "border border-red-200 text-red-600 hover:bg-red-50"
               } disabled:opacity-50`}
             >
-              {deleting ? LABEL_DELETING : confirmDelete ? LABEL_CONFIRM_DELETE : LABEL_DELETE_TOURNAMENT}
+              {deleteAction.loading ? LABEL_DELETING : deleteAction.confirmed ? LABEL_CONFIRM_DELETE : LABEL_DELETE_TOURNAMENT}
             </button>
-            {confirmDelete && (
+            {deleteAction.confirmed && (
               <button
                 type="button"
-                onClick={() => setConfirmDelete(false)}
+                onClick={deleteAction.reset}
                 className="text-sm text-gray-500 hover:text-gray-700"
               >
                 {LABEL_CANCEL}

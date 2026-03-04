@@ -7,6 +7,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { register } from "@/store/authSlice";
 import type { AppDispatch, RootState } from "@/store/store";
 import { LABEL_CREATE_ACCOUNT, LABEL_CREATING_ACCOUNT, LABEL_SIGN_IN } from "@/constants/labels";
+import FormField from "@/components/FormField";
 
 export default function RegisterPage() {
   const dispatch = useDispatch<AppDispatch>();
@@ -51,117 +52,18 @@ export default function RegisterPage() {
         <p className="text-sm text-gray-500 mb-6">Sign up to get started</p>
 
         <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-          <div className="flex flex-col gap-1">
-            <label htmlFor="username" className="text-sm font-medium text-gray-700">
-              Username
-            </label>
-            <input
-              id="username"
-              type="text"
-              placeholder="johndoe"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          <div className="flex flex-col gap-1">
-            <label htmlFor="display-name" className="text-sm font-medium text-gray-700">
-              Display name
-            </label>
-            <input
-              id="display-name"
-              type="text"
-              placeholder="John"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
+          <FormField id="username" label="Username" placeholder="johndoe" value={username} onChange={setUsername} />
+          <FormField id="display-name" label="Display name" placeholder="John" value={displayName} onChange={setDisplayName} />
 
           <div className="flex gap-3">
-            <div className="flex flex-col gap-1 flex-1">
-              <label htmlFor="first-name" className="text-sm font-medium text-gray-700">
-                First name
-              </label>
-              <input
-                id="first-name"
-                type="text"
-                placeholder="John"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div className="flex flex-col gap-1 flex-1">
-              <label htmlFor="last-name" className="text-sm font-medium text-gray-700">
-                Last name
-              </label>
-              <input
-                id="last-name"
-                type="text"
-                placeholder="Doe"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
+            <FormField id="first-name" label="First name" placeholder="John" value={firstName} onChange={setFirstName} className="flex-1" />
+            <FormField id="last-name" label="Last name" placeholder="Doe" value={lastName} onChange={setLastName} className="flex-1" />
           </div>
 
-          <div className="flex flex-col gap-1">
-            <label htmlFor="date-of-birth" className="text-sm font-medium text-gray-700">
-              Date of birth
-            </label>
-            <input
-              id="date-of-birth"
-              type="date"
-              value={dateOfBirth}
-              onChange={(e) => setDateOfBirth(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          <div className="flex flex-col gap-1">
-            <label htmlFor="email" className="text-sm font-medium text-gray-700">
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          <div className="flex flex-col gap-1">
-            <label htmlFor="password" className="text-sm font-medium text-gray-700">
-              Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          <div className="flex flex-col gap-1">
-            <label htmlFor="confirm-password" className="text-sm font-medium text-gray-700">
-              Confirm password
-            </label>
-            <input
-              id="confirm-password"
-              type="password"
-              placeholder="••••••••"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
+          <FormField id="date-of-birth" label="Date of birth" type="date" value={dateOfBirth} onChange={setDateOfBirth} />
+          <FormField id="email" label="Email" type="email" placeholder="you@example.com" value={email} onChange={setEmail} />
+          <FormField id="password" label="Password" type="password" placeholder="••••••••" value={password} onChange={setPassword} />
+          <FormField id="confirm-password" label="Confirm password" type="password" placeholder="••••••••" value={confirmPassword} onChange={setConfirmPassword} />
 
           {(validationError || error) && (
             <p className="text-sm text-red-600">{validationError || error}</p>

@@ -5,6 +5,7 @@ import { useSelector } from "react-redux";
 import { tournamentFormatInfo, tournamentStatusLabel, type TournamentFormat, type TournamentStatus } from "@/types";
 import { generateBracket, type Bracket, type BracketOptions } from "@/lib/generateBracket";
 import type { QuickTournamentData, Participant } from "../QuickTournamentForm";
+import type { ParticipantMemberType, ParticipantMember } from "../QuickTournamentForm/types";
 import UserSearchInput from "../UserSearchInput";
 import BracketView from "../BracketView";
 import type { RootState } from "@/store/store";
@@ -99,7 +100,7 @@ export default function TournamentPreview({ data, onBack, onConfirm, submitting,
   const [teamNameInput, setTeamNameInput] = useState("");
   const [expandedTeam, setExpandedTeam] = useState<number | null>(null);
 
-  function addParticipant(name: string, type: "account" | "guest" | "team") {
+  function addParticipant(name: string, type: ParticipantMemberType | "team") {
     const finalName = generateUniqueName(name, participantNames);
     if (!finalName) return;
     setParticipants((prev) => [...prev, {
@@ -124,7 +125,7 @@ export default function TournamentPreview({ data, onBack, onConfirm, submitting,
     e: KeyboardEvent<HTMLInputElement>,
     input: string,
     setInput: (v: string) => void,
-    type: "account" | "guest" | "team"
+    type: ParticipantMemberType | "team"
   ) {
     if (e.key === "Enter" || e.key === ",") {
       e.preventDefault();
@@ -141,7 +142,7 @@ export default function TournamentPreview({ data, onBack, onConfirm, submitting,
   }
 
   // ─── Team member editing (in preview) ─────────────────────────────────────
-  function addTeamMember(participantIndex: number, memberName: string, memberType: "account" | "guest") {
+  function addTeamMember(participantIndex: number, memberName: string, memberType: ParticipantMemberType) {
     const trimmed = memberName.trim();
     if (!trimmed) return;
     setParticipants((prev) =>
@@ -516,12 +517,12 @@ function TeamMemberEditor({
   onAdd,
   onRemove,
 }: {
-  members: { name: string; type: "account" | "guest" }[];
-  onAdd: (name: string, type: "account" | "guest") => void;
+  members: ParticipantMember[];
+  onAdd: (name: string, type: ParticipantMemberType) => void;
   onRemove: (memberIndex: number) => void;
 }) {
   const [input, setInput] = useState("");
-  const [memberType, setMemberType] = useState<"account" | "guest">("account");
+  const [memberType, setMemberType] = useState<ParticipantMemberType>("account");
 
   function handleKey(e: KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter" || e.key === ",") {
@@ -569,7 +570,7 @@ function TeamMemberEditor({
       <div className="flex gap-1.5">
         <select
           value={memberType}
-          onChange={(e) => setMemberType(e.target.value as "account" | "guest")}
+          onChange={(e) => setMemberType(e.target.value as ParticipantMemberType)}
           className="text-xs border border-gray-200 rounded px-1.5 py-1 text-gray-600 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400"
         >
           <option value="account">Account</option>

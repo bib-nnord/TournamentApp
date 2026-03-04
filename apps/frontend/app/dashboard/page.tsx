@@ -2,42 +2,39 @@
 
 import Link from "next/link";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
+import { useFetch } from "@/hooks/useFetch";
+import { tournamentStatusColors } from "@/lib/colors";
+import { formatDate } from "@/lib/helpers";
 import { LABEL_CREATE_TOURNAMENT, LABEL_BROWSE_TOURNAMENTS } from "@/constants/labels";
+import type { TournamentSummary } from "@/components/TournamentList/types";
+import DashboardCard from "@/components/DashboardCard";
 
-
-// Placeholder — replace with real tournament data from API
-const upcomingTournaments = [
-  { id: "1", name: "Spring Open 2025", date: "Mar 15, 2025", role: "participant" },
-  { id: "5", name: "Easter Invitational", date: "Apr 20, 2025", role: "participant" },
-];
-
-const activeTournaments = [
-  { id: "2", name: "Weekly Blitz #42", date: "Feb 23, 2025", role: "participant" },
-];
-
-const recentResults = [
-  { id: "3", name: "City Chess Cup", date: "Jan 10, 2025", placement: "1st" },
-  { id: "4", name: "Winter Championship", date: "Dec 5, 2024", placement: "3rd" },
-];
-
-// Placeholder — replace with real data from API
+// Placeholder — no real API for team news yet
 const teamNews = [
   { id: "n1", team: "The Knights", message: "New member joined: diana", time: "2h ago" },
   { id: "n2", team: "Storm Squad", message: "Match scheduled vs Iron Bishops", time: "5h ago" },
   { id: "n3", team: "The Knights", message: "Team practice moved to Thursday", time: "1d ago" },
 ];
 
+// Placeholder — no real API for upcoming matches yet
 const upcomingMatches = [
   { id: "m1", tournament: "Spring Open 2025", opponent: "Iron Bishops", date: "Mar 15, 2025", time: "14:00" },
   { id: "m2", tournament: "Weekly Blitz #42", opponent: "Rapid Rookies", date: "Feb 28, 2025", time: "18:00" },
   { id: "m3", tournament: "Easter Invitational", opponent: "TBD", date: "Apr 20, 2025", time: "10:00" },
 ];
 
-
 export default function DashboardPage() {
   const user = useRequireAuth();
 
+  const { data: activeData, loading: activeLoading } = useFetch<{ tournaments: TournamentSummary[] }>("/tournaments?status=active&limit=5");
+  const { data: registrationData, loading: registrationLoading } = useFetch<{ tournaments: TournamentSummary[] }>("/tournaments?status=registration&limit=5");
+  const { data: completedData, loading: completedLoading } = useFetch<{ tournaments: TournamentSummary[] }>("/tournaments?status=completed&limit=5");
+
   if (!user) return null;
+
+  const activeTournaments = activeData?.tournaments ?? [];
+  const upcomingTournaments = registrationData?.tournaments ?? [];
+  const recentResults = completedData?.tournaments ?? [];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -69,132 +66,93 @@ export default function DashboardPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-          {/* Active */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-            <h2 className="text-sm font-semibold text-gray-800 mb-4 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
-              Active now
-            </h2>
-            {activeTournaments.length === 0 ? (
-              <p className="text-sm text-gray-400">No active tournaments.</p>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {activeTournaments.map((t) => (
-                  <Link
-                    key={t.id}
-                    href={`/tournaments/view/${t.id}`}
-                    className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gray-50"
-                  >
-                    <span className="text-sm font-medium text-gray-800">{t.name}</span>
-                    <span className="text-xs text-gray-400">{t.date}</span>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </div>
+          <DashboardCard title="Active now" dotColor="bg-green-500" loading={activeLoading} empty={activeTournaments.length === 0} emptyMessage="No active tournaments.">
+            <div className="flex flex-col gap-2">
+              {activeTournaments.map((t) => (
+                <Link
+                  key={t.id}
+                  href={`/tournaments/view/${t.id}`}
+                  className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gray-50"
+                >
+                  <span className="text-sm font-medium text-gray-800">{t.name}</span>
+                  <span className="text-xs text-gray-400">{t.startDate ? formatDate(t.startDate) : t.game}</span>
+                </Link>
+              ))}
+            </div>
+          </DashboardCard>
 
-          {/* Upcoming */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-            <h2 className="text-sm font-semibold text-gray-800 mb-4 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />
-              Upcoming
-            </h2>
-            {upcomingTournaments.length === 0 ? (
-              <p className="text-sm text-gray-400">No upcoming tournaments.</p>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {upcomingTournaments.map((t) => (
-                  <Link
-                    key={t.id}
-                    href={`/tournaments/view/${t.id}`}
-                    className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gray-50"
-                  >
-                    <span className="text-sm font-medium text-gray-800">{t.name}</span>
-                    <span className="text-xs text-gray-400">{t.date}</span>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </div>
+          <DashboardCard title="Upcoming" dotColor="bg-blue-500" loading={registrationLoading} empty={upcomingTournaments.length === 0} emptyMessage="No upcoming tournaments.">
+            <div className="flex flex-col gap-2">
+              {upcomingTournaments.map((t) => (
+                <Link
+                  key={t.id}
+                  href={`/tournaments/view/${t.id}`}
+                  className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gray-50"
+                >
+                  <span className="text-sm font-medium text-gray-800">{t.name}</span>
+                  <span className="text-xs text-gray-400">{t.startDate ? formatDate(t.startDate) : t.game}</span>
+                </Link>
+              ))}
+            </div>
+          </DashboardCard>
 
-          {/* Team news */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-            <h2 className="text-sm font-semibold text-gray-800 mb-4 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-purple-500 inline-block" />
-              Team news
-            </h2>
-            {teamNews.length === 0 ? (
-              <p className="text-sm text-gray-400">No news from your teams.</p>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {teamNews.map((n) => (
-                  <div
-                    key={n.id}
-                    className="flex items-start justify-between px-3 py-2 rounded-lg hover:bg-gray-50"
-                  >
-                    <div>
-                      <span className="text-xs font-semibold text-indigo-600">{n.team}</span>
-                      <p className="text-sm text-gray-800">{n.message}</p>
-                    </div>
-                    <span className="text-xs text-gray-400 whitespace-nowrap ml-3">{n.time}</span>
+          <DashboardCard title="Team news" dotColor="bg-purple-500" empty={teamNews.length === 0} emptyMessage="No news from your teams.">
+            <div className="flex flex-col gap-2">
+              {teamNews.map((n) => (
+                <div
+                  key={n.id}
+                  className="flex items-start justify-between px-3 py-2 rounded-lg hover:bg-gray-50"
+                >
+                  <div>
+                    <span className="text-xs font-semibold text-indigo-600">{n.team}</span>
+                    <p className="text-sm text-gray-800">{n.message}</p>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
+                  <span className="text-xs text-gray-400 whitespace-nowrap ml-3">{n.time}</span>
+                </div>
+              ))}
+            </div>
+          </DashboardCard>
 
-          {/* Upcoming matches */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-            <h2 className="text-sm font-semibold text-gray-800 mb-4 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-orange-500 inline-block" />
-              Upcoming matches
-            </h2>
-            {upcomingMatches.length === 0 ? (
-              <p className="text-sm text-gray-400">No upcoming matches.</p>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {upcomingMatches.map((m) => (
-                  <div
-                    key={m.id}
-                    className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gray-50"
-                  >
-                    <div>
-                      <p className="text-sm font-medium text-gray-800">vs {m.opponent}</p>
-                      <span className="text-xs text-gray-400">{m.tournament}</span>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs font-medium text-gray-700">{m.date}</p>
-                      <span className="text-xs text-gray-400">{m.time}</span>
-                    </div>
+          <DashboardCard title="Upcoming matches" dotColor="bg-orange-500" empty={upcomingMatches.length === 0} emptyMessage="No upcoming matches.">
+            <div className="flex flex-col gap-2">
+              {upcomingMatches.map((m) => (
+                <div
+                  key={m.id}
+                  className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gray-50"
+                >
+                  <div>
+                    <p className="text-sm font-medium text-gray-800">vs {m.opponent}</p>
+                    <span className="text-xs text-gray-400">{m.tournament}</span>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
+                  <div className="text-right">
+                    <p className="text-xs font-medium text-gray-700">{m.date}</p>
+                    <span className="text-xs text-gray-400">{m.time}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </DashboardCard>
 
-          {/* Recent results */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 md:col-span-2">
-            <h2 className="text-sm font-semibold text-gray-800 mb-4">Recent results</h2>
-            {recentResults.length === 0 ? (
-              <p className="text-sm text-gray-400">No past tournaments yet.</p>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {recentResults.map((t) => (
-                  <Link
-                    key={t.id}
-                    href={`/tournaments/view/${t.id}`}
-                    className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gray-50"
-                  >
-                    <span className="text-sm font-medium text-gray-800">{t.name}</span>
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs text-gray-400">{t.date}</span>
-                      <span className="text-xs font-semibold text-gray-700">{t.placement}</span>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </div>
+          <DashboardCard title="Recent results" className="md:col-span-2" loading={completedLoading} empty={recentResults.length === 0} emptyMessage="No past tournaments yet.">
+            <div className="flex flex-col gap-2">
+              {recentResults.map((t) => (
+                <Link
+                  key={t.id}
+                  href={`/tournaments/view/${t.id}`}
+                  className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gray-50"
+                >
+                  <span className="text-sm font-medium text-gray-800">{t.name}</span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-gray-400">{t.game}</span>
+                    {t.startDate && <span className="text-xs text-gray-400">{formatDate(t.startDate)}</span>}
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${tournamentStatusColors[t.status]}`}>
+                      {t.participants}/{t.max}
+                    </span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </DashboardCard>
 
         </div>
       </div>

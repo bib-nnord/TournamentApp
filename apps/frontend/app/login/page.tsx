@@ -8,6 +8,7 @@ import { login } from "@/store/authSlice";
 import type { AppDispatch, RootState } from "@/store/store";
 import Modal from "@/components/Modal";
 import ForgotPasswordForm from "@/components/ForgotPasswordForm";
+import FormField from "@/components/FormField";
 import {
   LABEL_FORGOT_PASSWORD,
   LABEL_SIGN_IN,
@@ -39,38 +40,20 @@ export default function LoginPage() {
         <p className="text-sm text-gray-500 mb-6">Sign in to your account</p>
 
         <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-          <div className="flex flex-col gap-1">
-            <label htmlFor="email" className="text-sm font-medium text-gray-700">
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center justify-between">
-              <label htmlFor="password" className="text-sm font-medium text-gray-700">
-                Password
-              </label>
+          <FormField id="email" label="Email" type="email" placeholder="you@example.com" value={email} onChange={setEmail} />
+          <FormField
+            id="password"
+            label="Password"
+            type="password"
+            placeholder="••••••••"
+            value={password}
+            onChange={setPassword}
+            labelRight={
               <button type="button" onClick={() => setShowForgot(true)} className="text-xs text-blue-600 hover:underline">
                 {LABEL_FORGOT_PASSWORD}
               </button>
-            </div>
-            <input
-              id="password"
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
+            }
+          />
 
           {error && <p className="text-sm text-red-600">{error}</p>}
 

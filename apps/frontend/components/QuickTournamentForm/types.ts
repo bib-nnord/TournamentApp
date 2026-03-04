@@ -1,9 +1,22 @@
 import type { TournamentFormat, TournamentStatus } from "@/types";
 
+export type ParticipantMemberType = "account" | "guest";
+
+export interface ParticipantMember {
+  name: string;
+  type: ParticipantMemberType;
+}
+
+export interface TournamentTeam {
+  name: string;
+  members: ParticipantMember[];
+  existingTeamId?: number;
+}
+
 export interface Participant {
   name: string;
-  type: "account" | "guest" | "team";
-  members?: { name: string; type: "account" | "guest" }[];
+  type: ParticipantMemberType | "team";
+  members?: ParticipantMember[];
   /** If this team came from the database, store its ID */
   existingTeamId?: number;
 }

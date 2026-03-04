@@ -11,7 +11,7 @@ import {
   LABEL_TEAM_MODE,
 } from "@/constants/labels";
 import UserSearchInput from "../UserSearchInput";
-import type { Participant, TeamSearchResult, QuickTournamentData } from "./types";
+import type { Participant, ParticipantMemberType, TournamentTeam, TeamSearchResult, QuickTournamentData } from "./types";
 
 export type { Participant, QuickTournamentData };
 
@@ -42,7 +42,7 @@ export default function QuickTournamentForm({ initial, onSubmit, onChange }: Pro
   const [guestInput, setGuestInput] = useState("");
 
   // Teams
-  const [teams, setTeams] = useState<{ name: string; members: { name: string; type: "account" | "guest" }[]; existingTeamId?: number }[]>(
+  const [teams, setTeams] = useState<TournamentTeam[]>(
     () => initial?.participants.filter((p) => p.type === "team").map((p) => ({
       name: p.name,
       members: p.members ?? [],
@@ -448,14 +448,14 @@ function TeamCard({
   onRemoveMember,
   onRemoveTeam,
 }: {
-  team: { name: string; members: { name: string; type: "account" | "guest" }[]; existingTeamId?: number };
+  team: TournamentTeam;
   onUpdateName: (name: string) => void;
-  onAddMember: (name: string, type: "account" | "guest") => void;
+  onAddMember: (name: string, type: ParticipantMemberType) => void;
   onRemoveMember: (memberIndex: number) => void;
   onRemoveTeam: () => void;
 }) {
   const [memberInput, setMemberInput] = useState("");
-  const [memberType, setMemberType] = useState<"account" | "guest">("account");
+  const [memberType, setMemberType] = useState<ParticipantMemberType>("account");
 
   function handleMemberKey(e: KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter" || e.key === ",") {
@@ -528,7 +528,7 @@ function TeamCard({
       <div className="flex gap-1.5">
         <select
           value={memberType}
-          onChange={(e) => setMemberType(e.target.value as "account" | "guest")}
+          onChange={(e) => setMemberType(e.target.value as ParticipantMemberType)}
           className="text-xs border border-gray-200 rounded px-1.5 py-1 text-gray-600 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400"
         >
           <option value="account">Account</option>
