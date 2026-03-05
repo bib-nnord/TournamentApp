@@ -61,7 +61,7 @@ async function create(req, res) {
         userMap[u.username.toLowerCase()] = u;
       }
 
-      // Reject any account name that wasn't found in the database
+      // Competitor is marked as account but not found (shouldnt be possible from frontend unless deleted manually in the meantime, maybe with api)
       for (const name of unique) {
         if (!userMap[name.toLowerCase()]) {
           return res.status(400).json({ error: `Account not found: "${name}"` });
@@ -146,10 +146,14 @@ async function list(req, res) {
 
   const where = {};
   if (status) where.status = status;
-  // Hide private tournaments unless user is the creator
+  // Hide private tournaments unless user is the creator or a participant
   where.OR = [
     { is_private: false },
-    ...(req.user ? [{ created_by: req.user.id }] : []),
+    ...(req.user ? [
+      { created_by: req.user.id },
+      { participants: { some: { user_id: req.user.id } } },
+      { participants: { some: { members_snapshot: { array_contains: [{ userId: req.user.id }] } } } },
+    ] : []),
   ];
 
   try {
@@ -211,8 +215,14 @@ async function getById(req, res) {
     if (!tournament) return res.status(404).json({ error: 'Tournament not found' });
 
     // Private check
-    if (tournament.is_private && (!req.user || req.user.id !== tournament.created_by)) {
-      return res.status(404).json({ error: 'Tournament not found' });
+    if (tournament.is_private) {
+      const isParticipant = tournament.participants.some((p) =>
+        p.user_id === req.user?.id ||
+        (Array.isArray(p.members_snapshot) && p.members_snapshot.some((m) => m.userId === req.user?.id))
+      );
+      if (!req.user || (req.user.id !== tournament.created_by && !isParticipant)) {
+        return res.status(404).json({ error: 'Tournament not found' });
+      }
     }
 
     return res.json(formatTournament(tournament));
@@ -343,4 +353,91 @@ function formatTournament(t) {
   };
 }
 
-module.exports = { create, list, getById, update, remove };
+// ─── GET /tournaments/my-matches ───────────────────────────────────────────
+// Returns the latest 5 matches for the authenticated user across all tournaments.
+// Priority: upcoming (not completed) first, then completed; within each group by recency.
+async function myMatches(req, res) {
+  try {
+    const userFilter = {
+      OR: [
+        { user_id: req.user.id },
+        { members_snapshot: { array_contains: [{ userId: req.user.id }] } },
+      ],
+    };
+
+    const tournaments = await prisma.tournament.findMany({
+      where: { participants: { some: userFilter } },
+      include: { participants: { where: userFilter } },
+      orderBy: { created_at: 'desc' },
+    });
+
+    const allMatches = [];
+
+    for (const tournament of tournaments) {
+      if (!tournament.bracket_data) continue;
+
+      const myNames = new Set(tournament.participants.map((p) => p.display_name));
+      if (myNames.size === 0) continue;
+
+      for (const m of extractAllMatches(tournament.bracket_data)) {
+        if (!m.participantA || !m.participantB) continue;
+        const isA = myNames.has(m.participantA);
+        const isB = myNames.has(m.participantB);
+        if (!isA && !isB) continue;
+
+        const myName = isA ? m.participantA : m.participantB;
+        const opponent = isA ? m.participantB : m.participantA;
+
+        let myResult = null;
+        if (m.completed) {
+          if (m.tie) myResult = 'tie';
+          else if (m.winner === myName) myResult = 'won';
+          else myResult = 'lost';
+        }
+
+        allMatches.push({
+          id: m.id,
+          tournamentId: tournament.tournament_id,
+          tournamentName: tournament.name,
+          opponent,
+          completed: m.completed ?? false,
+          myResult,
+          tournamentStatus: tournament.status,
+          createdAt: tournament.created_at,
+        });
+      }
+    }
+
+    // Upcoming (not completed) first, then by tournament recency
+    allMatches.sort((a, b) => {
+      if (a.completed !== b.completed) return a.completed ? 1 : -1;
+      return new Date(b.createdAt) - new Date(a.createdAt);
+    });
+
+    return res.json({ matches: allMatches.slice(0, 5) });
+  } catch (err) {
+    console.error('[tournament.myMatches]', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+function extractAllMatches(bracket) {
+  const matches = [];
+  if (bracket.rounds) {
+    for (const round of bracket.rounds) matches.push(...round.matches);
+  }
+  if (bracket.losersRounds) {
+    for (const round of bracket.losersRounds) matches.push(...round.matches);
+  }
+  if (bracket.groups) {
+    for (const group of bracket.groups) {
+      for (const round of group.rounds) matches.push(...round.matches);
+    }
+  }
+  if (bracket.knockoutRounds) {
+    for (const round of bracket.knockoutRounds) matches.push(...round.matches);
+  }
+  return matches;
+}
+
+module.exports = { create, list, getById, update, remove, myMatches };

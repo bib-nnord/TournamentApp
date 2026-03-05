@@ -16,12 +16,15 @@ const teamNews = [
   { id: "n3", team: "The Knights", message: "Team practice moved to Thursday", time: "1d ago" },
 ];
 
-// Placeholder
-const upcomingMatches = [
-  { id: "m1", tournament: "Spring Open 2025", opponent: "Iron Bishops", date: "Mar 15, 2025", time: "14:00" },
-  { id: "m2", tournament: "Weekly Blitz #42", opponent: "Rapid Rookies", date: "Feb 28, 2025", time: "18:00" },
-  { id: "m3", tournament: "Easter Invitational", opponent: "TBD", date: "Apr 20, 2025", time: "10:00" },
-];
+type MyMatch = {
+  id: string;
+  tournamentId: number;
+  tournamentName: string;
+  opponent: string;
+  completed: boolean;
+  myResult: "won" | "lost" | "tie" | null;
+  tournamentStatus: string;
+};
 
 export default function DashboardPage() {
   const user = useRequireAuth();
@@ -30,10 +33,12 @@ export default function DashboardPage() {
   const { data: activeData, loading: activeLoading } = useFetch<{ tournaments: TournamentSummary[] }>("/tournaments?status=active&limit=5");
   const { data: registrationData, loading: registrationLoading } = useFetch<{ tournaments: TournamentSummary[] }>("/tournaments?status=registration&limit=5");
   const { data: completedData, loading: completedLoading } = useFetch<{ tournaments: TournamentSummary[] }>("/tournaments?status=completed&limit=5");
+  const { data: myMatchesData, loading: myMatchesLoading } = useFetch<{ matches: MyMatch[] }>("/tournaments/my-matches");
 
   const activeTournaments = activeData?.tournaments ?? [];
   const upcomingTournaments = registrationData?.tournaments ?? [];
   const recentResults = completedData?.tournaments ?? [];
+  const myMatches = myMatchesData?.matches ?? [];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -112,22 +117,25 @@ export default function DashboardPage() {
             </div>
           </DashboardCard>
 
-          <DashboardCard title="Upcoming matches" dotColor="bg-orange-500" empty={upcomingMatches.length === 0} emptyMessage="No upcoming matches.">
+          <DashboardCard title="My matches" dotColor="bg-orange-500" loading={myMatchesLoading} empty={myMatches.length === 0} emptyMessage="No matches found.">
             <div className="flex flex-col gap-2">
-              {upcomingMatches.map((m) => (
-                <div
+              {myMatches.map((m) => (
+                <Link
                   key={m.id}
+                  href={`/tournaments/view/${m.tournamentId}`}
                   className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gray-50"
                 >
                   <div>
                     <p className="text-sm font-medium text-gray-800">vs {m.opponent}</p>
-                    <span className="text-xs text-gray-400">{m.tournament}</span>
+                    <span className="text-xs text-gray-400">{m.tournamentName}</span>
                   </div>
                   <div className="text-right">
-                    <p className="text-xs font-medium text-gray-700">{m.date}</p>
-                    <span className="text-xs text-gray-400">{m.time}</span>
+                    {!m.completed && <span className="text-xs font-medium text-orange-500">Upcoming</span>}
+                    {m.myResult === "won" && <span className="text-xs font-medium text-green-600">Won</span>}
+                    {m.myResult === "lost" && <span className="text-xs text-gray-400">Lost</span>}
+                    {m.myResult === "tie" && <span className="text-xs text-blue-500">Tie</span>}
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           </DashboardCard>

@@ -1,12 +1,13 @@
 const { Router } = require('express');
 const { authenticate } = require('../middleware/auth');
-const { create, list, getById, update, remove } = require('../controllers/tournamentController');
+const { create, list, getById, update, remove, myMatches } = require('../controllers/tournamentController');
 const { reportResult, getMatch } = require('../controllers/matchController');
 
 const router = Router();
 
 // Public (but respects private flag inside controller)
 router.get('/', optionalAuth, list);
+router.get('/my-matches', authenticate, myMatches);
 router.get('/:id', optionalAuth, getById);
 
 // Match detail (public, respects privacy)
