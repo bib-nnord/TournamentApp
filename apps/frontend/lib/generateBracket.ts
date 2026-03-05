@@ -48,6 +48,8 @@ export interface Bracket {
   advancersPerGroup?: number;
   /** Set when the final match (or final standings) ends in a tie */
   tiebreaker?: TiebreakerMatch;
+  /** Whether ties are allowed as a match result (default: true) */
+  allowTies?: boolean;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

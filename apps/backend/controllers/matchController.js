@@ -14,7 +14,7 @@ async function reportResult(req, res) {
 
   const { winner, scoreA, scoreB } = req.body;
 
-  if (!winner || typeof winner !== 'string') {
+  if (!req.body.reset && (!winner || typeof winner !== 'string')) {
     return res.status(400).json({ error: 'winner is required' });
   }
 
@@ -101,7 +101,7 @@ async function reportResult(req, res) {
     if (isTrueFinalMatch(bracket, section, roundIndex)) {
       if (isTie && !bracket.tiebreaker?.completed) {
         bracket.tiebreaker = { id: 'tiebreaker', participants: [match.participantA, match.participantB] };
-      } else if (!isTie && !bracket.tiebreaker?.completed) {
+      } else if (!isTie) {
         delete bracket.tiebreaker;
       }
     }
@@ -467,4 +467,55 @@ function populateKnockoutFromGroups(bracket) {
   }
 }
 
-module.exports = { reportResult };
+// ─── GET /tournaments/:id/matches/:matchId ─────────────────────────────────
+// Returns a single match from the tournament bracket data.
+// Auth: optional — respects tournament privacy
+async function getMatch(req, res) {
+  const tournamentId = parseInt(req.params.id, 10);
+  const { matchId } = req.params;
+
+  if (isNaN(tournamentId)) {
+    return res.status(400).json({ error: 'Invalid tournament ID' });
+  }
+
+  try {
+    const tournament = await prisma.tournament.findUnique({
+      where: { tournament_id: tournamentId },
+      include: { creator: { select: { user_id: true, username: true } } },
+    });
+
+    if (!tournament) return res.status(404).json({ error: 'Tournament not found' });
+
+    if (tournament.is_private && (!req.user || req.user.id !== tournament.created_by)) {
+      return res.status(404).json({ error: 'Tournament not found' });
+    }
+
+    if (!tournament.bracket_data) {
+      return res.status(404).json({ error: 'No bracket data' });
+    }
+
+    const found = findMatch(tournament.bracket_data, matchId);
+    if (!found) return res.status(404).json({ error: 'Match not found' });
+
+    return res.json({
+      match: found.match,
+      section: found.section,
+      roundIndex: found.roundIndex,
+      allowTies: tournament.bracket_data.allowTies !== false,
+      tournament: {
+        id: tournament.tournament_id,
+        name: tournament.name,
+        game: tournament.game,
+        format: tournament.bracket_data.format,
+        isPrivate: tournament.is_private,
+        status: tournament.status,
+        creator: { id: tournament.creator.user_id, username: tournament.creator.username },
+      },
+    });
+  } catch (err) {
+    console.error('[match.getMatch]', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+module.exports = { reportResult, getMatch };

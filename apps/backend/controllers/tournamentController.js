@@ -235,7 +235,7 @@ async function update(req, res) {
       return res.status(403).json({ error: 'Only the tournament creator can update it' });
     }
 
-    const { name, game, description, status, bracketData, startDate } = req.body;
+    const { name, game, description, status, bracketData, startDate, isPrivate } = req.body;
     const data = {};
     if (name !== undefined) data.name = name;
     if (game !== undefined) data.game = game;
@@ -243,6 +243,7 @@ async function update(req, res) {
     if (status !== undefined) data.status = status;
     if (bracketData !== undefined) data.bracket_data = bracketData;
     if (startDate !== undefined) data.start_date = startDate ? new Date(startDate) : null;
+    if (isPrivate !== undefined) data.is_private = isPrivate;
 
     const updated = await prisma.tournament.update({
       where: { tournament_id: id },

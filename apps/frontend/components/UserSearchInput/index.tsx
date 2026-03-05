@@ -6,6 +6,7 @@ import type { UserResult, UserSearchInputProps } from "./types";
 
 export default function UserSearchInput({
   onSelect,
+  onSelectAsGuest,
   placeholder = "Search users…",
   className = "",
   size = "md",
@@ -69,8 +70,15 @@ export default function UserSearchInput({
       if (highlightIndex >= 0 && highlightIndex < results.length) {
         selectUser(results[highlightIndex].username);
       } else if (input.trim()) {
-        // Allow free-text entry (typed username not yet in results)
-        selectUser(input.trim());
+        // No matching user — add as guest if callback provided, otherwise as account
+        if (onSelectAsGuest) {
+          onSelectAsGuest(input.trim());
+          setInput("");
+          setShowDropdown(false);
+          setHighlightIndex(-1);
+        } else {
+          selectUser(input.trim());
+        }
       }
     } else if (e.key === "Escape") {
       setShowDropdown(false);
@@ -101,7 +109,7 @@ export default function UserSearchInput({
             <div className="px-3 py-2 text-xs text-gray-400">Searching…</div>
           ) : results.length === 0 ? (
             <div className="px-3 py-2 text-xs text-gray-400">
-              No users found — press Enter to add &ldquo;{input.trim()}&rdquo; as-is
+              No users found — press Enter to add &ldquo;{input.trim()}&rdquo; as guest
             </div>
           ) : (
             results.map((u, idx) => (

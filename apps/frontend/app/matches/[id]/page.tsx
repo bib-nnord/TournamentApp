@@ -1,43 +1,171 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import type { Match } from "@/types";
-import { matchStatusLabel } from "@/types";
-import StatusBadge from "@/components/StatusBadge";
-import { matchStatusColors } from "@/lib/colors";
-import MatchPlayerCard from "@/components/MatchPlayerCard";
-import { getMatchBackNavigation, getMatchWinner } from "@/lib/helpers";
+import { useSelector } from "react-redux";
+import { apiFetch } from "@/lib/api";
+import type { RootState } from "@/store/store";
 
-// Placeholder — replace with real fetch by id once backend is ready
-const match: Match = {
-  id: "m1",
-  status: "completed",
-  scheduledAt: "March 15, 2025 · 14:00",
-  game: "Chess",
-  playerA: { id: "u1", username: "alice", score: 3 },
-  playerB: { id: "u2", username: "bob", score: 1 },
-  tournament: { id: "1", name: "Spring Open 2025" },
-  round: "Quarterfinal",
-};
-
-// Standalone example (no tournament):
-// const match: Match = {
-//   id: "m2",
-//   status: "scheduled",
-//   scheduledAt: "April 1, 2025 · 18:00",
-//   game: "Rocket League",
-//   playerA: { id: "u3", username: "charlie", score: null },
-//   playerB: { id: "u4", username: "diana", score: null },
-// };
+interface BracketMatchDetail {
+  match: {
+    id: string;
+    participantA: string | null;
+    participantB: string | null;
+    completed: boolean;
+    winner: string | null;
+    tie: boolean;
+    scoreA: number | null;
+    scoreB: number | null;
+  };
+  section: string;
+  roundIndex: number;
+  allowTies: boolean;
+  tournament: {
+    id: number;
+    name: string;
+    game: string;
+    format: string;
+    isPrivate: boolean;
+    status: string;
+    creator: { id: number; username: string };
+  };
+}
 
 export default function MatchPage() {
-  const winner = getMatchWinner(match);
-  const { href: backHref, label: backLabel } = getMatchBackNavigation(match);
+  const { id: matchId } = useParams<{ id: string }>();
+  const searchParams = useSearchParams();
+  const tournamentId = searchParams.get("t");
+  const currentUser = useSelector((state: RootState) => state.auth.user);
+
+  const [data, setData] = useState<BracketMatchDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Reporting state
+  const [selectedWinner, setSelectedWinner] = useState<"a" | "b" | "tie" | null>(null);
+  const [scoreA, setScoreA] = useState("0");
+  const [scoreB, setScoreB] = useState("0");
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+
+  useEffect(() => {
+    if (!tournamentId) {
+      setError("No tournament specified");
+      setLoading(false);
+      return;
+    }
+
+    async function load() {
+      try {
+        const res = await apiFetch(`/tournaments/${tournamentId}/matches/${matchId}`);
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          setError(body.error ?? "Match not found");
+          return;
+        }
+        const json: BracketMatchDetail = await res.json();
+        setData(json);
+        // Pre-fill if already completed
+        if (json.match.completed) {
+          if (json.match.tie) {
+            setSelectedWinner("tie");
+          } else if (json.match.winner) {
+            setSelectedWinner(json.match.winner === json.match.participantA ? "a" : "b");
+          }
+          setScoreA(json.match.scoreA != null ? String(json.match.scoreA) : "0");
+          setScoreB(json.match.scoreB != null ? String(json.match.scoreB) : "0");
+        }
+      } catch {
+        setError("Network error");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    load();
+  }, [matchId, tournamentId]);
+
+  async function handleSubmit() {
+    if (!selectedWinner || !data || !tournamentId) return;
+    setSubmitting(true);
+    setSubmitError(null);
+    setSubmitSuccess(false);
+    try {
+      const sA = scoreA !== "" ? Number(scoreA) : undefined;
+      const sB = scoreB !== "" ? Number(scoreB) : undefined;
+      const res = await apiFetch(`/tournaments/${tournamentId}/matches/${matchId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ winner: selectedWinner, scoreA: sA, scoreB: sB }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setSubmitError(body.error ?? "Failed to report result");
+        return;
+      }
+      // Refresh match data
+      const refreshRes = await apiFetch(`/tournaments/${tournamentId}/matches/${matchId}`);
+      if (refreshRes.ok) {
+        const updated: BracketMatchDetail = await refreshRes.json();
+        setData(updated);
+      }
+      setSubmitSuccess(true);
+      setTimeout(() => setSubmitSuccess(false), 3000);
+    } catch {
+      setSubmitError("Network error");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <p className="text-sm text-gray-400">Loading match…</p>
+      </div>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="max-w-2xl mx-auto px-4 py-10">
+          <Link href={tournamentId ? `/tournaments/view/${tournamentId}` : "/tournaments"} className="text-sm text-gray-500 hover:text-gray-700 mb-6 inline-block">
+            ← Back
+          </Link>
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center">
+            <p className="text-red-600 text-sm">{error ?? "Match not found"}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const { match, tournament, allowTies } = data;
+  const isCreator = currentUser?.id === tournament.creator.id;
+  const canReport = isCreator && tournament.status === "active"
+    && !!match.participantA && match.participantA !== "TBD"
+    && !!match.participantB && match.participantB !== "TBD";
+
+  const isWinnerA = match.completed && !match.tie && match.winner === match.participantA;
+  const isWinnerB = match.completed && !match.tie && match.winner === match.participantB;
+
+  const sectionLabel: Record<string, string> = {
+    winners: "Winners Bracket",
+    losers: "Losers Bracket",
+    knockout: "Knockout",
+    tiebreaker: "Tiebreaker",
+  };
+  const sectionDisplay = data.section.startsWith("group_")
+    ? `Group ${parseInt(data.section.split("_")[1]) + 1}`
+    : (sectionLabel[data.section] ?? data.section);
 
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-2xl mx-auto px-4 py-10">
-
-        <Link href={backHref} className="text-sm text-gray-500 hover:text-gray-700 mb-6 inline-block">
-          {backLabel}
+        <Link href={`/tournaments/view/${tournament.id}`} className="text-sm text-gray-500 hover:text-gray-700 mb-6 inline-block">
+          ← {tournament.name}
         </Link>
 
         {/* Header */}
@@ -45,66 +173,155 @@ export default function MatchPage() {
           <div className="flex items-start justify-between mb-2">
             <div>
               <h1 className="text-xl font-bold text-gray-900">
-                {match.playerA.username} vs {match.playerB.username}
+                {match.participantA ?? "TBD"} vs {match.participantB ?? "TBD"}
               </h1>
-              {match.tournament && (
-                <p className="text-sm text-gray-400 mt-0.5">
-                  <Link href={`/tournaments/view/${match.tournament.id}`} className="hover:underline">
-                    {match.tournament.name}
-                  </Link>
-                  {match.round && <span> · {match.round}</span>}
-                </p>
-              )}
-              {!match.tournament && (
-                <p className="text-sm text-gray-400 mt-0.5">Standalone match</p>
-              )}
+              <p className="text-sm text-gray-400 mt-0.5">{sectionDisplay}</p>
             </div>
-            <StatusBadge label={matchStatusLabel[match.status]} colorClass={matchStatusColors[match.status]} className="py-1" />
+            <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+              match.completed ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-600"
+            }`}>
+              {match.completed ? (match.tie ? "Tie" : "Completed") : "Scheduled"}
+            </span>
           </div>
 
           <div className="grid grid-cols-2 gap-4 text-sm mt-6">
             <div>
               <p className="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Game</p>
-              <p className="text-gray-800 font-medium">{match.game}</p>
+              <p className="text-gray-800 font-medium">{tournament.game}</p>
             </div>
             <div>
-              <p className="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Scheduled</p>
-              <p className="text-gray-800 font-medium">{match.scheduledAt}</p>
+              <p className="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Organizer</p>
+              <Link href={`/profile/${tournament.creator.username}`} className="text-gray-800 font-medium hover:text-indigo-600">
+                {tournament.creator.username}
+              </Link>
             </div>
+            {tournament.isPrivate && (
+              <div>
+                <p className="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Visibility</p>
+                <p className="text-gray-800 font-medium">Private</p>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Scoreboard */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 mb-6">
           <h2 className="text-base font-semibold text-gray-800 mb-6">Score</h2>
-
           <div className="flex items-center justify-between gap-4">
-            {/* Player A */}
-            <MatchPlayerCard player={match.playerA} isWinner={winner === match.playerA.id} />
+            <div className={`flex-1 rounded-xl p-4 text-center ${isWinnerA ? "bg-emerald-50 border border-emerald-200" : "bg-gray-50 border border-gray-100"}`}>
+              {isWinnerA && <p className="text-xs font-bold text-emerald-600 mb-1">Winner</p>}
+              <p className={`font-semibold text-sm truncate ${isWinnerA ? "text-emerald-800" : "text-gray-800"}`}>
+                {match.participantA ?? <span className="text-gray-300 italic">TBD</span>}
+              </p>
+              {match.completed && match.scoreA != null && (
+                <p className={`text-2xl font-bold mt-1 ${isWinnerA ? "text-emerald-700" : "text-gray-500"}`}>
+                  {match.scoreA}
+                </p>
+              )}
+            </div>
 
-            <span className="text-xl font-bold text-gray-300">vs</span>
+            <span className="text-xl font-bold text-gray-300 shrink-0">vs</span>
 
-            {/* Player B */}
-            <MatchPlayerCard player={match.playerB} isWinner={winner === match.playerB.id} />
+            <div className={`flex-1 rounded-xl p-4 text-center ${isWinnerB ? "bg-emerald-50 border border-emerald-200" : "bg-gray-50 border border-gray-100"}`}>
+              {isWinnerB && <p className="text-xs font-bold text-emerald-600 mb-1">Winner</p>}
+              <p className={`font-semibold text-sm truncate ${isWinnerB ? "text-emerald-800" : "text-gray-800"}`}>
+                {match.participantB ?? <span className="text-gray-300 italic">TBD</span>}
+              </p>
+              {match.completed && match.scoreB != null && (
+                <p className={`text-2xl font-bold mt-1 ${isWinnerB ? "text-emerald-700" : "text-gray-500"}`}>
+                  {match.scoreB}
+                </p>
+              )}
+            </div>
           </div>
-
-          {winner === "draw" && (
+          {match.tie && (
             <p className="text-center text-sm text-gray-500 mt-4 font-medium">Draw</p>
-          )}
-
-          {match.status === "scheduled" && (
-            <p className="text-center text-sm text-gray-400 mt-4">Match hasn&apos;t started yet.</p>
           )}
         </div>
 
-        {/* Notes */}
-        {match.notes && (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-            <h2 className="text-base font-semibold text-gray-800 mb-2">Notes</h2>
-            <p className="text-sm text-gray-600">{match.notes}</p>
+        {/* Result reporting (creator only) */}
+        {canReport && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+            <h2 className="text-base font-semibold text-gray-800 mb-4">
+              {match.completed ? "Update result" : "Report result"}
+            </h2>
+
+            <div className="flex gap-2 mb-3">
+              <button
+                type="button"
+                onClick={() => setSelectedWinner("a")}
+                className={`flex-1 py-3 rounded-lg text-sm font-medium transition-colors truncate ${
+                  selectedWinner === "a"
+                    ? "bg-indigo-600 text-white"
+                    : "bg-gray-100 text-gray-700 hover:bg-indigo-50 border border-gray-200 hover:border-indigo-400"
+                }`}
+              >
+                {match.participantA}
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedWinner("b")}
+                className={`flex-1 py-3 rounded-lg text-sm font-medium transition-colors truncate ${
+                  selectedWinner === "b"
+                    ? "bg-indigo-600 text-white"
+                    : "bg-gray-100 text-gray-700 hover:bg-indigo-50 border border-gray-200 hover:border-indigo-400"
+                }`}
+              >
+                {match.participantB}
+              </button>
+            </div>
+
+            {allowTies && (
+              <button
+                type="button"
+                onClick={() => setSelectedWinner("tie")}
+                className={`w-full py-2 rounded-lg text-sm font-medium transition-colors mb-4 ${
+                  selectedWinner === "tie"
+                    ? "bg-gray-500 text-white"
+                    : "bg-gray-100 text-gray-500 hover:bg-gray-200 border border-gray-200"
+                }`}
+              >
+                Draw
+              </button>
+            )}
+
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex-1">
+                <label className="block text-xs text-gray-400 uppercase tracking-wide mb-1">Score — {match.participantA}</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={scoreA}
+                  onChange={e => setScoreA(e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 text-center focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                />
+              </div>
+              <span className="text-gray-300 font-bold mt-5">–</span>
+              <div className="flex-1">
+                <label className="block text-xs text-gray-400 uppercase tracking-wide mb-1">Score — {match.participantB}</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={scoreB}
+                  onChange={e => setScoreB(e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 text-center focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                />
+              </div>
+            </div>
+
+            {submitError && <p className="text-xs text-red-500 mb-3">{submitError}</p>}
+            {submitSuccess && <p className="text-xs text-emerald-600 mb-3">Result saved!</p>}
+
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={!selectedWinner || submitting}
+              className="w-full py-2.5 rounded-lg text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40 transition-colors"
+            >
+              {submitting ? "Saving…" : match.completed ? "Update result" : "Confirm result"}
+            </button>
           </div>
         )}
-
       </div>
     </div>
   );

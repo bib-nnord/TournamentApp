@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, createContext, useContext } from "react";
+import Link from "next/link";
 import type { Bracket, BracketRound, BracketMatch, TiebreakerMatch } from "@/lib/generateBracket";
 import {
   LABEL_CANCEL,
@@ -10,10 +11,13 @@ import {
   LABEL_UNDO,
 } from "@/constants/labels";
 
+const TournamentIdContext = createContext<number | null>(null);
+
 // ─── Main entry point ─────────────────────────────────────────────────────────
 
-export default function BracketView({ bracket, onSwapParticipants, advancersPerGroup, onAdvancersChange, autoAdvanceGroups, onAutoAdvanceGroupsChange, onMoveParticipant, onReportResult, onReportTiebreaker, onUndoTiebreaker }: {
+export default function BracketView({ bracket, tournamentId, onSwapParticipants, advancersPerGroup, onAdvancersChange, autoAdvanceGroups, onAutoAdvanceGroupsChange, onMoveParticipant, onReportResult, onReportTiebreaker, onUndoTiebreaker }: {
   bracket: Bracket;
+  tournamentId?: number;
   onSwapParticipants?: (a: string, b: string) => void;
   advancersPerGroup?: number;
   onAdvancersChange?: (n: number) => void;
@@ -24,10 +28,12 @@ export default function BracketView({ bracket, onSwapParticipants, advancersPerG
   onReportTiebreaker?: (matchId: string, winnerName: string) => Promise<void>;
   onUndoTiebreaker?: () => Promise<void>;
 }) {
+  const allowTies = bracket.allowTies !== false;
+
   const mainContent = (() => {
     switch (bracket.format) {
       case "single_elimination":
-        return <EliminationBracket rounds={bracket.rounds} onSwapParticipants={onSwapParticipants} onReportResult={onReportResult} />;
+        return <EliminationBracket rounds={bracket.rounds} onSwapParticipants={onSwapParticipants} onReportResult={onReportResult} allowTies={allowTies} />;
       case "double_elimination": {
         const allLosers = bracket.losersRounds ?? [];
         const grandFinalRound = allLosers.length > 0 && allLosers[allLosers.length - 1].name === "Grand Final"
@@ -44,6 +50,7 @@ export default function BracketView({ bracket, onSwapParticipants, advancersPerG
                 onSwapParticipants={onSwapParticipants}
                 grandFinal={grandFinalRound?.matches[0]}
                 onReportResult={onReportResult}
+                allowTies={allowTies}
               />
             </div>
             {losersOnly.length > 0 && (
@@ -54,6 +61,7 @@ export default function BracketView({ bracket, onSwapParticipants, advancersPerG
                   onSwapParticipants={onSwapParticipants}
                   showOutputConnector={!!grandFinalRound}
                   onReportResult={onReportResult}
+                  allowTies={allowTies}
                 />
               </div>
             )}
@@ -62,9 +70,9 @@ export default function BracketView({ bracket, onSwapParticipants, advancersPerG
       }
       case "round_robin":
       case "double_round_robin":
-        return <RoundRobinView rounds={bracket.rounds} isDouble={bracket.format === "double_round_robin"} onReportResult={onReportResult} />;
+        return <RoundRobinView rounds={bracket.rounds} isDouble={bracket.format === "double_round_robin"} onReportResult={onReportResult} allowTies={allowTies} />;
       case "swiss":
-        return <SwissView rounds={bracket.rounds} onReportResult={onReportResult} />;
+        return <SwissView rounds={bracket.rounds} onReportResult={onReportResult} allowTies={allowTies} />;
       case "combination":
         return (
           <CombinationView
@@ -76,18 +84,19 @@ export default function BracketView({ bracket, onSwapParticipants, advancersPerG
             onAutoAdvanceGroupsChange={onAutoAdvanceGroupsChange}
             onMoveParticipant={onMoveParticipant}
             onReportResult={onReportResult}
+            allowTies={allowTies}
           />
         );
     }
   })();
 
   return (
-    <>
+    <TournamentIdContext.Provider value={tournamentId ?? null}>
       {mainContent}
       {bracket.tiebreaker && (
         <TiebreakerPanel tiebreaker={bracket.tiebreaker} onReport={onReportTiebreaker} onUndo={onUndoTiebreaker} />
       )}
-    </>
+    </TournamentIdContext.Provider>
   );
 }
 
@@ -208,12 +217,14 @@ function EliminationBracket({
   grandFinal,
   showOutputConnector,
   onReportResult,
+  allowTies = true,
 }: {
   rounds: BracketRound[];
   onSwapParticipants?: (a: string, b: string) => void;
   grandFinal?: BracketMatch;
   showOutputConnector?: boolean;
   onReportResult?: (matchId: string, winner: "a" | "b" | "tie", scoreA?: number, scoreB?: number) => Promise<void>;
+  allowTies?: boolean;
 }) {
   if (rounds.length === 0) return null;
 
@@ -386,7 +397,7 @@ function EliminationBracket({
                 className="absolute"
                 style={{ left: ri * COL_W, top: y, width: MATCH_W }}
               >
-                <MatchCard match={match} onSwapParticipants={onSwapParticipants} onReportResult={onReportResult} isFinal={isFinalRound} />
+                <MatchCard match={match} onSwapParticipants={onSwapParticipants} onReportResult={onReportResult} isFinal={isFinalRound} allowTies={allowTies} />
               </div>
             );
           });
@@ -398,7 +409,7 @@ function EliminationBracket({
             className="absolute"
             style={{ left: extraX, top: extraY - MATCH_H / 2, width: MATCH_W }}
           >
-            <MatchCard match={grandFinal} onReportResult={onReportResult} isFinal={true} />
+            <MatchCard match={grandFinal} onReportResult={onReportResult} isFinal={true} allowTies={allowTies} />
           </div>
         )}
       </div>
@@ -413,12 +424,15 @@ function MatchCard({
   onSwapParticipants,
   onReportResult,
   isFinal = false,
+  allowTies = true,
 }: {
   match: BracketMatch;
   onSwapParticipants?: (a: string, b: string) => void;
   onReportResult?: (matchId: string, winner: "a" | "b" | "tie", scoreA?: number, scoreB?: number) => Promise<void>;
   isFinal?: boolean;
+  allowTies?: boolean;
 }) {
+  const tournamentId = useContext(TournamentIdContext);
   const [dropTarget, setDropTarget] = useState<"a" | "b" | null>(null);
   const [reporting, setReporting] = useState(false);
   const [selectedWinner, setSelectedWinner] = useState<"a" | "b" | "tie" | null>(null);
@@ -582,6 +596,11 @@ function MatchCard({
         </div>
       </div>
 
+      {/* ── Tied non-final hint ──────────────────────────────────────── */}
+      {isTie && !isFinal && canReport && (
+        <p className="text-[10px] text-center text-amber-600 mt-0.5">Tap to select who advances</p>
+      )}
+
       {/* ── Reporting modal (fixed, above all overflow containers) ──── */}
       {reporting && (
         <div
@@ -619,17 +638,19 @@ function MatchCard({
                 {match.participantB}
               </button>
             </div>
-            <button
-              type="button"
-              onClick={() => setSelectedWinner("tie")}
-              className={`w-full py-1.5 rounded text-sm font-medium transition-colors mb-3 ${
-                selectedWinner === "tie"
-                  ? "bg-gray-500 text-white"
-                  : "bg-gray-100 text-gray-500 hover:bg-gray-200 border border-gray-200"
-              }`}
-            >
-              {LABEL_TIE}
-            </button>
+            {allowTies && (
+              <button
+                type="button"
+                onClick={() => setSelectedWinner("tie")}
+                className={`w-full py-1.5 rounded text-sm font-medium transition-colors mb-3 ${
+                  selectedWinner === "tie"
+                    ? "bg-gray-500 text-white"
+                    : "bg-gray-100 text-gray-500 hover:bg-gray-200 border border-gray-200"
+                }`}
+              >
+                {LABEL_TIE}
+              </button>
+            )}
             <div className="flex items-center gap-2 mb-3">
               <input
                 type="number"
@@ -668,6 +689,15 @@ function MatchCard({
                 {LABEL_CANCEL}
               </button>
             </div>
+            {tournamentId && (
+              <Link
+                href={`/matches/${match.id}?t=${tournamentId}`}
+                className="block text-center text-[11px] text-indigo-500 hover:text-indigo-700 mt-3"
+                onClick={handleCancel}
+              >
+                Open advanced view →
+              </Link>
+            )}
           </div>
         </div>
       )}
@@ -681,10 +711,12 @@ function RoundRobinView({
   rounds,
   isDouble,
   onReportResult,
+  allowTies = true,
 }: {
   rounds: BracketRound[];
   isDouble: boolean;
   onReportResult?: (matchId: string, winner: "a" | "b" | "tie", scoreA?: number, scoreB?: number) => Promise<void>;
+  allowTies?: boolean;
 }) {
   const participantSet = new Set<string>();
   for (const round of rounds) {
@@ -830,7 +862,7 @@ function RoundRobinView({
                 <div className="text-[10px] text-gray-400 uppercase tracking-wide mt-2 mb-1">{round.name}</div>
                 <div className="space-y-1">
                   {round.matches.map((match) => (
-                    <MatchRow key={match.id} match={match} onReportResult={onReportResult} />
+                    <MatchRow key={match.id} match={match} onReportResult={onReportResult} allowTies={allowTies} />
                   ))}
                 </div>
               </div>
@@ -847,9 +879,11 @@ function RoundRobinView({
 function SwissView({
   rounds,
   onReportResult,
+  allowTies = true,
 }: {
   rounds: BracketRound[];
   onReportResult?: (matchId: string, winner: "a" | "b" | "tie", scoreA?: number, scoreB?: number) => Promise<void>;
+  allowTies?: boolean;
 }) {
   return (
     <div className="flex flex-col gap-4">
@@ -858,7 +892,7 @@ function SwissView({
           <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{round.name}</div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {round.matches.map((match) => (
-              <MatchRow key={match.id} match={match} onReportResult={onReportResult} />
+              <MatchRow key={match.id} match={match} onReportResult={onReportResult} allowTies={allowTies} />
             ))}
           </div>
         </div>
@@ -872,10 +906,13 @@ function SwissView({
 function MatchRow({
   match,
   onReportResult,
+  allowTies = true,
 }: {
   match: BracketMatch;
   onReportResult?: (matchId: string, winner: "a" | "b" | "tie", scoreA?: number, scoreB?: number) => Promise<void>;
+  allowTies?: boolean;
 }) {
+  const tournamentId = useContext(TournamentIdContext);
   const [reporting, setReporting] = useState(false);
   const [selectedWinner, setSelectedWinner] = useState<"a" | "b" | "tie" | null>(null);
   const [scoreA, setScoreA] = useState("0");
@@ -953,6 +990,10 @@ function MatchRow({
         </span>
       </div>
 
+      {isTie && canReport && (
+        <p className="text-[10px] text-center text-amber-600 mt-0.5">Tap to select who advances</p>
+      )}
+
       {reporting && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center"
@@ -981,13 +1022,15 @@ function MatchRow({
                 {match.participantB}
               </button>
             </div>
-            <button
-              type="button"
-              onClick={() => setSelectedWinner("tie")}
-              className={`w-full py-1.5 rounded text-sm font-medium transition-colors mb-3 ${selectedWinner === "tie" ? "bg-gray-500 text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200 border border-gray-200"}`}
-            >
-              {LABEL_TIE}
-            </button>
+            {allowTies && (
+              <button
+                type="button"
+                onClick={() => setSelectedWinner("tie")}
+                className={`w-full py-1.5 rounded text-sm font-medium transition-colors mb-3 ${selectedWinner === "tie" ? "bg-gray-500 text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200 border border-gray-200"}`}
+              >
+                {LABEL_TIE}
+              </button>
+            )}
             <div className="flex items-center gap-2 mb-3">
               <input type="number" min={0} placeholder="—" value={scoreA} onChange={e => setScoreA(e.target.value)} className="w-14 text-center border border-gray-200 rounded px-1 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400" />
               <span className="flex-1 text-center text-[10px] text-gray-400">score (optional)</span>
@@ -1002,6 +1045,15 @@ function MatchRow({
                 {LABEL_CANCEL}
               </button>
             </div>
+            {tournamentId && (
+              <Link
+                href={`/matches/${match.id}?t=${tournamentId}`}
+                className="block text-center text-[11px] text-indigo-500 hover:text-indigo-700 mt-3"
+                onClick={handleCancel}
+              >
+                Open advanced view →
+              </Link>
+            )}
           </div>
         </div>
       )}
@@ -1020,6 +1072,7 @@ function CombinationView({
   onAutoAdvanceGroupsChange,
   onMoveParticipant,
   onReportResult,
+  allowTies = true,
 }: {
   bracket: Bracket;
   onSwapParticipants?: (a: string, b: string) => void;
@@ -1029,6 +1082,7 @@ function CombinationView({
   onAutoAdvanceGroupsChange?: (groups: string[][]) => void;
   onMoveParticipant?: (name: string, fromGroupIndex: number, toGroupIndex: number) => void;
   onReportResult?: (matchId: string, winner: "a" | "b" | "tie", scoreA?: number, scoreB?: number) => Promise<void>;
+  allowTies?: boolean;
 }) {
   const [dragName, setDragName] = useState<string | null>(null);
   const [dragFromGroup, setDragFromGroup] = useState<number | null>(null);
@@ -1223,7 +1277,7 @@ function CombinationView({
                         <div className="mt-2 space-y-1">
                           {group.rounds.map((round) =>
                             round.matches.map((match) => (
-                              <MatchRow key={match.id} match={match} onReportResult={onReportResult} />
+                              <MatchRow key={match.id} match={match} onReportResult={onReportResult} allowTies={allowTies} />
                             ))
                           )}
                         </div>
@@ -1244,7 +1298,7 @@ function CombinationView({
       {bracket.knockoutRounds && (
         <div>
           <h3 className="text-sm font-semibold text-gray-600 mb-3">Knockout Stage</h3>
-          <EliminationBracket rounds={bracket.knockoutRounds} onReportResult={onReportResult} />
+          <EliminationBracket rounds={bracket.knockoutRounds} onReportResult={onReportResult} allowTies={allowTies} />
         </div>
       )}
     </div>

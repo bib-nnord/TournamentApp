@@ -177,7 +177,7 @@ export default function TournamentPreview({ data, onBack, onConfirm, submitting,
   // ─── Confirm ──────────────────────────────────────────────────────────────
   function handleConfirm() {
     const updatedData: QuickTournamentData = { ...data, name, game, description, format, isPrivate, participants, advancersPerGroup, status };
-    onConfirm(updatedData, bracket);
+    onConfirm(updatedData, { ...bracket, allowTies: updatedData.allowTies !== false });
   }
 
   const inputClass =

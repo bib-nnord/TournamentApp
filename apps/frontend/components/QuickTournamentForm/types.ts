@@ -42,4 +42,6 @@ export interface QuickTournamentData {
   startDate?: string;
   /** Combination format: how many participants advance from each group (default 2) */
   advancersPerGroup?: number;
+  /** Whether ties are allowed as a match result (default: true) */
+  allowTies?: boolean;
 }

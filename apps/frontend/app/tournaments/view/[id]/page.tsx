@@ -39,6 +39,14 @@ export default function TournamentPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [finishing, setFinishing] = useState(false);
+  const [editingSettings, setEditingSettings] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editGame, setEditGame] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editAllowTies, setEditAllowTies] = useState(true);
+  const [editIsPrivate, setEditIsPrivate] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
 
   const cancelAction = useConfirmAction(useCallback(async () => {
     try {
@@ -135,6 +143,55 @@ export default function TournamentPage() {
       setError("Network error");
     } finally {
       setFinishing(false);
+    }
+  }
+
+  function openEditSettings() {
+    setEditName(tournament!.name);
+    setEditGame(tournament!.game);
+    setEditDescription(tournament!.description ?? "");
+    setEditAllowTies(tournament!.bracketData?.allowTies !== false);
+    setEditIsPrivate(tournament!.isPrivate);
+    setSettingsError(null);
+    setEditingSettings(true);
+  }
+
+  async function handleSaveSettings() {
+    setSavingSettings(true);
+    setSettingsError(null);
+    try {
+      const body: Record<string, unknown> = {
+        name: editName,
+        game: editGame,
+        description: editDescription || null,
+        isPrivate: editIsPrivate,
+      };
+      if (tournament!.bracketData) {
+        body.bracketData = { ...tournament!.bracketData, allowTies: editAllowTies };
+      }
+      const res = await apiFetch(`/tournaments/${tournament!.id}`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setSettingsError(data.error ?? "Failed to save settings");
+        return;
+      }
+      const updated = await res.json();
+      setTournament(prev => prev ? {
+        ...prev,
+        name: updated.name,
+        game: updated.game,
+        description: updated.description,
+        isPrivate: updated.isPrivate,
+        bracketData: updated.bracketData ?? prev.bracketData,
+      } : prev);
+      setEditingSettings(false);
+    } catch {
+      setSettingsError("Network error");
+    } finally {
+      setSavingSettings(false);
     }
   }
 
@@ -336,6 +393,7 @@ export default function TournamentPage() {
             )}
             <BracketView
               bracket={tournament.bracketData}
+              tournamentId={tournament.id}
               onReportResult={isCreator && tournament.status === "active" ? handleReportResult : undefined}
               onReportTiebreaker={isCreator && tournament.status === "active" ? handleReportTiebreaker : undefined}
               onUndoTiebreaker={isCreator && tournament.status === "active" ? handleUndoTiebreaker : undefined}
@@ -343,9 +401,98 @@ export default function TournamentPage() {
           </div>
         )}
 
+        {/* Edit Settings Modal */}
+        {editingSettings && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setEditingSettings(false)}>
+            <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-6 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
+              <h2 className="text-base font-semibold text-gray-800 mb-4">Edit Settings</h2>
+              <div className="flex flex-col gap-4">
+                <div>
+                  <label className="block text-xs text-gray-400 uppercase tracking-wide mb-1">Tournament name</label>
+                  <input
+                    value={editName}
+                    onChange={e => setEditName(e.target.value)}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-400 uppercase tracking-wide mb-1">Game / Discipline</label>
+                  <input
+                    value={editGame}
+                    onChange={e => setEditGame(e.target.value)}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-400 uppercase tracking-wide mb-1">Description <span className="normal-case text-gray-300">(optional)</span></label>
+                  <textarea
+                    value={editDescription}
+                    onChange={e => setEditDescription(e.target.value)}
+                    rows={3}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-none"
+                  />
+                </div>
+                {tournament.bracketData && (
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={editAllowTies}
+                      onClick={() => setEditAllowTies(v => !v)}
+                      className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${editAllowTies ? "bg-indigo-600" : "bg-gray-200"}`}
+                    >
+                      <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${editAllowTies ? "translate-x-4" : "translate-x-0"}`} />
+                    </button>
+                    <span className="text-sm text-gray-700">Allow ties <span className="text-gray-400">— matches can end in a draw</span></span>
+                  </div>
+                )}
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={editIsPrivate}
+                    onClick={() => setEditIsPrivate(v => !v)}
+                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${editIsPrivate ? "bg-gray-700" : "bg-gray-200"}`}
+                  >
+                    <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${editIsPrivate ? "translate-x-4" : "translate-x-0"}`} />
+                  </button>
+                  <span className="text-sm text-gray-700">Private <span className="text-gray-400">— only visible to you and participants</span></span>
+                </div>
+                {settingsError && <p className="text-xs text-red-500">{settingsError}</p>}
+                <div className="flex gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={handleSaveSettings}
+                    disabled={savingSettings || !editName.trim() || !editGame.trim()}
+                    className="flex-1 py-2 rounded-lg text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40 transition-colors"
+                  >
+                    {savingSettings ? "Saving…" : "Save"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingSettings(false)}
+                    className="px-4 py-2 rounded-lg text-sm text-gray-500 hover:text-gray-700 border border-gray-200 hover:border-gray-300 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Actions (creator only) */}
         {isCreator && (
           <div className="flex items-center gap-3 flex-wrap">
+            {!["completed", "cancelled"].includes(tournament.status) && (
+              <button
+                type="button"
+                onClick={openEditSettings}
+                className="text-sm px-4 py-2 rounded-lg font-medium transition-colors border border-gray-300 text-gray-600 hover:bg-gray-50"
+              >
+                Edit Settings
+              </button>
+            )}
             {tournament.status === "active" && (
               <button
                 type="button"

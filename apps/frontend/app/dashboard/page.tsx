@@ -9,14 +9,14 @@ import { LABEL_CREATE_TOURNAMENT, LABEL_BROWSE_TOURNAMENTS } from "@/constants/l
 import type { TournamentSummary } from "@/components/TournamentList/types";
 import DashboardCard from "@/components/DashboardCard";
 
-// Placeholder — no real API for team news yet
+// Placeholder
 const teamNews = [
   { id: "n1", team: "The Knights", message: "New member joined: diana", time: "2h ago" },
   { id: "n2", team: "Storm Squad", message: "Match scheduled vs Iron Bishops", time: "5h ago" },
   { id: "n3", team: "The Knights", message: "Team practice moved to Thursday", time: "1d ago" },
 ];
 
-// Placeholder — no real API for upcoming matches yet
+// Placeholder
 const upcomingMatches = [
   { id: "m1", tournament: "Spring Open 2025", opponent: "Iron Bishops", date: "Mar 15, 2025", time: "14:00" },
   { id: "m2", tournament: "Weekly Blitz #42", opponent: "Rapid Rookies", date: "Feb 28, 2025", time: "18:00" },
@@ -25,12 +25,11 @@ const upcomingMatches = [
 
 export default function DashboardPage() {
   const user = useRequireAuth();
+  if (!user) return null;
 
   const { data: activeData, loading: activeLoading } = useFetch<{ tournaments: TournamentSummary[] }>("/tournaments?status=active&limit=5");
   const { data: registrationData, loading: registrationLoading } = useFetch<{ tournaments: TournamentSummary[] }>("/tournaments?status=registration&limit=5");
   const { data: completedData, loading: completedLoading } = useFetch<{ tournaments: TournamentSummary[] }>("/tournaments?status=completed&limit=5");
-
-  if (!user) return null;
 
   const activeTournaments = activeData?.tournaments ?? [];
   const upcomingTournaments = registrationData?.tournaments ?? [];

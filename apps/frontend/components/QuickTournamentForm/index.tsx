@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, type KeyboardEvent } from "react";
+import { useState, useEffect, useRef } from "react";
 import { tournamentFormatInfo, type TournamentFormat } from "@/types";
 import { apiFetch } from "@/lib/api";
 import { generateUniqueName } from "@/lib/helpers";
@@ -31,6 +31,7 @@ export default function QuickTournamentForm({ initial, onSubmit, onChange }: Pro
   const [format, setFormat] = useState<TournamentFormat>(initial?.format ?? "single_elimination");
   const [isPrivate, setIsPrivate] = useState(initial?.isPrivate ?? false);
   const [teamMode, setTeamMode] = useState(initial?.teamMode ?? false);
+  const [allowTies, setAllowTies] = useState(initial?.allowTies !== false);
 
   const [accounts, setAccounts] = useState<string[]>(
     () => initial?.participants.filter((p) => p.type === "account").map((p) => p.name) ?? []
@@ -38,8 +39,6 @@ export default function QuickTournamentForm({ initial, onSubmit, onChange }: Pro
   const [guests, setGuests] = useState<string[]>(
     () => initial?.participants.filter((p) => p.type === "guest").map((p) => p.name) ?? []
   );
-  const [accountInput, setAccountInput] = useState("");
-  const [guestInput, setGuestInput] = useState("");
 
   // Teams
   const [teams, setTeams] = useState<TournamentTeam[]>(
@@ -115,7 +114,7 @@ export default function QuickTournamentForm({ initial, onSubmit, onChange }: Pro
     ? teams.map((t) => t.name)
     : [...accounts, ...guests];
 
-  const { addTag, removeTag, handleKeyDown, handleBlur } = useTagInput(allNames);
+  const { addTag, removeTag } = useTagInput(allNames);
 
   // ─── Auto-save draft (debounced) ──────────────────────────────────────
   useEffect(() => {
@@ -132,10 +131,10 @@ export default function QuickTournamentForm({ initial, onSubmit, onChange }: Pro
             ...accounts.map((n) => ({ name: n, type: "account" as const })),
             ...guests.map((n) => ({ name: n, type: "guest" as const })),
           ];
-      onChange({ name, game, description, format, participants, isPrivate, teamMode });
+      onChange({ name, game, description, format, participants, isPrivate, teamMode, allowTies });
     }, 500);
     return () => clearTimeout(timer);
-  }, [name, game, description, format, isPrivate, teamMode, accounts, guests, teams, onChange]);
+  }, [name, game, description, format, isPrivate, teamMode, allowTies, accounts, guests, teams, onChange]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -151,7 +150,7 @@ export default function QuickTournamentForm({ initial, onSubmit, onChange }: Pro
           ...accounts.map((n) => ({ name: n, type: "account" as const })),
           ...guests.map((n) => ({ name: n, type: "guest" as const })),
         ];
-    onSubmit({ name, game, description, format, participants, isPrivate, teamMode });
+    onSubmit({ name, game, description, format, participants, isPrivate, teamMode, allowTies });
   }
 
   const inputClass =
@@ -230,6 +229,52 @@ export default function QuickTournamentForm({ initial, onSubmit, onChange }: Pro
         <span className="text-sm text-gray-700">
           {LABEL_TEAM_MODE}{" "}
           <span className="text-gray-400">— teams compete instead of individuals</span>
+        </span>
+      </div>
+
+      {/* Allow ties toggle */}
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          role="switch"
+          aria-checked={allowTies}
+          onClick={() => setAllowTies((v) => !v)}
+          className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
+            allowTies ? "bg-indigo-600" : "bg-gray-200"
+          }`}
+        >
+          <span
+            className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+              allowTies ? "translate-x-4" : "translate-x-0"
+            }`}
+          />
+        </button>
+        <span className="text-sm text-gray-700">
+          Allow ties{" "}
+          <span className="text-gray-400">— matches can end in a draw</span>
+        </span>
+      </div>
+
+      {/* Private toggle */}
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          role="switch"
+          aria-checked={isPrivate}
+          onClick={() => setIsPrivate((v) => !v)}
+          className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
+            isPrivate ? "bg-gray-700" : "bg-gray-200"
+          }`}
+        >
+          <span
+            className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+              isPrivate ? "translate-x-4" : "translate-x-0"
+            }`}
+          />
+        </button>
+        <span className="text-sm text-gray-700">
+          Private tournament{" "}
+          <span className="text-gray-400">— only visible to you and participants</span>
         </span>
       </div>
 
@@ -318,18 +363,18 @@ export default function QuickTournamentForm({ initial, onSubmit, onChange }: Pro
       ) : (
         /* ── Individual mode ── */
         <>
-          {/* Accounts */}
+          {/* Participants */}
           <div>
             <label className={labelClass}>
-              Accounts{" "}
+              Participants{" "}
               <span className="normal-case text-gray-300">
-                (registered users — search by username)
+                (search by username — non-matching names added as guests)
               </span>
             </label>
             <div className="flex flex-wrap items-center gap-1.5 border border-gray-200 rounded-lg px-2 py-1.5 focus-within:ring-2 focus-within:ring-indigo-400 min-h-[42px]">
               {accounts.map((t, i) => (
                 <span
-                  key={i}
+                  key={`a-${i}`}
                   className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-md bg-indigo-50 text-indigo-700"
                 >
                   {t}
@@ -338,35 +383,26 @@ export default function QuickTournamentForm({ initial, onSubmit, onChange }: Pro
                   </button>
                 </span>
               ))}
+              {guests.map((t, i) => (
+                <span
+                  key={`g-${i}`}
+                  className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-md bg-amber-50 text-amber-700"
+                >
+                  {t}
+                  <button type="button" onClick={() => removeTag(i, setGuests)} className="leading-none text-amber-400 hover:text-amber-700">
+                    ×
+                  </button>
+                </span>
+              ))}
               <UserSearchInput
                 onSelect={(username) => addTag(username, setAccounts)}
-                placeholder={accounts.length === 0 ? "Search username…" : ""}
+                onSelectAsGuest={(name) => addTag(name, setGuests)}
+                placeholder={accounts.length + guests.length === 0 ? "Search username…" : ""}
                 className="flex-1 min-w-[140px]"
               />
             </div>
           </div>
 
-          {/* Guests */}
-          <div>
-            <label className={labelClass}>
-              Guests{" "}
-              <span className="normal-case text-gray-300">
-                (no account — just a display name)
-              </span>
-            </label>
-            <TagInput
-              id="guest-input"
-              tags={guests}
-              input={guestInput}
-              setInput={setGuestInput}
-              onKeyDown={(e) => handleKeyDown(e, guestInput, setGuestInput, guests, setGuests)}
-              onBlur={() => handleBlur(guestInput, setGuestInput, setGuests)}
-              onRemove={(i) => removeTag(i, setGuests)}
-              placeholder="Type a display name, press Enter…"
-              chipColor="bg-amber-50 text-amber-700"
-              chipClose="text-amber-400 hover:text-amber-700"
-            />
-          </div>
         </>
       )}
 
@@ -382,60 +418,6 @@ export default function QuickTournamentForm({ initial, onSubmit, onChange }: Pro
         {LABEL_GENERATE_BRACKET}
       </button>
     </form>
-  );
-}
-
-// ─── Reusable tag input ───────────────────────────────────────────────────────
-
-function TagInput({
-  id,
-  tags,
-  input,
-  setInput,
-  onKeyDown,
-  onBlur,
-  onRemove,
-  placeholder,
-  chipColor,
-  chipClose,
-}: {
-  id: string;
-  tags: string[];
-  input: string;
-  setInput: (v: string) => void;
-  onKeyDown: (e: KeyboardEvent<HTMLInputElement>) => void;
-  onBlur: () => void;
-  onRemove: (i: number) => void;
-  placeholder: string;
-  chipColor: string;
-  chipClose: string;
-}) {
-  return (
-    <div
-      className="flex flex-wrap items-center gap-1.5 border border-gray-200 rounded-lg px-2 py-1.5 focus-within:ring-2 focus-within:ring-indigo-400 min-h-[42px] cursor-text"
-      onClick={() => document.getElementById(id)?.focus()}
-    >
-      {tags.map((t, i) => (
-        <span
-          key={i}
-          className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-md ${chipColor}`}
-        >
-          {t}
-          <button type="button" onClick={() => onRemove(i)} className={`leading-none ${chipClose}`}>
-            ×
-          </button>
-        </span>
-      ))}
-      <input
-        id={id}
-        value={input}
-        onChange={(e) => setInput(e.target.value.replace(",", ""))}
-        onKeyDown={onKeyDown}
-        onBlur={onBlur}
-        placeholder={tags.length === 0 ? placeholder : ""}
-        className="flex-1 min-w-[120px] text-sm text-gray-800 outline-none bg-transparent py-1"
-      />
-    </div>
   );
 }
 
@@ -457,7 +439,7 @@ function TeamCard({
   const [memberInput, setMemberInput] = useState("");
   const [memberType, setMemberType] = useState<ParticipantMemberType>("account");
 
-  function handleMemberKey(e: KeyboardEvent<HTMLInputElement>) {
+  function handleMemberKey(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter" || e.key === ",") {
       e.preventDefault();
       if (memberInput.trim()) {
