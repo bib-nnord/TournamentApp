@@ -21,6 +21,7 @@ import {
 import type { TournamentStatus, TournamentFormat } from "@/types";
 import { tournamentStatusLabel, tournamentFormatInfo } from "@/types";
 import { apiFetch } from "@/lib/api";
+import { usePolling } from "@/hooks/usePolling";
 import type { Bracket } from "@/lib/generateBracket";
 import BracketView from "@/components/BracketView";
 import StatusBadge from "@/components/StatusBadge";
@@ -47,15 +48,18 @@ export default function TournamentPage() {
   const [editIsPrivate, setEditIsPrivate] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
   const [settingsError, setSettingsError] = useState<string | null>(null);
+  const [conflictError, setConflictError] = useState(false);
 
   const cancelAction = useConfirmAction(useCallback(async () => {
     try {
       const res = await apiFetch(`/tournaments/${tournament!.id}`, {
         method: "PATCH",
-        body: JSON.stringify({ status: "cancelled" }),
+        body: JSON.stringify({ status: "cancelled", clientUpdatedAt: tournament!.updatedAt }),
       });
       if (res.ok) {
         setTournament(prev => prev ? { ...prev, status: "cancelled" } : prev);
+      } else if (res.status === 409) {
+        setConflictError(true);
       } else {
         const body = await res.json().catch(() => ({}));
         setError(body.error ?? "Failed to cancel tournament");
@@ -98,6 +102,15 @@ export default function TournamentPage() {
     load();
   }, [params.id]);
 
+  const pollTournament = useCallback(async () => {
+    try {
+      const res = await apiFetch(`/tournaments/${params.id}`);
+      if (res.ok) setTournament(await res.json());
+    } catch { /* silent */ }
+  }, [params.id]);
+
+  usePolling(pollTournament, 5000, tournament?.status === "active" && !editingSettings);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -131,10 +144,12 @@ export default function TournamentPage() {
     try {
       const res = await apiFetch(`/tournaments/${tournament!.id}`, {
         method: "PATCH",
-        body: JSON.stringify({ status: "completed" }),
+        body: JSON.stringify({ status: "completed", clientUpdatedAt: tournament!.updatedAt }),
       });
       if (res.ok) {
         setTournament(prev => prev ? { ...prev, status: "completed" } : prev);
+      } else if (res.status === 409) {
+        setConflictError(true);
       } else {
         const body = await res.json().catch(() => ({}));
         setError(body.error ?? "Failed to finish tournament");
@@ -165,6 +180,7 @@ export default function TournamentPage() {
         game: editGame,
         description: editDescription || null,
         isPrivate: editIsPrivate,
+        clientUpdatedAt: tournament!.updatedAt,
       };
       if (tournament!.bracketData) {
         body.bracketData = { ...tournament!.bracketData, allowTies: editAllowTies };
@@ -173,6 +189,11 @@ export default function TournamentPage() {
         method: "PATCH",
         body: JSON.stringify(body),
       });
+      if (res.status === 409) {
+        setEditingSettings(false);
+        setConflictError(true);
+        return;
+      }
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         setSettingsError(data.error ?? "Failed to save settings");
@@ -198,40 +219,43 @@ export default function TournamentPage() {
   async function handleReportResult(matchId: string, winner: "a" | "b" | "tie", scoreA?: number, scoreB?: number) {
     const res = await apiFetch(`/tournaments/${tournament!.id}/matches/${matchId}`, {
       method: "PATCH",
-      body: JSON.stringify({ winner, scoreA, scoreB }),
+      body: JSON.stringify({ winner, scoreA, scoreB, clientUpdatedAt: tournament!.updatedAt }),
     });
+    if (res.status === 409) { setConflictError(true); return; }
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
       throw new Error(body.error ?? "Failed to report result");
     }
-    const { bracketData } = await res.json();
-    setTournament(prev => prev ? { ...prev, bracketData } : prev);
+    const { bracketData, updatedAt } = await res.json();
+    setTournament(prev => prev ? { ...prev, bracketData, updatedAt } : prev);
   }
 
   async function handleReportTiebreaker(matchId: string, winnerName: string) {
     const res = await apiFetch(`/tournaments/${tournament!.id}/matches/${matchId}`, {
       method: "PATCH",
-      body: JSON.stringify({ winner: winnerName }),
+      body: JSON.stringify({ winner: winnerName, clientUpdatedAt: tournament!.updatedAt }),
     });
+    if (res.status === 409) { setConflictError(true); return; }
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
       throw new Error(body.error ?? "Failed to report tiebreaker result");
     }
-    const { bracketData } = await res.json();
-    setTournament(prev => prev ? { ...prev, bracketData } : prev);
+    const { bracketData, updatedAt } = await res.json();
+    setTournament(prev => prev ? { ...prev, bracketData, updatedAt } : prev);
   }
 
   async function handleUndoTiebreaker() {
     const res = await apiFetch(`/tournaments/${tournament!.id}/matches/tiebreaker`, {
       method: "PATCH",
-      body: JSON.stringify({ reset: true }),
+      body: JSON.stringify({ reset: true, clientUpdatedAt: tournament!.updatedAt }),
     });
+    if (res.status === 409) { setConflictError(true); return; }
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
       throw new Error(body.error ?? "Failed to undo tiebreaker");
     }
-    const { bracketData } = await res.json();
-    setTournament(prev => prev ? { ...prev, bracketData } : prev);
+    const { bracketData, updatedAt } = await res.json();
+    setTournament(prev => prev ? { ...prev, bracketData, updatedAt } : prev);
   }
 
   return (
@@ -241,6 +265,20 @@ export default function TournamentPage() {
         <Link href="/tournaments" className="text-sm text-gray-500 hover:text-gray-700 mb-6 inline-block">
           ← Back to tournaments
         </Link>
+
+        {/* Conflict banner */}
+        {conflictError && (
+          <div className="bg-amber-50 border border-amber-300 rounded-xl px-4 py-3 mb-6 flex items-center justify-between gap-4">
+            <p className="text-sm text-amber-800">This page was changed by someone else. Reload to see the latest version before making changes.</p>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="shrink-0 text-sm font-semibold text-amber-700 border border-amber-400 rounded-lg px-3 py-1.5 hover:bg-amber-100 transition-colors"
+            >
+              Reload
+            </button>
+          </div>
+        )}
 
         {/* Winner banner */}
         {tournamentWinner && (

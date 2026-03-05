@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useSelector } from "react-redux";
 import { apiFetch } from "@/lib/api";
+import { usePolling } from "@/hooks/usePolling";
 import type { RootState } from "@/store/store";
 
 interface BracketMatchDetail {
@@ -29,6 +30,7 @@ interface BracketMatchDetail {
     isPrivate: boolean;
     status: string;
     creator: { id: number; username: string };
+    updatedAt: string;
   };
 }
 
@@ -49,6 +51,7 @@ export default function MatchPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [conflictError, setConflictError] = useState(false);
 
   useEffect(() => {
     if (!tournamentId) {
@@ -87,6 +90,16 @@ export default function MatchPage() {
     load();
   }, [matchId, tournamentId]);
 
+  const pollMatch = useCallback(async () => {
+    if (!tournamentId) return;
+    try {
+      const res = await apiFetch(`/tournaments/${tournamentId}/matches/${matchId}`);
+      if (res.ok) setData(await res.json());
+    } catch { /* silent */ }
+  }, [matchId, tournamentId]);
+
+  usePolling(pollMatch, 5000, data?.tournament.status === "active" && !data?.match.completed);
+
   async function handleSubmit() {
     if (!selectedWinner || !data || !tournamentId) return;
     setSubmitting(true);
@@ -97,8 +110,12 @@ export default function MatchPage() {
       const sB = scoreB !== "" ? Number(scoreB) : undefined;
       const res = await apiFetch(`/tournaments/${tournamentId}/matches/${matchId}`, {
         method: "PATCH",
-        body: JSON.stringify({ winner: selectedWinner, scoreA: sA, scoreB: sB }),
+        body: JSON.stringify({ winner: selectedWinner, scoreA: sA, scoreB: sB, clientUpdatedAt: data.tournament.updatedAt }),
       });
+      if (res.status === 409) {
+        setConflictError(true);
+        return;
+      }
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         setSubmitError(body.error ?? "Failed to report result");
@@ -109,6 +126,7 @@ export default function MatchPage() {
       if (refreshRes.ok) {
         const updated: BracketMatchDetail = await refreshRes.json();
         setData(updated);
+        setConflictError(false);
       }
       setSubmitSuccess(true);
       setTimeout(() => setSubmitSuccess(false), 3000);
@@ -238,6 +256,20 @@ export default function MatchPage() {
             <p className="text-center text-sm text-gray-500 mt-4 font-medium">Draw</p>
           )}
         </div>
+
+        {/* Conflict banner */}
+        {conflictError && (
+          <div className="bg-amber-50 border border-amber-300 rounded-xl px-4 py-3 mb-6 flex items-center justify-between gap-4">
+            <p className="text-sm text-amber-800">This match was changed by someone else. Reload to see the latest version before making changes.</p>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="shrink-0 text-sm font-semibold text-amber-700 border border-amber-400 rounded-lg px-3 py-1.5 hover:bg-amber-100 transition-colors"
+            >
+              Reload
+            </button>
+          </div>
+        )}
 
         {/* Result reporting (creator only) */}
         {canReport && (

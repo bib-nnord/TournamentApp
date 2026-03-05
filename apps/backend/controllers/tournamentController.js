@@ -245,7 +245,16 @@ async function update(req, res) {
       return res.status(403).json({ error: 'Only the tournament creator can update it' });
     }
 
-    const { name, game, description, status, bracketData, startDate, isPrivate } = req.body;
+    const { name, game, description, status, bracketData, startDate, isPrivate, clientUpdatedAt } = req.body;
+
+    if (clientUpdatedAt !== undefined) {
+      const clientTime = new Date(clientUpdatedAt).getTime();
+      const serverTime = new Date(tournament.updated_at).getTime();
+      if (clientTime !== serverTime) {
+        return res.status(409).json({ error: 'Tournament was modified by someone else. Reload to see the latest version.' });
+      }
+    }
+
     const data = {};
     if (name !== undefined) data.name = name;
     if (game !== undefined) data.game = game;
@@ -350,6 +359,7 @@ function formatTournament(t) {
         })
       : undefined,
     createdAt: t.created_at,
+    updatedAt: t.updated_at,
   };
 }
 

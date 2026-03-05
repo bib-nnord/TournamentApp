@@ -12,7 +12,7 @@ async function reportResult(req, res) {
     return res.status(400).json({ error: 'Invalid tournament ID' });
   }
 
-  const { winner, scoreA, scoreB } = req.body;
+  const { winner, scoreA, scoreB, clientUpdatedAt } = req.body;
 
   if (!req.body.reset && (!winner || typeof winner !== 'string')) {
     return res.status(400).json({ error: 'winner is required' });
@@ -29,6 +29,14 @@ async function reportResult(req, res) {
 
     if (tournament.created_by !== req.user.id) {
       return res.status(403).json({ error: 'Only the tournament organizer can report results' });
+    }
+
+    if (clientUpdatedAt !== undefined) {
+      const clientTime = new Date(clientUpdatedAt).getTime();
+      const serverTime = new Date(tournament.updated_at).getTime();
+      if (clientTime !== serverTime) {
+        return res.status(409).json({ error: 'Tournament was modified by someone else. Reload to see the latest version.' });
+      }
     }
 
     if (!tournament.bracket_data) {
@@ -54,7 +62,7 @@ async function reportResult(req, res) {
           where: { tournament_id: tournamentId },
           data:  { bracket_data: bracket },
         });
-        return res.json({ bracketData: updated.bracket_data });
+        return res.json({ bracketData: updated.bracket_data, updatedAt: updated.updated_at });
       }
       if (!bracket.tiebreaker.participants.includes(winner)) {
         return res.status(400).json({ error: 'Invalid tiebreaker winner' });
@@ -65,7 +73,7 @@ async function reportResult(req, res) {
         where: { tournament_id: tournamentId },
         data:  { bracket_data: bracket },
       });
-      return res.json({ bracketData: updated.bracket_data });
+      return res.json({ bracketData: updated.bracket_data, updatedAt: updated.updated_at });
     }
 
     // ── Regular match ───────────────────────────────────────────────────────
@@ -123,7 +131,7 @@ async function reportResult(req, res) {
       data:  { bracket_data: bracket },
     });
 
-    return res.json({ bracketData: updated.bracket_data });
+    return res.json({ bracketData: updated.bracket_data, updatedAt: updated.updated_at });
   } catch (err) {
     console.error('[match.reportResult]', err);
     return res.status(500).json({ error: 'Internal server error' });
@@ -510,6 +518,7 @@ async function getMatch(req, res) {
         isPrivate: tournament.is_private,
         status: tournament.status,
         creator: { id: tournament.creator.user_id, username: tournament.creator.username },
+        updatedAt: tournament.updated_at,
       },
     });
   } catch (err) {

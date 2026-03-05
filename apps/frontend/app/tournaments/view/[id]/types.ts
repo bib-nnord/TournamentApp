@@ -25,4 +25,5 @@ export interface TournamentData {
   creator: { id: number; username: string };
   participants: TournamentParticipantData[];
   createdAt: string;
+  updatedAt: string;
 }
