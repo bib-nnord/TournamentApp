@@ -29,11 +29,15 @@ if (typeof window !== 'undefined') localStorage.removeItem('token');
 
 export const login = createAsyncThunk(
   'auth/login',
-  async (credentials: { email: string; password: string }, { rejectWithValue }) => {
+  async (credentials: { identifier: string; password: string }, { rejectWithValue }) => {
+    const { identifier, password } = credentials;
+    const body = identifier.includes('@')
+      ? { email: identifier, password }
+      : { username: identifier, password };
     const res = await fetch(`${API_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(credentials),
+      body: JSON.stringify(body),
     });
     const data = await res.json();
     if (!res.ok) return rejectWithValue(data.error ?? 'Login failed');

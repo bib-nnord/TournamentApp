@@ -1,4 +1,5 @@
 const prisma = require('../lib/prisma');
+const { notifyUsers, buildNameToUserIds, resolveNamesToUserIds } = require('../lib/notify');
 
 // ─── PATCH /tournaments/:id/matches/:matchId ───────────────────────────────
 // Reports a match result and advances the bracket.
@@ -129,13 +130,85 @@ async function reportResult(req, res) {
     const updated = await prisma.tournament.update({
       where: { tournament_id: tournamentId },
       data:  { bracket_data: bracket },
+      include: { participants: true },
     });
+
+    // ── Notifications (fire-and-forget) ──────────────────────────────────
+    const nameMap = buildNameToUserIds(updated.participants);
+    const tournamentName = tournament.name || 'Tournament';
+
+    // Notify match participants of the result
+    if (match.participantA && match.participantB) {
+      const scoreText = match.scoreA != null && match.scoreB != null
+        ? ` Score: ${match.scoreA}–${match.scoreB}.`
+        : '';
+
+      const notifyResult = (playerName, opponentName) => {
+        const userIds = resolveNamesToUserIds(nameMap, [playerName]);
+        if (userIds.length === 0) return;
+
+        let outcome;
+        if (isTie) outcome = `You tied against ${opponentName}.`;
+        else if (playerName === winnerName) outcome = `You won against ${opponentName}.`;
+        else outcome = `You lost against ${opponentName}.`;
+
+        notifyUsers(
+          userIds,
+          `Match result in ${tournamentName}`,
+          `${outcome}${scoreText}`,
+        );
+      };
+
+      notifyResult(match.participantA, match.participantB);
+      notifyResult(match.participantB, match.participantA);
+    }
+
+    // Notify participants of newly ready matches (advancement filled both slots)
+    if (!isTie && section !== 'tiebreaker') {
+      const allBracketMatches = extractAllBracketMatches(bracket);
+      for (const nm of allBracketMatches) {
+        if (nm.participantA && nm.participantB && !nm.completed) {
+          // Check if this match was just filled by the current advancement
+          if (nm.participantA === winnerName || nm.participantB === winnerName) {
+            const ids = resolveNamesToUserIds(nameMap, [nm.participantA, nm.participantB]);
+            notifyUsers(
+              ids,
+              `New match in ${tournamentName}`,
+              `Your next match is ready: ${nm.participantA} vs ${nm.participantB}.`,
+            );
+            break; // Only one match gets advanced per result
+          }
+        }
+      }
+    }
 
     return res.json({ bracketData: updated.bracket_data, updatedAt: updated.updated_at });
   } catch (err) {
     console.error('[match.reportResult]', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
+}
+
+// ─── Bracket helpers ──────────────────────────────────────────────────────
+
+/** Extract all matches from every bracket section into a flat array. */
+function extractAllBracketMatches(bracket) {
+  const matches = [];
+  if (bracket.rounds) {
+    for (const round of bracket.rounds) matches.push(...round.matches);
+  }
+  if (bracket.losersRounds) {
+    for (const round of bracket.losersRounds) matches.push(...round.matches);
+  }
+  if (bracket.groups) {
+    for (const group of bracket.groups) {
+      for (const round of group.rounds) matches.push(...round.matches);
+    }
+  }
+  if (bracket.knockoutRounds) {
+    for (const round of bracket.knockoutRounds) matches.push(...round.matches);
+  }
+  return matches;
 }
 
 // ─── Bracket search ────────────────────────────────────────────────────────

@@ -21,13 +21,13 @@ export default function LoginPage() {
   const router = useRouter();
   const { loading, error } = useSelector((state: RootState) => state.auth);
 
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showForgot, setShowForgot] = useState(false);
 
   async function handleSubmit(e: { preventDefault(): void }) {
     e.preventDefault();
-    const result = await dispatch(login({ email, password }));
+    const result = await dispatch(login({ identifier, password }));
     if (login.fulfilled.match(result)) {
       router.push('/dashboard');
     }
@@ -40,7 +40,7 @@ export default function LoginPage() {
         <p className="text-sm text-gray-500 mb-6">Sign in to your account</p>
 
         <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-          <FormField id="email" label="Email" type="email" placeholder="you@example.com" value={email} onChange={setEmail} />
+          <FormField id="identifier" label="Username or email" type="text" placeholder="you@example.com or username" value={identifier} onChange={setIdentifier} />
           <FormField
             id="password"
             label="Password"

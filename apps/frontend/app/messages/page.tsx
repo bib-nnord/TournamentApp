@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import FilterTabs from "@/components/FilterTabs";
+import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { apiFetch } from "@/lib/api";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { messageCategoryColors } from "@/lib/colors";
 import { messageCategoryLabel } from "@/constants/labels";
 import {
@@ -19,18 +21,6 @@ import {
 } from "@/constants/labels";
 import type { MessageCategory, Filter, Message } from "./types";
 
-const initialMessages: Message[] = [
-  { id: "m1", category: "users", from: "alice", subject: "Good game!", preview: "That was a great match, well played in the final round.", body: "That was a great match, well played in the final round. Your opening strategy really caught me off guard — I'd love to play again sometime. Let me know if you're joining any upcoming tournaments!", time: "2h ago", read: false },
-  { id: "m2", category: "users", from: "bob", subject: "Weekend tournament?", preview: "Are you joining the weekend blitz? We need one more player.", body: "Are you joining the weekend blitz? We need one more player to fill the bracket. It starts Saturday at 10:00 and should wrap up by the afternoon. Let me know by Friday!", time: "Yesterday", read: true },
-  { id: "m3", category: "teams", from: "The Knights", subject: "Practice session scheduled", preview: "Team practice this Saturday at 14:00. Please confirm attendance.", body: "Team practice this Saturday at 14:00. Please confirm your attendance by Friday evening so we can plan the session. We'll be focusing on endgame techniques and reviewing last week's tournament games.", time: "3h ago", read: false },
-  { id: "m4", category: "teams", from: "Storm Squad", subject: "New team member", preview: "charlie has joined Storm Squad. Welcome them to the team!", body: "charlie has joined Storm Squad. Welcome them to the team! Feel free to reach out and introduce yourself. We're excited to have another player on board ahead of the Spring Open.", time: "2 days ago", read: true },
-  { id: "m5", category: "tournaments", from: "Spring Open 2025", subject: "Round 3 results", preview: "Round 3 is complete. Your next match is on March 18th at 15:00.", body: "Round 3 is complete. You won your match and advance to Round 4. Your next match is scheduled for March 18th at 15:00 against player 'magnus_jr'. Good luck!", time: "1h ago", read: false },
-  { id: "m6", category: "tournaments", from: "Weekly Blitz #42", subject: "Tournament starting soon", preview: "Your tournament begins in 30 minutes. Get ready!", body: "Your tournament begins in 30 minutes. Please make sure you are logged in and ready to play. The first round will be paired automatically at the scheduled start time. Good luck!", time: "4h ago", read: true },
-  { id: "m7", category: "tournaments", from: "City Chess Cup", subject: "You placed 4th", preview: "Congratulations on finishing 4th out of 32 participants.", body: "Congratulations on finishing 4th out of 32 participants in the City Chess Cup! It was a strong performance throughout the event. Final standings and game records are now available on the tournament page.", time: "Jan 12", read: true },
-  { id: "m8", category: "website", from: "Tournament App", subject: "Welcome to Tournament App!", preview: "Thanks for joining. Browse tournaments, create your team, and compete.", body: "Thanks for joining Tournament App! You can browse upcoming tournaments, create or join a team, and track your results all in one place. If you have any questions, visit the help section or reach out to support.", time: "Jan 2025", read: true },
-  { id: "m9", category: "website", from: "Tournament App", subject: "New feature: Team chat", preview: "You can now message your team directly from the team page.", body: "You can now message your team directly from the team page. Head to any team you're a member of and look for the new Messages tab. Team leads and moderators can also pin important announcements.", time: "Feb 10", read: false },
-];
-
 const filters: { label: string; value: Filter }[] = [
   { label: LABEL_FILTER_ALL, value: "all" },
   { label: LABEL_FILTER_USERS, value: "users" },
@@ -39,13 +29,47 @@ const filters: { label: string; value: Filter }[] = [
   { label: LABEL_FILTER_WEBSITE, value: "website" },
 ];
 
-
+function relativeTime(iso: string): string {
+  const now = Date.now();
+  const then = new Date(iso).getTime();
+  const diff = now - then;
+  const minutes = Math.floor(diff / 60_000);
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return "Yesterday";
+  if (days < 7) return `${days}d ago`;
+  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
 
 export default function MessagesPage() {
-  const [messages, setMessages] = useState<Message[]>(initialMessages);
+  const user = useRequireAuth();
+  const router = useRouter();
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<Filter>("all");
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [openId, setOpenId] = useState<number | null>(null);
+  const [respondingTo, setRespondingTo] = useState<number | null>(null);
+
+  const fetchMessages = useCallback(async () => {
+    try {
+      const res = await apiFetch("/messages?limit=100");
+      if (!res.ok) return;
+      const data = await res.json();
+      setMessages(data.messages);
+    } catch {
+      // silently fail — user sees empty state
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (user) fetchMessages();
+  }, [user, fetchMessages]);
 
   const filtered = messages.filter((m) =>
     activeFilter === "all" ? true : m.category === activeFilter
@@ -57,12 +81,19 @@ export default function MessagesPage() {
 
   const openMessage = messages.find((m) => m.id === openId) ?? null;
 
-  function openAndRead(id: string) {
-    setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, read: true } : m)));
+  async function openAndRead(id: number) {
+    const msg = messages.find((m) => m.id === id);
+    if (msg && !msg.read) {
+      setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, read: true } : m)));
+      apiFetch(`/messages/${id}/read`, {
+        method: "PATCH",
+        body: JSON.stringify({ read: true }),
+      });
+    }
     setOpenId(id);
   }
 
-  function toggleSelect(id: string) {
+  function toggleSelect(id: number) {
     setSelected((prev) => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
@@ -86,14 +117,62 @@ export default function MessagesPage() {
     }
   }
 
-  function markSelected(read: boolean) {
+  async function markSelected(read: boolean) {
+    const ids = [...selected];
     setMessages((prev) => prev.map((m) => (selected.has(m.id) ? { ...m, read } : m)));
     setSelected(new Set());
+    await Promise.all(
+      ids.map((id) =>
+        apiFetch(`/messages/${id}/read`, {
+          method: "PATCH",
+          body: JSON.stringify({ read }),
+        })
+      )
+    );
   }
 
-  function markAllRead() {
+  async function markAllRead() {
     setMessages((prev) => prev.map((m) => ({ ...m, read: true })));
     setSelected(new Set());
+    await apiFetch("/messages/read-all", { method: "PATCH" });
+  }
+
+  function isInvitationMessage(m: Message) {
+    return m.category === "tournaments" && m.subject.startsWith("You've been added") && m.referenceId != null;
+  }
+
+  async function handleInvitationResponse(message: Message, accept: boolean) {
+    if (!message.referenceId) return;
+    setRespondingTo(message.id);
+    try {
+      const res = await apiFetch(`/tournaments/${message.referenceId}/confirm`, {
+        method: "PATCH",
+        body: JSON.stringify({ accept }),
+      });
+      if (res.ok) {
+        if (accept) {
+          router.push(`/tournaments/view/${message.referenceId}`);
+        } else {
+          setOpenId(null);
+        }
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setRespondingTo(null);
+    }
+  }
+
+  if (!user) return null;
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="max-w-2xl mx-auto px-4 py-10">
+          <p className="text-sm text-gray-500">Loading messages…</p>
+        </div>
+      </div>
+    );
   }
 
   // --- Detail view ---
@@ -142,11 +221,18 @@ export default function MessagesPage() {
                     {messageCategoryLabel[openMessage.category]}
                   </span>
                   <span className="text-sm text-gray-500">from <span className="font-medium text-gray-700">{openMessage.from}</span></span>
-                  <span className="text-xs text-gray-400">{openMessage.time}</span>
+                  <span className="text-xs text-gray-400">{relativeTime(openMessage.time)}</span>
                 </div>
               </div>
               <button
-                onClick={() => setMessages((prev) => prev.map((m) => m.id === openMessage.id ? { ...m, read: !m.read } : m))}
+                onClick={async () => {
+                  const newRead = !openMessage.read;
+                  setMessages((prev) => prev.map((m) => m.id === openMessage.id ? { ...m, read: newRead } : m));
+                  await apiFetch(`/messages/${openMessage.id}/read`, {
+                    method: "PATCH",
+                    body: JSON.stringify({ read: newRead }),
+                  });
+                }}
                 className="text-xs px-3 py-1.5 border border-gray-300 rounded-lg text-gray-500 hover:bg-gray-50 flex-shrink-0"
               >
                 {openMessage.read ? LABEL_MARK_UNREAD : LABEL_MARK_READ}
@@ -156,6 +242,25 @@ export default function MessagesPage() {
             <hr className="border-gray-100 mb-4" />
 
             <p className="text-sm text-gray-700 leading-relaxed">{openMessage.body}</p>
+
+            {isInvitationMessage(openMessage) && (
+              <div className="flex items-center gap-2 mt-4 pt-4 border-t border-gray-100">
+                <button
+                  onClick={() => handleInvitationResponse(openMessage, false)}
+                  disabled={respondingTo === openMessage.id}
+                  className="text-sm px-4 py-2 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40"
+                >
+                  Decline
+                </button>
+                <button
+                  onClick={() => handleInvitationResponse(openMessage, true)}
+                  disabled={respondingTo === openMessage.id}
+                  className="text-sm px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-40"
+                >
+                  Accept
+                </button>
+              </div>
+            )}
           </div>
 
         </div>
@@ -285,7 +390,7 @@ export default function MessagesPage() {
                   </span>
 
                   {/* Time */}
-                  <span className="text-xs text-gray-400 flex-shrink-0 w-16 text-right">{m.time}</span>
+                  <span className="text-xs text-gray-400 flex-shrink-0 w-16 text-right">{relativeTime(m.time)}</span>
                 </button>
               </div>
             ))}

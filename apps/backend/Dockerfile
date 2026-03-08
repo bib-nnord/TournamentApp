@@ -1,11 +1,12 @@
 # Use official Node.js image
-FROM node:18-alpine
+FROM node:20-alpine
 
 # Set working directory
 WORKDIR /app
 
-# Copy package files and install dependencies
+# Copy package files and prisma schema, then install dependencies
 COPY package*.json ./
+COPY prisma ./prisma
 RUN npm install --production
 
 # Copy the rest of your backend code

@@ -137,6 +137,34 @@ export default function TournamentPage() {
   const spotsLeft = tournament.max - tournament.participants.length;
   const isCreator = currentUser?.id === tournament.creator.id;
 
+  // Check if current user is an unconfirmed participant
+  const myParticipant = currentUser ? tournament.participants.find((p) => {
+    if (p.userId === currentUser.id) return true;
+    if (p.membersSnapshot?.some((m) => m.userId === currentUser.id)) return true;
+    return false;
+  }) : null;
+  const isUnconfirmedParticipant = myParticipant != null && !myParticipant.confirmed;
+
+  const [confirming, setConfirming] = useState(false);
+
+  async function handleConfirm(accept: boolean) {
+    setConfirming(true);
+    try {
+      const res = await apiFetch(`/tournaments/${tournament.id}/confirm`, {
+        method: "PATCH",
+        body: JSON.stringify({ accept }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setTournament(updated);
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setConfirming(false);
+    }
+  }
+
   const tournamentWinner = tournament.bracketData ? getTournamentWinner(tournament.bracketData) : null;
 
   async function handleFinish() {
@@ -280,6 +308,29 @@ export default function TournamentPage() {
           </div>
         )}
 
+        {/* Invitation banner */}
+        {isUnconfirmedParticipant && (
+          <div className="bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-3 mb-6 flex items-center justify-between gap-4">
+            <p className="text-sm text-indigo-800">You&apos;ve been invited to this tournament.</p>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => handleConfirm(false)}
+                disabled={confirming}
+                className="text-sm px-3 py-1.5 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40"
+              >
+                Decline
+              </button>
+              <button
+                onClick={() => handleConfirm(true)}
+                disabled={confirming}
+                className="text-sm px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-40"
+              >
+                Accept
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Winner banner */}
         {tournamentWinner && (
           <div className="bg-amber-50 border border-amber-200 rounded-2xl px-6 py-4 mb-6 flex items-center gap-3">
@@ -387,6 +438,11 @@ export default function TournamentPage() {
                     <span className={`text-[10px] uppercase px-1.5 py-0.5 rounded font-medium shrink-0 ${participantTypeColors[p.type]}`}>
                       {p.type}
                     </span>
+                    {p.type === "account" && !p.confirmed && (
+                      <span className="text-[10px] uppercase px-1.5 py-0.5 rounded font-medium shrink-0 bg-orange-100 text-orange-600">
+                        Unconfirmed
+                      </span>
+                    )}
                   </div>
                   {p.type === "team" && p.membersSnapshot && p.membersSnapshot.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-1.5 ml-8">

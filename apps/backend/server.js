@@ -6,6 +6,7 @@ const authRoutes = require('./routes/auth');
 const tournamentRoutes = require('./routes/tournaments');
 const teamRoutes = require('./routes/teams');
 const userRoutes = require('./routes/users');
+const messageRoutes = require('./routes/messages');
 
 const app = express();
 
@@ -18,6 +19,7 @@ app.use('/auth', authRoutes);
 app.use('/tournaments', tournamentRoutes);
 app.use('/teams', teamRoutes);
 app.use('/users', userRoutes);
+app.use('/messages', messageRoutes);
 
 app.use((req, res) => res.status(404).json({ error: 'Route not found' }));
 

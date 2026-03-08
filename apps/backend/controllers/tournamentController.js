@@ -1,4 +1,5 @@
 const prisma = require('../lib/prisma');
+const { notifyUsers, collectAllUserIds, notifyUser } = require('../lib/notify');
 
 // ─── POST /tournaments ─────────────────────────────────────────────────────
 // Creates a tournament with participants and bracket data.
@@ -82,11 +83,14 @@ async function create(req, res) {
             userId: resolved?.user_id || null,
           };
         });
+        // Team is confirmed if the creator is a member
+        const creatorIsMember = membersSnapshot.some((m) => m.userId === req.user.id);
         return {
           ...base,
           participant_type: 'team',
           team_id: p.existingTeamId || null,
           members_snapshot: membersSnapshot,
+          confirmed: creatorIsMember,
         };
       }
 
@@ -97,6 +101,7 @@ async function create(req, res) {
           participant_type: 'account',
           user_id: resolved?.user_id || null,
           display_name: resolved ? resolved.display_name || resolved.username : p.name,
+          confirmed: resolved?.user_id === req.user.id,
         };
       }
 
@@ -130,6 +135,16 @@ async function create(req, res) {
       },
     });
 
+    // Notify participants (excluding the creator) with tournament reference
+    const recipientIds = collectAllUserIds(tournament.participants)
+      .filter((id) => id !== req.user.id);
+    notifyUsers(
+      recipientIds,
+      `You've been added to ${name}`,
+      `You have been added as a participant in the tournament "${name}" (${game}). Visit the tournament page or your messages to accept or decline.`,
+      tournament.tournament_id,
+    );
+
     return res.status(201).json(formatTournament(tournament));
   } catch (err) {
     console.error('[tournament.create]', err);
@@ -146,13 +161,13 @@ async function list(req, res) {
 
   const where = {};
   if (status) where.status = status;
-  // Hide private tournaments unless user is the creator or a participant
+  // Hide private tournaments unless user is the creator or a confirmed participant
   where.OR = [
     { is_private: false },
     ...(req.user ? [
       { created_by: req.user.id },
-      { participants: { some: { user_id: req.user.id } } },
-      { participants: { some: { members_snapshot: { array_contains: [{ userId: req.user.id }] } } } },
+      { participants: { some: { user_id: req.user.id, confirmed: true } } },
+      { participants: { some: { confirmed: true, members_snapshot: { array_contains: [{ userId: req.user.id }] } } } },
     ] : []),
   ];
 
@@ -273,6 +288,18 @@ async function update(req, res) {
       },
     });
 
+    // Notify participants on status changes
+    if (status === 'completed' || status === 'cancelled') {
+      const recipientIds = collectAllUserIds(updated.participants)
+        .filter((uid) => uid !== req.user.id);
+      const verb = status === 'completed' ? 'has been completed' : 'has been cancelled';
+      notifyUsers(
+        recipientIds,
+        `${tournament.name} ${verb}`,
+        `The tournament "${tournament.name}" ${verb}.`,
+      );
+    }
+
     return res.json(formatTournament(updated));
   } catch (err) {
     console.error('[tournament.update]', err);
@@ -297,6 +324,118 @@ async function remove(req, res) {
   } catch (err) {
     console.error('[tournament.remove]', err);
     return res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+// ─── PATCH /tournaments/:id/confirm ───────────────────────────────────────
+// Accept or decline a tournament invitation.
+// Body: { accept: true|false }
+async function confirmParticipation(req, res) {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) return res.status(400).json({ error: 'Invalid tournament ID' });
+
+  const { accept } = req.body;
+  if (typeof accept !== 'boolean') {
+    return res.status(400).json({ error: '"accept" must be a boolean' });
+  }
+
+  try {
+    const tournament = await prisma.tournament.findUnique({
+      where: { tournament_id: id },
+      include: { participants: true },
+    });
+
+    if (!tournament) return res.status(404).json({ error: 'Tournament not found' });
+
+    // Find the participant record for this user (direct or via team snapshot)
+    const participant = tournament.participants.find((p) => {
+      if (p.user_id === req.user.id) return true;
+      if (Array.isArray(p.members_snapshot)) {
+        return p.members_snapshot.some((m) => m.userId === req.user.id);
+      }
+      return false;
+    });
+
+    if (!participant) {
+      return res.status(404).json({ error: 'You are not a participant in this tournament' });
+    }
+
+    if (participant.confirmed) {
+      return res.status(400).json({ error: 'Already confirmed' });
+    }
+
+    if (accept) {
+      await prisma.tournamentParticipant.update({
+        where: {
+          tournament_id_seed: { tournament_id: id, seed: participant.seed },
+        },
+        data: { confirmed: true },
+      });
+    } else {
+      // Decline: remove participant and clear from bracket
+      await prisma.tournamentParticipant.delete({
+        where: {
+          tournament_id_seed: { tournament_id: id, seed: participant.seed },
+        },
+      });
+
+      // Clear participant name from bracket data
+      if (tournament.bracket_data) {
+        const bracket = tournament.bracket_data;
+        const name = participant.display_name;
+        clearParticipantFromBracket(bracket, name);
+        await prisma.tournament.update({
+          where: { tournament_id: id },
+          data: { bracket_data: bracket },
+        });
+      }
+    }
+
+    // Return updated tournament
+    const updated = await prisma.tournament.findUnique({
+      where: { tournament_id: id },
+      include: {
+        participants: { orderBy: { seed: 'asc' } },
+        creator: { select: { user_id: true, username: true } },
+        matches: {
+          orderBy: [{ round: 'asc' }, { position: 'asc' }],
+          include: { participants: true },
+        },
+      },
+    });
+
+    return res.json(formatTournament(updated));
+  } catch (err) {
+    console.error('[tournament.confirmParticipation]', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+/**
+ * Remove a participant name from all bracket matches (replace with null).
+ */
+function clearParticipantFromBracket(bracket, name) {
+  const clearFromRounds = (rounds) => {
+    if (!rounds) return;
+    for (const round of rounds) {
+      for (const match of round.matches) {
+        if (match.participantA === name) match.participantA = null;
+        if (match.participantB === name) match.participantB = null;
+        if (match.winner === name) { match.winner = null; match.completed = false; }
+      }
+    }
+  };
+
+  clearFromRounds(bracket.rounds);
+  clearFromRounds(bracket.losersRounds);
+  clearFromRounds(bracket.knockoutRounds);
+  if (bracket.groups) {
+    for (const group of bracket.groups) {
+      clearFromRounds(group.rounds);
+      if (group.participants) {
+        group.participants = group.participants.filter((p) => p !== name);
+      }
+    }
   }
 }
 
@@ -326,6 +465,7 @@ function formatTournament(t) {
           teamId: p.team_id,
           type: p.participant_type || (p.guest_name ? 'guest' : 'account'),
           membersSnapshot: p.members_snapshot || null,
+          confirmed: p.confirmed,
         }))
       : undefined,
     matches: t.matches
@@ -450,4 +590,4 @@ function extractAllMatches(bracket) {
   return matches;
 }
 
-module.exports = { create, list, getById, update, remove, myMatches };
+module.exports = { create, list, getById, update, remove, myMatches, confirmParticipation };

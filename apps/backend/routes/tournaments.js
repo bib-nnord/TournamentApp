@@ -1,6 +1,6 @@
 const { Router } = require('express');
 const { authenticate } = require('../middleware/auth');
-const { create, list, getById, update, remove, myMatches } = require('../controllers/tournamentController');
+const { create, list, getById, update, remove, myMatches, confirmParticipation } = require('../controllers/tournamentController');
 const { reportResult, getMatch } = require('../controllers/matchController');
 
 const router = Router();
@@ -15,6 +15,7 @@ router.get('/:id/matches/:matchId', optionalAuth, getMatch);
 
 // Protected
 router.post('/', authenticate, create);
+router.patch('/:id/confirm', authenticate, confirmParticipation);
 router.patch('/:id', authenticate, update);
 router.delete('/:id', authenticate, remove);
 router.patch('/:id/matches/:matchId', authenticate, reportResult);

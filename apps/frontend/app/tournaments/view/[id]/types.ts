@@ -9,6 +9,7 @@ export interface TournamentParticipantData {
   teamId: number | null;
   type: "account" | "guest" | "team";
   membersSnapshot: { name: string; type: string; userId: number | null }[] | null;
+  confirmed: boolean;
 }
 
 export interface TournamentData {
