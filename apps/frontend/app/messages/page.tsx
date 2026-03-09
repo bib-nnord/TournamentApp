@@ -6,6 +6,7 @@ import { apiFetch } from "@/lib/api";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { messageCategoryColors } from "@/lib/colors";
 import { messageCategoryLabel } from "@/constants/labels";
+import UserSearchInput from "@/components/UserSearchInput";
 import {
   LABEL_BACK_TO_MESSAGES,
   LABEL_NEWER,
@@ -248,13 +249,23 @@ export default function MessagesPage() {
             <div className="flex flex-col gap-3">
               <div>
                 <label className="text-xs font-medium text-gray-500 mb-1 block">To</label>
-                <input
-                  type="text"
-                  placeholder="Username"
-                  value={composeRecipient}
-                  onChange={(e) => { setComposeRecipient(e.target.value); setComposeError(null); }}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
+                {composeRecipient ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-800 font-medium bg-gray-100 px-3 py-2 rounded-lg flex-1">{composeRecipient}</span>
+                    <button
+                      type="button"
+                      onClick={() => { setComposeRecipient(""); setComposeError(null); }}
+                      className="text-xs text-gray-400 hover:text-gray-600 px-2 py-2"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ) : (
+                  <UserSearchInput
+                    onSelect={(username) => { setComposeRecipient(username); setComposeError(null); }}
+                    placeholder="Search for a user…"
+                  />
+                )}
               </div>
               <div>
                 <label className="text-xs font-medium text-gray-500 mb-1 block">Subject</label>

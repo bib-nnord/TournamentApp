@@ -2,9 +2,10 @@ const prisma = require('../lib/prisma');
 const { notifyUsers, buildNameToUserIds, resolveNamesToUserIds } = require('../lib/notify');
 
 // ─── PATCH /tournaments/:id/matches/:matchId ───────────────────────────────
-// Reports a match result and advances the bracket.
-// Body: { winner: "a" | "b", scoreA?: number, scoreB?: number }
-// Auth: required — organizer only
+// Headers: Authorization: Bearer <token>
+// Body: { winner: "a" | "b" | "tie", scoreA?: number, scoreB?: number, clientUpdatedAt?, reset?: boolean }
+// Response: { bracketData, updatedAt }
+
 async function reportResult(req, res) {
   const tournamentId = parseInt(req.params.id, 10);
   const { matchId } = req.params;
@@ -28,10 +29,13 @@ async function reportResult(req, res) {
       return res.status(404).json({ error: 'Tournament not found' });
     }
 
+
+    //to add a moderator role who can also report results
     if (tournament.created_by !== req.user.id) {
       return res.status(403).json({ error: 'Only the tournament organizer can report results' });
     }
 
+    //this is useless until the thing above is implemented
     if (clientUpdatedAt !== undefined) {
       const clientTime = new Date(clientUpdatedAt).getTime();
       const serverTime = new Date(tournament.updated_at).getTime();
@@ -44,7 +48,7 @@ async function reportResult(req, res) {
       return res.status(400).json({ error: 'Tournament has no bracket data' });
     }
 
-    // bracket_data is parsed JSON from Prisma — mutate in place
+    // bracket_data is parsed JSON from Prisma
     const bracket = tournament.bracket_data;
 
     const found = findMatch(bracket, matchId);
@@ -549,8 +553,8 @@ function populateKnockoutFromGroups(bracket) {
 }
 
 // ─── GET /tournaments/:id/matches/:matchId ─────────────────────────────────
-// Returns a single match from the tournament bracket data.
-// Auth: optional — respects tournament privacy
+// Body: none (id, matchId from URL params)
+// Response: { match, section, roundIndex, allowTies, tournament: { id, name, game, format, isPrivate, status, creator, updatedAt } }
 async function getMatch(req, res) {
   const tournamentId = parseInt(req.params.id, 10);
   const { matchId } = req.params;

@@ -8,21 +8,32 @@ function hashToken(token) {
 }
 
 // POST /auth/register
-// Body: { username, email, password, display_name?, first_name?, last_name?, date_of_birth? }
+// Body: { username, email, password, date_of_birth, display_name, first_name, last_name }
 // Response 201: { message: string }
 async function register(req, res) {
   const { username, email, password, display_name, first_name, last_name, date_of_birth } = req.body;
 
-  if (!username || !email || !password) {
-    return res.status(400).json({ error: 'username, email, and password are required' });
+  const requiredFields = { username, email, password, date_of_birth, display_name, first_name, last_name };
+  const missing = Object.entries(requiredFields).filter(([, v]) => !v).map(([k]) => k);
+
+  if (missing.length > 0) {
+    return res.status(400).json({ error: `Missing required fields: ${missing.join(', ')}` });
   }
 
-  //add proper verification later (cases and symbols)
-  if (password.length < 8) {
-    return res.status(400).json({ error: 'Password must be at least 8 characters' });
+  const passwordErrors = [];
+  if (password.length < 8) passwordErrors.push('at least 8 characters');
+  if (!/[a-z]/.test(password)) passwordErrors.push('at least one lowercase letter');
+  if (!/[A-Z]/.test(password)) passwordErrors.push('at least one uppercase letter');
+  if (!/[^a-zA-Z0-9]/.test(password)) passwordErrors.push('at least one special character');
+
+  //maybe check for a list of common passwords or common weak combinations such as repeating letters or dates
+
+  if (passwordErrors.length > 0) {
+    return res.status(400).json({
+      error: `Password must contain ${passwordErrors.join(', ')}`,
+    });
   }
 
-  if (date_of_birth) {
   const dob = new Date(date_of_birth);
   if (isNaN(dob.getTime())) {
     return res.status(400).json({ error: 'Invalid date of birth' });
@@ -31,11 +42,12 @@ async function register(req, res) {
     return res.status(400).json({ error: 'Date of birth cannot be in the future' });
   }
 
+ // minimum age check?
+
   //100 years
   if ( Math.floor((Date.now() - dob.getTime()) / (365 * 24 * 3600 * 1000)) > 100) {
     return res.status(400).json({ error: 'Invalid date of birth' });
   }
-}
 
   try {
     const existing = await prisma.user.findFirst({
@@ -56,10 +68,10 @@ async function register(req, res) {
         username,
         email: email.toLowerCase(),
         password_hash,
-        display_name: display_name || null,
-        first_name: first_name || null,
-        last_name: last_name || null,
-        date_of_birth: date_of_birth ? new Date(date_of_birth) : null,
+        display_name,
+        first_name,
+        last_name,
+        date_of_birth: new Date(date_of_birth),
       },
     });
 
@@ -100,7 +112,8 @@ async function login(req, res) {
     );
 
     const refreshToken = crypto.randomBytes(32).toString('hex');
-    //7 days
+
+    //7 days after creation
     const expiresAt = new Date(Date.now() + 7 * 24 * 3600 * 1000);
 
     await prisma.refreshToken.create({
@@ -129,6 +142,7 @@ async function login(req, res) {
 // POST /auth/refresh
 // Body: { refreshToken }
 // Response 200: { accessToken }
+
 async function refresh(req, res) {
   const { refreshToken } = req.body;
 

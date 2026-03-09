@@ -7,7 +7,9 @@ WORKDIR /app
 # Copy package files and prisma schema, then install dependencies
 COPY package*.json ./
 COPY prisma ./prisma
+COPY prisma.config.ts ./
 RUN npm install --production
+RUN npx prisma generate
 
 # Copy the rest of your backend code
 COPY . .

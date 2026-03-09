@@ -1,10 +1,8 @@
 const prisma = require('../lib/prisma');
 
-/**
- * GET /users/search?q=<query>&limit=<n>
- * Search users by username or display_name (case-insensitive contains).
- * Returns basic public profile info only.
- */
+// GET /users/search?q=<query>&limit=<n>
+// Body: none (query params: q, limit)
+// Response: [{ id, username, displayName, avatarUrl }]
 async function search(req, res) {
   try {
     const q = (req.query.q || '').trim();
@@ -45,10 +43,10 @@ async function search(req, res) {
   }
 }
 
-/**
- * GET /users/me
- * Returns the current user's profile and settings.
- */
+// GET /users/me
+// Headers: Authorization: Bearer <token>
+// Body: none
+// Response: { id, username, email, displayName, bio, location, avatarUrl, allowMessagesFrom }
 async function getMe(req, res) {
   try {
     const user = await prisma.user.findUnique({
@@ -82,11 +80,10 @@ async function getMe(req, res) {
   }
 }
 
-/**
- * PATCH /users/me
- * Update the current user's settings.
- * Body: { allowMessagesFrom?: "everyone" | "friends_only" }
- */
+// PATCH /users/me
+// Headers: Authorization: Bearer <token>
+// Body: { allowMessagesFrom?: "everyone" | "friends_only" }
+// Response: { ok: true }
 async function updateMe(req, res) {
   try {
     const data = {};

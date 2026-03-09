@@ -34,6 +34,7 @@ services:
       - db
     volumes:
       - './apps/backend:/app'
+      - /app/node_modules
 volumes:
   db:
     driver: local

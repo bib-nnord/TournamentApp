@@ -17,11 +17,10 @@ function mapMessage(m) {
   };
 }
 
-/**
- * GET /messages
- * List messages for the authenticated user.
- * Query: ?category=users|teams|tournaments|website  &page=1  &limit=20
- */
+// GET /messages
+// Headers: Authorization: Bearer <token>
+// Body: none (query params: category?, page?, limit?)
+// Response: { messages: [{ id, category, from, senderId, subject, preview, body, read, referenceId, time }], page, totalPages, total }
 async function list(req, res) {
   try {
     const userId = req.user.id;
@@ -59,10 +58,10 @@ async function list(req, res) {
   }
 }
 
-/**
- * GET /messages/unread-count
- * Returns the number of unread messages for the authenticated user.
- */
+// GET /messages/unread-count
+// Headers: Authorization: Bearer <token>
+// Body: none
+// Response: { count }
 async function unreadCount(req, res) {
   try {
     const count = await prisma.message.count({
@@ -75,10 +74,10 @@ async function unreadCount(req, res) {
   }
 }
 
-/**
- * GET /messages/:id
- * Get a single message by ID (must belong to authenticated user).
- */
+// GET /messages/:id
+// Headers: Authorization: Bearer <token>
+// Body: none (id from URL params)
+// Response: { id, category, from, senderId, subject, preview, body, read, referenceId, time }
 async function getById(req, res) {
   try {
     const id = parseInt(req.params.id);
@@ -103,10 +102,10 @@ async function getById(req, res) {
   }
 }
 
-/**
- * PATCH /messages/:id/read
- * Toggle read status. Body: { read: true|false }
- */
+// PATCH /messages/:id/read
+// Headers: Authorization: Bearer <token>
+// Body: { read: boolean }
+// Response: { ok: true }
 async function markRead(req, res) {
   try {
     const id = parseInt(req.params.id);
@@ -135,10 +134,10 @@ async function markRead(req, res) {
   }
 }
 
-/**
- * PATCH /messages/read-all
- * Mark all messages as read. Optional body: { category: "users" }
- */
+// PATCH /messages/read-all
+// Headers: Authorization: Bearer <token>
+// Body: { category?: "users" | "teams" | "tournaments" | "website" }
+// Response: { ok: true }
 async function markAllRead(req, res) {
   try {
     const where = { recipient_id: req.user.id, is_read: false };
@@ -156,10 +155,10 @@ async function markAllRead(req, res) {
   }
 }
 
-/**
- * DELETE /messages/:id
- * Delete a message (must belong to authenticated user).
- */
+// DELETE /messages/:id
+// Headers: Authorization: Bearer <token>
+// Body: none (id from URL params)
+// Response: { ok: true }
 async function remove(req, res) {
   try {
     const id = parseInt(req.params.id);
@@ -180,11 +179,10 @@ async function remove(req, res) {
   }
 }
 
-/**
- * POST /messages
- * Send a message to another user.
- * Body: { recipientUsername, subject, body }
- */
+// POST /messages
+// Headers: Authorization: Bearer <token>
+// Body: { recipientUsername, subject, body }
+// Response 201: { id, category, from, senderId, subject, preview, body, read, referenceId, time }
 async function send(req, res) {
   try {
     const userId = req.user.id;
@@ -201,9 +199,6 @@ async function send(req, res) {
 
     if (!recipient) {
       return res.status(404).json({ error: 'User not found' });
-    }
-    if (recipient.user_id === userId) {
-      return res.status(400).json({ error: 'Cannot send a message to yourself' });
     }
 
     // Check privacy setting

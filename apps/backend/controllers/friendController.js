@@ -20,20 +20,10 @@ function mapFriend(friendship, currentUserId) {
   };
 }
 
-function mapRequest(friendship, currentUserId) {
-  const other =
-    friendship.requester_id === currentUserId
-      ? friendship.recipient
-      : friendship.requester;
-  return {
-    id: friendship.friendship_id,
-    userId: other.user_id,
-    username: other.username,
-    displayName: other.display_name,
-  };
-}
-
 // GET /friends
+// Headers: Authorization: Bearer <token>
+// Body: none
+// Response: { friends: [{ id, userId, username, displayName }] }
 async function listFriends(req, res) {
   try {
     const userId = req.user.id;
@@ -58,6 +48,9 @@ async function listFriends(req, res) {
 }
 
 // GET /friends/requests
+// Headers: Authorization: Bearer <token>
+// Body: none
+// Response: { incoming: [{ id, userId, username, displayName }], outgoing: [{ id, userId, username, displayName }] }
 async function listRequests(req, res) {
   try {
     const userId = req.user.id;
@@ -75,8 +68,8 @@ async function listRequests(req, res) {
     ]);
 
     return res.json({
-      incoming: incomingRaw.map((f) => mapRequest(f, userId)),
-      outgoing: outgoingRaw.map((f) => mapRequest(f, userId)),
+      incoming: incomingRaw.map((f) => mapFriend(f, userId)),
+      outgoing: outgoingRaw.map((f) => mapFriend(f, userId)),
     });
   } catch (err) {
     console.error('[friends.listRequests]', err);
@@ -85,6 +78,9 @@ async function listRequests(req, res) {
 }
 
 // POST /friends/request
+// Headers: Authorization: Bearer <token>
+// Body: { username }
+// Response: 201 { friendship: { id, userId, username, displayName } }
 async function sendRequest(req, res) {
   try {
     const userId = req.user.id;
@@ -146,7 +142,7 @@ async function sendRequest(req, res) {
       },
     });
 
-    return res.status(201).json({ friendship: mapRequest(friendship, userId) });
+    return res.status(201).json({ friendship: mapFriend(friendship, userId) });
   } catch (err) {
     console.error('[friends.sendRequest]', err);
     return res.status(500).json({ error: 'Internal server error' });
@@ -154,6 +150,9 @@ async function sendRequest(req, res) {
 }
 
 // PATCH /friends/:id/accept
+// Headers: Authorization: Bearer <token>
+// Body: none (id from URL params)
+// Response: { friendship: { id, userId, username, displayName } }
 async function acceptRequest(req, res) {
   try {
     const userId = req.user.id;
@@ -202,6 +201,9 @@ async function acceptRequest(req, res) {
 }
 
 // PATCH /friends/:id/decline
+// Headers: Authorization: Bearer <token>
+// Body: none (id from URL params)
+// Response: { ok: true }
 async function declineRequest(req, res) {
   try {
     const userId = req.user.id;
@@ -218,7 +220,7 @@ async function declineRequest(req, res) {
       return res.status(403).json({ error: 'Only the recipient can decline' });
     }
     if (friendship.status !== 'pending') {
-      return res.status(400).json({ error: 'Request is not pending' });
+      return res.status(400).json({ error: 'Request has already been answered' });
     }
 
     await prisma.friendship.delete({ where: { friendship_id: friendshipId } });
@@ -231,6 +233,9 @@ async function declineRequest(req, res) {
 }
 
 // DELETE /friends/:id
+// Headers: Authorization: Bearer <token>
+// Body: none (id from URL params)
+// Response: { ok: true }
 async function removeFriend(req, res) {
   try {
     const userId = req.user.id;

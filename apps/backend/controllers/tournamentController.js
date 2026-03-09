@@ -2,9 +2,10 @@ const prisma = require('../lib/prisma');
 const { notifyUsers, collectAllUserIds, notifyUser } = require('../lib/notify');
 
 // ─── POST /tournaments ─────────────────────────────────────────────────────
-// Creates a tournament with participants and bracket data.
-// Body: { name, game, description?, format, isPrivate?, participants, bracketData?, maxParticipants? }
-// participants: [{ name, type: "account"|"guest"|"team", members?: [...], existingTeamId? }]
+// Headers: Authorization: Bearer <token>
+// Body: { name, game, description?, format, isPrivate?, participants, bracketData?, maxParticipants?, startDate?, status? }
+//   participants: [{ name, type: "account"|"guest"|"team", members?: [...], existingTeamId? }]
+// Response 201: { id, name, game, description, format, status, isPrivate, max, startDate, bracketData, creator, participants, createdAt, updatedAt }
 async function create(req, res) {
   const { name, game, description, format, isPrivate, participants, bracketData, maxParticipants, startDate, status } = req.body;
 
@@ -152,7 +153,8 @@ async function create(req, res) {
 }
 
 // ─── GET /tournaments ──────────────────────────────────────────────────────
-// Query: ?status=active&page=1&limit=20
+// Body: none (query params: status?, page?, limit?)
+// Response: { tournaments: [{ id, name, game, format, status, isPrivate, participants, max, creator, createdAt }], page, totalPages, total }
 async function list(req, res) {
   const { status, page = '1', limit = '20' } = req.query;
   const take = Math.min(parseInt(limit, 10) || 20, 100);
@@ -209,6 +211,8 @@ async function list(req, res) {
 }
 
 // ─── GET /tournaments/:id ──────────────────────────────────────────────────
+// Body: none (id from URL params)
+// Response: { id, name, game, description, format, status, isPrivate, max, startDate, bracketData, creator, participants, matches, createdAt, updatedAt }
 async function getById(req, res) {
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) return res.status(400).json({ error: 'Invalid tournament ID' });
@@ -247,7 +251,9 @@ async function getById(req, res) {
 }
 
 // ─── PATCH /tournaments/:id ────────────────────────────────────────────────
-// Allowed fields: name, game, description, status, bracketData
+// Headers: Authorization: Bearer <token>
+// Body: { name?, game?, description?, status?, bracketData?, startDate?, isPrivate?, clientUpdatedAt? }
+// Response: { id, name, game, description, format, status, isPrivate, max, startDate, bracketData, creator, participants, createdAt, updatedAt }
 async function update(req, res) {
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) return res.status(400).json({ error: 'Invalid tournament ID' });
@@ -307,6 +313,9 @@ async function update(req, res) {
 }
 
 // ─── DELETE /tournaments/:id ───────────────────────────────────────────────
+// Headers: Authorization: Bearer <token>
+// Body: none (id from URL params)
+// Response: { message: "Tournament deleted" }
 async function remove(req, res) {
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) return res.status(400).json({ error: 'Invalid tournament ID' });
@@ -327,8 +336,9 @@ async function remove(req, res) {
 }
 
 // ─── PATCH /tournaments/:id/confirm ───────────────────────────────────────
-// Accept or decline a tournament invitation.
-// Body: { accept: true|false }
+// Headers: Authorization: Bearer <token>
+// Body: { accept: boolean }
+// Response: { id, name, game, description, format, status, isPrivate, max, startDate, bracketData, creator, participants, matches, createdAt, updatedAt }
 async function confirmParticipation(req, res) {
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) return res.status(400).json({ error: 'Invalid tournament ID' });
@@ -503,8 +513,9 @@ function formatTournament(t) {
 }
 
 // ─── GET /tournaments/my-matches ───────────────────────────────────────────
-// Returns the latest 5 matches for the authenticated user across all tournaments.
-// Priority: upcoming (not completed) first, then completed; within each group by recency.
+// Headers: Authorization: Bearer <token>
+// Body: none
+// Response: { matches: [{ id, tournamentId, tournamentName, opponent, completed, myResult, tournamentStatus, createdAt }] }
 async function myMatches(req, res) {
   try {
     const userFilter = {
