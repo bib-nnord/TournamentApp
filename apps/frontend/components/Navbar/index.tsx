@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useRouter, usePathname } from "next/navigation";
 import { logoutAsync } from "@/store/authSlice";
 import type { RootState, AppDispatch } from "@/store/store";
 import { getUserInitial } from "@/lib/helpers";
+import { apiFetch } from "@/lib/api";
 
 function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
   const pathname = usePathname();
@@ -28,12 +29,36 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
 export default function Navbar() {
   const [collapsed, setCollapsed] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
+  const pathname = usePathname();
   const user = useSelector((state: RootState) => state.auth.user);
   const isLoggedIn = !!user;
 
   useEffect(() => setMounted(true), []);
+
+  const fetchUnread = useCallback(async () => {
+    try {
+      const res = await apiFetch("/messages/unread-count");
+      if (res.ok) {
+        const data = await res.json();
+        setUnreadCount(data.count);
+      }
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => {
+    if (!isLoggedIn) { setUnreadCount(0); return; }
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 30000);
+    const handleUpdate = () => fetchUnread();
+    window.addEventListener("unread-count-changed", handleUpdate);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("unread-count-changed", handleUpdate);
+    };
+  }, [isLoggedIn, fetchUnread]);
 
   function handleLogout() {
     dispatch(logoutAsync());
@@ -79,7 +104,21 @@ export default function Navbar() {
         {/* Right side */}
         <div className="flex items-center gap-2 shrink-0">
           {mounted && isLoggedIn && (
-            <NavLink href="/messages">Messages</NavLink>
+            <Link
+              href="/messages"
+              className={`relative text-sm px-3 py-1.5 rounded-lg transition-colors ${
+                pathname === "/messages" || pathname.startsWith("/messages/")
+                  ? "bg-indigo-50 text-indigo-700 font-medium"
+                  : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+              }`}
+            >
+              Messages
+              {unreadCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center px-1 text-[10px] font-bold text-white bg-red-500 rounded-full">
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              )}
+            </Link>
           )}
           {mounted && (isLoggedIn ? (
             <>

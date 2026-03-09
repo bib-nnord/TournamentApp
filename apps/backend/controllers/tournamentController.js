@@ -136,12 +136,13 @@ async function create(req, res) {
       },
     });
 
-    // Notify all participants (including the creator if they added themselves)
-    const recipientIds = collectAllUserIds(tournament.participants);
+    // Notify all participants except the creator
+    const recipientIds = collectAllUserIds(tournament.participants)
+      .filter((uid) => uid !== req.user.id);
     notifyUsers(
       recipientIds,
       `You've been added to ${name}`,
-      `You have been added as a participant in the tournament "${name}" (${game}). Visit the tournament page or your messages to accept or decline.`,
+      `You have been added as a participant in the tournament "${name}" (${game}). Visit the tournament page to review and accept or decline.`,
       tournament.tournament_id,
     );
 

@@ -53,7 +53,6 @@ export default function MessagesPage() {
   const [activeFilter, setActiveFilter] = useState<Filter>("all");
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [openId, setOpenId] = useState<number | null>(null);
-  const [respondingTo, setRespondingTo] = useState<number | null>(null);
 
   // Compose state
   const [composing, setComposing] = useState(false);
@@ -97,7 +96,7 @@ export default function MessagesPage() {
       apiFetch(`/messages/${id}/read`, {
         method: "PATCH",
         body: JSON.stringify({ read: true }),
-      });
+      }).then(() => window.dispatchEvent(new Event("unread-count-changed")));
     }
     setOpenId(id);
   }
@@ -138,38 +137,30 @@ export default function MessagesPage() {
         })
       )
     );
+    window.dispatchEvent(new Event("unread-count-changed"));
+  }
+
+  async function deleteSelected() {
+    const count = selected.size;
+    if (!confirm(`Delete ${count} message${count > 1 ? "s" : ""}?`)) return;
+    const ids = [...selected];
+    setMessages((prev) => prev.filter((m) => !selected.has(m.id)));
+    setSelected(new Set());
+    await Promise.all(
+      ids.map((id) => apiFetch(`/messages/${id}`, { method: "DELETE" }))
+    );
+    window.dispatchEvent(new Event("unread-count-changed"));
   }
 
   async function markAllRead() {
     setMessages((prev) => prev.map((m) => ({ ...m, read: true })));
     setSelected(new Set());
     await apiFetch("/messages/read-all", { method: "PATCH" });
+    window.dispatchEvent(new Event("unread-count-changed"));
   }
 
   function isInvitationMessage(m: Message) {
-    return m.category === "tournaments" && m.subject.startsWith("You've been added") && m.referenceId != null;
-  }
-
-  async function handleInvitationResponse(message: Message, accept: boolean) {
-    if (!message.referenceId) return;
-    setRespondingTo(message.id);
-    try {
-      const res = await apiFetch(`/tournaments/${message.referenceId}/confirm`, {
-        method: "PATCH",
-        body: JSON.stringify({ accept }),
-      });
-      if (res.ok) {
-        if (accept) {
-          router.push(`/tournaments/view/${message.referenceId}`);
-        } else {
-          setOpenId(null);
-        }
-      }
-    } catch {
-      // silently fail
-    } finally {
-      setRespondingTo(null);
-    }
+    return m.category === "tournaments" && m.referenceId != null;
   }
 
   async function handleSendMessage() {
@@ -369,6 +360,7 @@ export default function MessagesPage() {
                     method: "PATCH",
                     body: JSON.stringify({ read: newRead }),
                   });
+                  window.dispatchEvent(new Event("unread-count-changed"));
                 }}
                 className="text-xs px-3 py-1.5 border border-gray-300 rounded-lg text-gray-500 hover:bg-gray-50 flex-shrink-0"
               >
@@ -383,18 +375,10 @@ export default function MessagesPage() {
             {isInvitationMessage(openMessage) && (
               <div className="flex items-center gap-2 mt-4 pt-4 border-t border-gray-100">
                 <button
-                  onClick={() => handleInvitationResponse(openMessage, false)}
-                  disabled={respondingTo === openMessage.id}
-                  className="text-sm px-4 py-2 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40"
+                  onClick={() => router.push(`/tournaments/view/${openMessage.referenceId}`)}
+                  className="text-sm px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
                 >
-                  Decline
-                </button>
-                <button
-                  onClick={() => handleInvitationResponse(openMessage, true)}
-                  disabled={respondingTo === openMessage.id}
-                  className="text-sm px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-40"
-                >
-                  Accept
+                  View tournament
                 </button>
               </div>
             )}
@@ -495,6 +479,12 @@ export default function MessagesPage() {
                 className="text-xs px-3 py-1 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50"
               >
                 {LABEL_MARK_UNREAD}
+              </button>
+              <button
+                onClick={deleteSelected}
+                className="text-xs px-3 py-1 border border-red-300 rounded-lg text-red-600 hover:bg-red-50"
+              >
+                Delete
               </button>
             </div>
           )}
