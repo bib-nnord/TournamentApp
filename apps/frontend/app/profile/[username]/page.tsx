@@ -12,23 +12,15 @@ import { getUserInitial } from "@/lib/helpers";
 import { useFetch } from "@/hooks/useFetch";
 import UserListItem from "@/components/UserListItem";
 import type { TournamentSummary } from "@/components/TournamentList/types";
+import type { Friend } from "@/types";
 
-// Placeholder data — replace with API calls once endpoints are ready
-const friends = [
-  { id: "u1", username: "alice", online: true },
-  { id: "u2", username: "bob", online: false },
-  { id: "u3", username: "charlie", online: true },
-];
-
-const myTeams = [
-  { id: "t1", name: "The Knights", role: "lead" as TeamRole },
-  { id: "t2", name: "Storm Squad", role: "member" as TeamRole },
-];
-
-const followedTeams = [
-  { id: "t3", name: "Iron Bishops", members: 3, open: true },
-  { id: "t4", name: "Rapid Rookies", members: 8, open: false },
-];
+interface MyTeam {
+  id: number;
+  name: string;
+  role: TeamRole;
+  members: number;
+  open: boolean;
+}
 
 
 
@@ -37,6 +29,8 @@ export default function ProfilePage() {
   const user = useSelector((state: RootState) => state.auth.user);
   const isOwnProfile = user?.username === username;
 
+  const { data: friendsData, loading: friendsLoading } = useFetch<{ friends: Friend[] }>("/friends");
+  const { data: teamsData, loading: teamsLoading } = useFetch<{ teams: MyTeam[] }>("/teams/my");
   const { data: tournamentsData, loading: tournamentsLoading } = useFetch<{ tournaments: TournamentSummary[] }>("/tournaments?limit=20");
   const myTournaments = (tournamentsData?.tournaments ?? []).filter(
     (t) => t.creator.username === username
@@ -68,44 +62,33 @@ export default function ProfilePage() {
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-base font-semibold text-gray-800">
-              Friends <span className="text-gray-400 font-normal">({friends.length})</span>
+              Friends <span className="text-gray-400 font-normal">({friendsData?.friends.length ?? 0})</span>
             </h2>
             <Link href="/friends" className="text-xs text-blue-600 hover:underline">{LABEL_VIEW_ALL}</Link>
           </div>
-          <div className="flex flex-col gap-2">
-            {friends.map((f) => (
-              <UserListItem key={f.id} username={f.username} online={f.online} showStatus />
-            ))}
-          </div>
+          {friendsLoading ? (
+            <p className="text-sm text-gray-400">Loading…</p>
+          ) : (friendsData?.friends.length ?? 0) === 0 ? (
+            <p className="text-sm text-gray-400">No friends yet.</p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {friendsData!.friends.slice(0, 3).map((f) => (
+                <UserListItem key={f.id} username={f.username} />
+              ))}
+            </div>
+          )}
         </div>
 
         {/* My teams */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
           <h2 className="text-base font-semibold text-gray-800 mb-4">{isOwnProfile ? "My teams" : "Teams"}</h2>
-          <div className="flex flex-col gap-2">
-            {myTeams.map((t) => (
-              <Link
-                key={t.id}
-                href={`/teams/${t.id}`}
-                className="flex items-center justify-between px-4 py-3 rounded-lg border border-gray-100 hover:bg-gray-50"
-              >
-                <span className="text-sm font-medium text-gray-800">{t.name}</span>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${teamRoleColors[t.role]}`}>
-                  {t.role}
-                </span>
-              </Link>
-            ))}
-          </div>
-        </div>
-
-        {/* Followed teams */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
-          <h2 className="text-base font-semibold text-gray-800 mb-4">Followed teams</h2>
-          {followedTeams.length === 0 ? (
-            <p className="text-sm text-gray-400">No followed teams yet.</p>
+          {teamsLoading ? (
+            <p className="text-sm text-gray-400">Loading…</p>
+          ) : (teamsData?.teams.length ?? 0) === 0 ? (
+            <p className="text-sm text-gray-400">No teams yet.</p>
           ) : (
             <div className="flex flex-col gap-2">
-              {followedTeams.map((t) => (
+              {teamsData!.teams.map((t) => (
                 <Link
                   key={t.id}
                   href={`/teams/${t.id}`}
@@ -115,9 +98,14 @@ export default function ProfilePage() {
                     <span className="text-sm font-medium text-gray-800">{t.name}</span>
                     <span className="text-xs text-gray-400 ml-2">{t.members} members</span>
                   </div>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${t.open ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
-                    {t.open ? "Open" : "Closed"}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${t.open ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                      {t.open ? "Open" : "Closed"}
+                    </span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${teamRoleColors[t.role]}`}>
+                      {t.role}
+                    </span>
+                  </div>
                 </Link>
               ))}
             </div>

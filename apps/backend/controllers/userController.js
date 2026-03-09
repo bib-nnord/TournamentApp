@@ -45,4 +45,74 @@ async function search(req, res) {
   }
 }
 
-module.exports = { search };
+/**
+ * GET /users/me
+ * Returns the current user's profile and settings.
+ */
+async function getMe(req, res) {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { user_id: req.user.id },
+      select: {
+        user_id: true,
+        username: true,
+        email: true,
+        display_name: true,
+        bio: true,
+        location: true,
+        avatar_url: true,
+        allow_messages_from: true,
+      },
+    });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    res.json({
+      id: user.user_id,
+      username: user.username,
+      email: user.email,
+      displayName: user.display_name,
+      bio: user.bio,
+      location: user.location,
+      avatarUrl: user.avatar_url,
+      allowMessagesFrom: user.allow_messages_from,
+    });
+  } catch (err) {
+    console.error('[users/me]', err);
+    res.status(500).json({ error: 'Failed to fetch user' });
+  }
+}
+
+/**
+ * PATCH /users/me
+ * Update the current user's settings.
+ * Body: { allowMessagesFrom?: "everyone" | "friends_only" }
+ */
+async function updateMe(req, res) {
+  try {
+    const data = {};
+    const { allowMessagesFrom } = req.body;
+
+    if (allowMessagesFrom !== undefined) {
+      if (!['everyone', 'friends_only'].includes(allowMessagesFrom)) {
+        return res.status(400).json({ error: 'allowMessagesFrom must be "everyone" or "friends_only"' });
+      }
+      data.allow_messages_from = allowMessagesFrom;
+    }
+
+    if (Object.keys(data).length === 0) {
+      return res.status(400).json({ error: 'No valid fields to update' });
+    }
+
+    await prisma.user.update({
+      where: { user_id: req.user.id },
+      data,
+    });
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[users/updateMe]', err);
+    res.status(500).json({ error: 'Failed to update user' });
+  }
+}
+
+module.exports = { search, getMe, updateMe };

@@ -180,4 +180,66 @@ async function remove(req, res) {
   }
 }
 
-module.exports = { list, unreadCount, getById, markRead, markAllRead, remove };
+/**
+ * POST /messages
+ * Send a message to another user.
+ * Body: { recipientUsername, subject, body }
+ */
+async function send(req, res) {
+  try {
+    const userId = req.user.id;
+    const { recipientUsername, subject, body } = req.body;
+
+    if (!recipientUsername || !subject?.trim() || !body?.trim()) {
+      return res.status(400).json({ error: 'recipientUsername, subject, and body are required' });
+    }
+
+    const recipient = await prisma.user.findUnique({
+      where: { username: recipientUsername.trim() },
+      select: { user_id: true, username: true, allow_messages_from: true },
+    });
+
+    if (!recipient) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    if (recipient.user_id === userId) {
+      return res.status(400).json({ error: 'Cannot send a message to yourself' });
+    }
+
+    // Check privacy setting
+    if (recipient.allow_messages_from === 'friends_only') {
+      const friendship = await prisma.friendship.findFirst({
+        where: {
+          status: 'accepted',
+          OR: [
+            { requester_id: userId, recipient_id: recipient.user_id },
+            { requester_id: recipient.user_id, recipient_id: userId },
+          ],
+        },
+      });
+      if (!friendship) {
+        return res.status(403).json({ error: 'This user only accepts messages from friends' });
+      }
+    }
+
+    const message = await prisma.message.create({
+      data: {
+        sender_id: userId,
+        recipient_id: recipient.user_id,
+        category: 'users',
+        subject: subject.trim(),
+        body: body.trim(),
+      },
+      include: {
+        sender: { select: { username: true, display_name: true } },
+      },
+    });
+
+    return res.status(201).json(mapMessage(message));
+  } catch (err) {
+    console.error('[messages/send]', err);
+    return res.status(500).json({ error: 'Failed to send message' });
+  }
+}
+
+module.exports = { list, unreadCount, getById, markRead, markAllRead, remove, send };

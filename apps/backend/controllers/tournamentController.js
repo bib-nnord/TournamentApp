@@ -135,9 +135,8 @@ async function create(req, res) {
       },
     });
 
-    // Notify participants (excluding the creator) with tournament reference
-    const recipientIds = collectAllUserIds(tournament.participants)
-      .filter((id) => id !== req.user.id);
+    // Notify all participants (including the creator if they added themselves)
+    const recipientIds = collectAllUserIds(tournament.participants);
     notifyUsers(
       recipientIds,
       `You've been added to ${name}`,

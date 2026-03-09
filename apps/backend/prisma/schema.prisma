@@ -21,8 +21,9 @@ model User {
   location        String?   @db.VarChar(200)
   avatar_url      String?   @db.VarChar(500)
   site_role       SiteRole  @default(user)
-  email_confirmed Boolean   @default(false)
-  created_at      DateTime  @default(now()) @db.Timestamp(6)
+  email_confirmed     Boolean        @default(false)
+  allow_messages_from MessagePrivacy @default(everyone)
+  created_at          DateTime       @default(now()) @db.Timestamp(6)
 
   team_memberships TeamMember[]
   created_teams    Team[]          @relation("TeamCreator")
@@ -30,11 +31,18 @@ model User {
   received_messages Message[]      @relation("MessageRecipient")
   refresh_tokens   RefreshToken[]
 
-  created_tournaments   Tournament[]              @relation("TournamentCreator")
-  tournament_entries    TournamentParticipant[]    @relation("TournamentParticipants")
-  match_entries         MatchParticipant[]         @relation("MatchParticipantUser")
+  created_tournaments      Tournament[]              @relation("TournamentCreator")
+  tournament_entries       TournamentParticipant[]    @relation("TournamentParticipants")
+  match_entries            MatchParticipant[]         @relation("MatchParticipantUser")
+  sent_friend_requests     Friendship[]               @relation("FriendshipRequester")
+  received_friend_requests Friendship[]               @relation("FriendshipRecipient")
 
   @@map("user")
+}
+
+enum MessagePrivacy {
+  everyone
+  friends_only
 }
 
 enum SiteRole {
@@ -122,6 +130,30 @@ enum MessageCategory {
   teams
   tournaments
   website
+}
+
+// ─── Friendships ───────────────────────────────────────────────────────────
+
+model Friendship {
+  friendship_id  Int              @id @default(autoincrement())
+  requester_id   Int
+  recipient_id   Int
+  status         FriendshipStatus @default(pending)
+  created_at     DateTime         @default(now()) @db.Timestamp(6)
+  updated_at     DateTime         @updatedAt @db.Timestamp(6)
+
+  requester User @relation("FriendshipRequester", fields: [requester_id], references: [user_id], onDelete: Cascade)
+  recipient User @relation("FriendshipRecipient", fields: [recipient_id], references: [user_id], onDelete: Cascade)
+
+  @@unique([requester_id, recipient_id])
+  @@index([recipient_id])
+  @@map("friendship")
+}
+
+enum FriendshipStatus {
+  pending
+  accepted
+  blocked
 }
 
 // ─── Tournaments ────────────────────────────────────────────────────────────

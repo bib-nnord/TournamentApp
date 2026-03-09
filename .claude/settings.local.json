@@ -3,7 +3,9 @@
     "allow": [
       "Bash(npx prisma migrate dev --name add-participant-confirmed-and-message-reference-id)",
       "Bash(npx prisma migrate diff --from-schema-datamodel prisma/schema.prisma --to-schema-datamodel prisma/schema.prisma --script)",
-      "Bash(npx prisma generate)"
+      "Bash(npx prisma generate)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(npx prisma migrate dev --name add-message-privacy)"
     ]
   }
 }

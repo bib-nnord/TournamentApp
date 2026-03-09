@@ -71,7 +71,6 @@ export default function Navbar() {
               <>
                 <NavLink href="/dashboard">Dashboard</NavLink>
                 <NavLink href="/friends">Friends</NavLink>
-                <NavLink href="/messages">Messages</NavLink>
               </>
             )}
           </nav>
@@ -79,6 +78,9 @@ export default function Navbar() {
 
         {/* Right side */}
         <div className="flex items-center gap-2 shrink-0">
+          {mounted && isLoggedIn && (
+            <NavLink href="/messages">Messages</NavLink>
+          )}
           {mounted && (isLoggedIn ? (
             <>
               <Link

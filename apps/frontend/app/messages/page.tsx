@@ -54,6 +54,14 @@ export default function MessagesPage() {
   const [openId, setOpenId] = useState<number | null>(null);
   const [respondingTo, setRespondingTo] = useState<number | null>(null);
 
+  // Compose state
+  const [composing, setComposing] = useState(false);
+  const [composeRecipient, setComposeRecipient] = useState("");
+  const [composeSubject, setComposeSubject] = useState("");
+  const [composeBody, setComposeBody] = useState("");
+  const [composeSending, setComposeSending] = useState(false);
+  const [composeError, setComposeError] = useState<string | null>(null);
+
   const fetchMessages = useCallback(async () => {
     try {
       const res = await apiFetch("/messages?limit=100");
@@ -163,6 +171,53 @@ export default function MessagesPage() {
     }
   }
 
+  async function handleSendMessage() {
+    if (!composeRecipient.trim() || !composeSubject.trim() || !composeBody.trim()) return;
+    setComposeSending(true);
+    setComposeError(null);
+    try {
+      const res = await apiFetch("/messages", {
+        method: "POST",
+        body: JSON.stringify({
+          recipientUsername: composeRecipient.trim(),
+          subject: composeSubject.trim(),
+          body: composeBody.trim(),
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setComposeError(data.error ?? "Failed to send message");
+        return;
+      }
+      setComposing(false);
+      setComposeRecipient("");
+      setComposeSubject("");
+      setComposeBody("");
+      fetchMessages();
+    } catch {
+      setComposeError("Network error");
+    } finally {
+      setComposeSending(false);
+    }
+  }
+
+  function handleReply(message: Message) {
+    setComposeRecipient(message.from);
+    setComposeSubject(message.subject.startsWith("Re: ") ? message.subject : `Re: ${message.subject}`);
+    setComposeBody("");
+    setComposeError(null);
+    setComposing(true);
+    setOpenId(null);
+  }
+
+  function handleNewMessage() {
+    setComposeRecipient("");
+    setComposeSubject("");
+    setComposeBody("");
+    setComposeError(null);
+    setComposing(true);
+  }
+
   if (!user) return null;
 
   if (loading) {
@@ -170,6 +225,77 @@ export default function MessagesPage() {
       <div className="min-h-screen bg-gray-50">
         <div className="max-w-2xl mx-auto px-4 py-10">
           <p className="text-sm text-gray-500">Loading messages…</p>
+        </div>
+      </div>
+    );
+  }
+
+  // --- Compose view ---
+  if (composing) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="max-w-2xl mx-auto px-4 py-10">
+          <button
+            onClick={() => setComposing(false)}
+            className="text-sm text-gray-500 hover:text-gray-700 mb-6"
+          >
+            {LABEL_BACK_TO_MESSAGES}
+          </button>
+
+          <div className="bg-white rounded-xl border border-gray-100 p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">New message</h2>
+
+            <div className="flex flex-col gap-3">
+              <div>
+                <label className="text-xs font-medium text-gray-500 mb-1 block">To</label>
+                <input
+                  type="text"
+                  placeholder="Username"
+                  value={composeRecipient}
+                  onChange={(e) => { setComposeRecipient(e.target.value); setComposeError(null); }}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-500 mb-1 block">Subject</label>
+                <input
+                  type="text"
+                  placeholder="Subject"
+                  value={composeSubject}
+                  onChange={(e) => setComposeSubject(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-500 mb-1 block">Message</label>
+                <textarea
+                  placeholder="Write your message…"
+                  value={composeBody}
+                  onChange={(e) => setComposeBody(e.target.value)}
+                  rows={6}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                />
+              </div>
+
+              {composeError && <p className="text-xs text-red-500">{composeError}</p>}
+
+              <div className="flex items-center gap-2 justify-end">
+                <button
+                  onClick={() => setComposing(false)}
+                  className="text-sm px-4 py-2 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSendMessage}
+                  disabled={composeSending || !composeRecipient.trim() || !composeSubject.trim() || !composeBody.trim()}
+                  className="text-sm px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-40"
+                >
+                  {composeSending ? "Sending…" : "Send"}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -261,6 +387,17 @@ export default function MessagesPage() {
                 </button>
               </div>
             )}
+
+            {openMessage.senderId != null && (
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <button
+                  onClick={() => handleReply(openMessage)}
+                  className="text-sm px-4 py-2 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50"
+                >
+                  Reply
+                </button>
+              </div>
+            )}
           </div>
 
         </div>
@@ -283,13 +420,21 @@ export default function MessagesPage() {
               </span>
             )}
           </div>
-          <button
-            onClick={markAllRead}
-            disabled={unreadCount === 0}
-            className="text-sm px-3 py-1.5 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {LABEL_MARK_ALL_AS_READ}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={markAllRead}
+              disabled={unreadCount === 0}
+              className="text-sm px-3 py-1.5 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {LABEL_MARK_ALL_AS_READ}
+            </button>
+            <button
+              onClick={handleNewMessage}
+              className="text-sm px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+            >
+              New message
+            </button>
+          </div>
         </div>
 
         {/* Filter tabs */}

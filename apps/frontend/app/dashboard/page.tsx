@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState, useEffect } from "react";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { useFetch } from "@/hooks/useFetch";
 import { tournamentStatusColors } from "@/lib/colors";
@@ -27,13 +28,17 @@ type MyMatch = {
 };
 
 export default function DashboardPage() {
+  const [mounted, setMounted] = useState(false);
   const user = useRequireAuth();
-  if (!user) return null;
 
   const { data: activeData, loading: activeLoading } = useFetch<{ tournaments: TournamentSummary[] }>("/tournaments?status=active&limit=5");
   const { data: registrationData, loading: registrationLoading } = useFetch<{ tournaments: TournamentSummary[] }>("/tournaments?status=registration&limit=5");
   const { data: completedData, loading: completedLoading } = useFetch<{ tournaments: TournamentSummary[] }>("/tournaments?status=completed&limit=5");
   const { data: myMatchesData, loading: myMatchesLoading } = useFetch<{ matches: MyMatch[] }>("/tournaments/my-matches");
+
+  useEffect(() => setMounted(true), []);
+
+  if (!mounted || !user) return null;
 
   const activeTournaments = activeData?.tournaments ?? [];
   const upcomingTournaments = registrationData?.tournaments ?? [];

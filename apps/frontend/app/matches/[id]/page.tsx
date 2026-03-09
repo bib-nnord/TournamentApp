@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useSelector } from "react-redux";
 import { apiFetch } from "@/lib/api";
@@ -37,6 +37,7 @@ interface BracketMatchDetail {
 export default function MatchPage() {
   const { id: matchId } = useParams<{ id: string }>();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const tournamentId = searchParams.get("t");
   const currentUser = useSelector((state: RootState) => state.auth.user);
 
@@ -263,7 +264,7 @@ export default function MatchPage() {
             <p className="text-sm text-amber-800">This match was changed by someone else. Reload to see the latest version before making changes.</p>
             <button
               type="button"
-              onClick={() => window.location.reload()}
+              onClick={() => router.refresh()}
               className="shrink-0 text-sm font-semibold text-amber-700 border border-amber-400 rounded-lg px-3 py-1.5 hover:bg-amber-100 transition-colors"
             >
               Reload

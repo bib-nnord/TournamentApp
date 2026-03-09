@@ -53,4 +53,37 @@ async function search(req, res) {
   }
 }
 
-module.exports = { search };
+/**
+ * GET /teams/my
+ * Returns teams the current user is a member of.
+ */
+async function myTeams(req, res) {
+  try {
+    const memberships = await prisma.teamMember.findMany({
+      where: { user_id: req.user.id },
+      include: {
+        team: {
+          include: {
+            _count: { select: { members: true } },
+          },
+        },
+      },
+      orderBy: { joined_at: 'desc' },
+    });
+
+    const teams = memberships.map((m) => ({
+      id: m.team.team_id,
+      name: m.team.name,
+      role: m.role,
+      members: m.team._count.members,
+      open: m.team.is_open,
+    }));
+
+    res.json({ teams });
+  } catch (err) {
+    console.error('[teams/my]', err);
+    res.status(500).json({ error: 'Failed to fetch teams' });
+  }
+}
+
+module.exports = { search, myTeams };

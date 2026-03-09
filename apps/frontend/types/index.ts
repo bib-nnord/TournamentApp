@@ -133,12 +133,15 @@ export interface User {
 }
 
 export interface Friend {
-  id: string;
+  id: number;
+  userId: number;
   username: string;
-  online: boolean;
+  displayName: string | null;
 }
 
 export interface FriendRequest {
-  id: string;
+  id: number;
+  userId: number;
   username: string;
+  displayName: string | null;
 }

@@ -49,6 +49,7 @@ export default function TournamentPage() {
   const [savingSettings, setSavingSettings] = useState(false);
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [conflictError, setConflictError] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
   const cancelAction = useConfirmAction(useCallback(async () => {
     try {
@@ -145,12 +146,10 @@ export default function TournamentPage() {
   }) : null;
   const isUnconfirmedParticipant = myParticipant != null && !myParticipant.confirmed;
 
-  const [confirming, setConfirming] = useState(false);
-
   async function handleConfirm(accept: boolean) {
     setConfirming(true);
     try {
-      const res = await apiFetch(`/tournaments/${tournament.id}/confirm`, {
+      const res = await apiFetch(`/tournaments/${tournament!.id}/confirm`, {
         method: "PATCH",
         body: JSON.stringify({ accept }),
       });
@@ -300,7 +299,7 @@ export default function TournamentPage() {
             <p className="text-sm text-amber-800">This page was changed by someone else. Reload to see the latest version before making changes.</p>
             <button
               type="button"
-              onClick={() => window.location.reload()}
+              onClick={() => router.refresh()}
               className="shrink-0 text-sm font-semibold text-amber-700 border border-amber-400 rounded-lg px-3 py-1.5 hover:bg-amber-100 transition-colors"
             >
               Reload

@@ -1,14 +1,18 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useSelector } from "react-redux";
 import type { RootState } from "@/store/store";
 import { LABEL_CREATE_AN_ACCOUNT, LABEL_LOG_IN } from "@/constants/labels";
 
 export default function AuthButtons() {
+  const [mounted, setMounted] = useState(false);
   const user = useSelector((state: RootState) => state.auth.user);
 
-  if (user) return null;
+  useEffect(() => setMounted(true), []);
+
+  if (!mounted || user) return null;
 
   return (
     <div className="flex gap-3 mt-2">
