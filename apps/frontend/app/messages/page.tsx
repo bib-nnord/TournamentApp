@@ -19,6 +19,7 @@ import {
   LABEL_FILTER_TEAMS,
   LABEL_FILTER_TOURNAMENTS,
   LABEL_FILTER_WEBSITE,
+  LABEL_FILTER_SENT,
 } from "@/constants/labels";
 import type { MessageCategory, Filter, Message } from "./types";
 
@@ -28,6 +29,7 @@ const filters: { label: string; value: Filter }[] = [
   { label: LABEL_FILTER_TEAMS, value: "teams" },
   { label: LABEL_FILTER_TOURNAMENTS, value: "tournaments" },
   { label: LABEL_FILTER_WEBSITE, value: "website" },
+  { label: LABEL_FILTER_SENT, value: "sent" },
 ];
 
 function relativeTime(iso: string): string {
@@ -50,9 +52,31 @@ export default function MessagesPage() {
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeFilter, setActiveFilter] = useState<Filter>("all");
+  const [activeFilters, setActiveFilters] = useState<Set<Filter>>(new Set(["all"]));
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [openId, setOpenId] = useState<number | null>(null);
+  const isSentView = activeFilters.has("sent") && activeFilters.size === 1;
+
+  function toggleFilter(value: Filter) {
+    setActiveFilters((prev) => {
+      // "All" and "Sent" are exclusive — clicking them resets to just that filter
+      if (value === "all" || value === "sent") return new Set([value]);
+      const next = new Set(prev);
+      // If coming from "all" or "sent", start fresh with this category
+      if (prev.has("all") || prev.has("sent")) {
+        return new Set([value]);
+      }
+      // Toggle the category
+      if (next.has(value)) {
+        next.delete(value);
+        // If nothing left, go back to "all"
+        if (next.size === 0) return new Set<Filter>(["all"]);
+      } else {
+        next.add(value);
+      }
+      return next;
+    });
+  }
 
   // Compose state
   const [composing, setComposing] = useState(false);
@@ -64,7 +88,8 @@ export default function MessagesPage() {
 
   const fetchMessages = useCallback(async () => {
     try {
-      const res = await apiFetch("/messages?limit=100");
+      const query = isSentView ? "folder=sent&limit=100" : "limit=100";
+      const res = await apiFetch(`/messages?${query}`);
       if (!res.ok) return;
       const data = await res.json();
       setMessages(data.messages);
@@ -73,15 +98,21 @@ export default function MessagesPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isSentView]);
 
   useEffect(() => {
     if (user) fetchMessages();
   }, [user, fetchMessages]);
 
-  const filtered = messages.filter((m) =>
-    activeFilter === "all" ? true : m.category === activeFilter
-  );
+  // Clear selection and close detail when switching folders
+  useEffect(() => {
+    setSelected(new Set());
+    setOpenId(null);
+  }, [isSentView]);
+
+  const filtered = isSentView || activeFilters.has("all")
+    ? messages
+    : messages.filter((m) => activeFilters.has(m.category));
 
   const unreadCount = messages.filter((m) => !m.read).length;
   const selectedCount = selected.size;
@@ -348,24 +379,42 @@ export default function MessagesPage() {
                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${messageCategoryColors[openMessage.category]}`}>
                     {messageCategoryLabel[openMessage.category]}
                   </span>
-                  <span className="text-sm text-gray-500">from <span className="font-medium text-gray-700">{openMessage.from}</span></span>
+                  {openMessage.folder === "sent" ? (
+                    <span className="text-sm text-gray-500">to <span className="font-medium text-gray-700">{openMessage.to}</span></span>
+                  ) : (
+                    <span className="text-sm text-gray-500">from <span className="font-medium text-gray-700">{openMessage.from}</span></span>
+                  )}
                   <span className="text-xs text-gray-400">{relativeTime(openMessage.time)}</span>
                 </div>
               </div>
-              <button
-                onClick={async () => {
-                  const newRead = !openMessage.read;
-                  setMessages((prev) => prev.map((m) => m.id === openMessage.id ? { ...m, read: newRead } : m));
-                  await apiFetch(`/messages/${openMessage.id}/read`, {
-                    method: "PATCH",
-                    body: JSON.stringify({ read: newRead }),
-                  });
-                  window.dispatchEvent(new Event("unread-count-changed"));
-                }}
-                className="text-xs px-3 py-1.5 border border-gray-300 rounded-lg text-gray-500 hover:bg-gray-50 flex-shrink-0"
-              >
-                {openMessage.read ? LABEL_MARK_UNREAD : LABEL_MARK_READ}
-              </button>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <button
+                  onClick={async () => {
+                    const newRead = !openMessage.read;
+                    setMessages((prev) => prev.map((m) => m.id === openMessage.id ? { ...m, read: newRead } : m));
+                    await apiFetch(`/messages/${openMessage.id}/read`, {
+                      method: "PATCH",
+                      body: JSON.stringify({ read: newRead }),
+                    });
+                    window.dispatchEvent(new Event("unread-count-changed"));
+                  }}
+                  className={`text-xs px-3 py-1.5 border border-gray-300 rounded-lg text-gray-500 hover:bg-gray-50 ${openMessage.folder === "sent" ? "hidden" : ""}`}
+                >
+                  {openMessage.read ? LABEL_MARK_UNREAD : LABEL_MARK_READ}
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!confirm("Delete this message?")) return;
+                    setMessages((prev) => prev.filter((m) => m.id !== openMessage.id));
+                    setOpenId(null);
+                    await apiFetch(`/messages/${openMessage.id}`, { method: "DELETE" });
+                    window.dispatchEvent(new Event("unread-count-changed"));
+                  }}
+                  className="text-xs px-3 py-1.5 border border-red-300 rounded-lg text-red-500 hover:bg-red-50"
+                >
+                  Delete
+                </button>
+              </div>
             </div>
 
             <hr className="border-gray-100 mb-4" />
@@ -383,7 +432,7 @@ export default function MessagesPage() {
               </div>
             )}
 
-            {openMessage.senderId != null && (
+            {openMessage.senderId != null && openMessage.folder !== "sent" && (
               <div className="mt-4 pt-4 border-t border-gray-100">
                 <button
                   onClick={() => handleReply(openMessage)}
@@ -409,20 +458,22 @@ export default function MessagesPage() {
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold text-gray-900">Messages</h1>
-            {unreadCount > 0 && (
+            {unreadCount > 0 && !isSentView && (
               <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-600 text-white font-medium">
                 {unreadCount} unread
               </span>
             )}
           </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={markAllRead}
-              disabled={unreadCount === 0}
-              className="text-sm px-3 py-1.5 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              {LABEL_MARK_ALL_AS_READ}
-            </button>
+            {!isSentView && (
+              <button
+                onClick={markAllRead}
+                disabled={unreadCount === 0}
+                className="text-sm px-3 py-1.5 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {LABEL_MARK_ALL_AS_READ}
+              </button>
+            )}
             <button
               onClick={handleNewMessage}
               className="text-sm px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
@@ -435,11 +486,11 @@ export default function MessagesPage() {
         {/* Filter tabs */}
         <div className="flex gap-2 mb-4 flex-wrap">
           {filters.map((f) => {
-            const isActive = activeFilter === f.value;
+            const isActive = activeFilters.has(f.value);
             return (
               <button
                 key={f.value}
-                onClick={() => setActiveFilter(f.value)}
+                onClick={() => toggleFilter(f.value)}
                 className={`text-sm px-4 py-1.5 rounded-full border font-medium transition-colors ${
                   isActive
                     ? "bg-gray-900 text-white border-gray-900"
@@ -468,18 +519,22 @@ export default function MessagesPage() {
 
           {selectedCount > 0 && (
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => markSelected(true)}
-                className="text-xs px-3 py-1 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50"
-              >
-                {LABEL_MARK_READ}
-              </button>
-              <button
-                onClick={() => markSelected(false)}
-                className="text-xs px-3 py-1 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50"
-              >
-                {LABEL_MARK_UNREAD}
-              </button>
+              {!isSentView && (
+                <>
+                  <button
+                    onClick={() => markSelected(true)}
+                    className="text-xs px-3 py-1 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50"
+                  >
+                    {LABEL_MARK_READ}
+                  </button>
+                  <button
+                    onClick={() => markSelected(false)}
+                    className="text-xs px-3 py-1 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50"
+                  >
+                    {LABEL_MARK_UNREAD}
+                  </button>
+                </>
+              )}
               <button
                 onClick={deleteSelected}
                 className="text-xs px-3 py-1 border border-red-300 rounded-lg text-red-600 hover:bg-red-50"
@@ -524,9 +579,9 @@ export default function MessagesPage() {
                     {messageCategoryLabel[m.category]}
                   </span>
 
-                  {/* From */}
+                  {/* From / To */}
                   <span className={`text-sm w-28 flex-shrink-0 truncate ${!m.read ? "font-semibold text-gray-900" : "text-gray-500"}`}>
-                    {m.from}
+                    {m.folder === "sent" ? m.to : m.from}
                   </span>
 
                   {/* Subject + preview */}

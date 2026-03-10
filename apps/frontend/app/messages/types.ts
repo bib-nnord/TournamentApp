@@ -1,11 +1,14 @@
 export type MessageCategory = "users" | "teams" | "tournaments" | "website";
-export type Filter = "all" | MessageCategory;
+export type Filter = "all" | "sent" | MessageCategory;
 
 export interface Message {
   id: number;
   category: MessageCategory;
+  folder: "inbox" | "sent";
   from: string;
   senderId: number | null;
+  to: string | null;
+  recipientId: number;
   subject: string;
   preview: string;
   body: string;

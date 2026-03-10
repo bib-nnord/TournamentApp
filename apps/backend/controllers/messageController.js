@@ -6,8 +6,11 @@ function mapMessage(m) {
   return {
     id: m.message_id,
     category: m.category,
+    folder: m.folder,
     from: m.sender ? (m.sender.display_name || m.sender.username) : 'Tournament App',
     senderId: m.sender_id,
+    to: m.recipient ? (m.recipient.display_name || m.recipient.username) : null,
+    recipientId: m.recipient_id,
     subject: m.subject,
     preview: m.body.length > 100 ? m.body.slice(0, 100) + '…' : m.body,
     body: m.body,
@@ -27,8 +30,12 @@ async function list(req, res) {
     const page = Math.max(parseInt(req.query.page) || 1, 1);
     const limit = Math.min(Math.max(parseInt(req.query.limit) || 20, 1), 100);
     const category = req.query.category;
+    const folder = req.query.folder === 'sent' ? 'sent' : 'inbox';
 
-    const where = { recipient_id: userId };
+    const where = folder === 'sent'
+      ? { sender_id: userId, folder: 'sent' }
+      : { recipient_id: userId, folder: 'inbox' };
+
     if (category && VALID_CATEGORIES.includes(category)) {
       where.category = category;
     }
@@ -41,6 +48,7 @@ async function list(req, res) {
         take: limit,
         include: {
           sender: { select: { username: true, display_name: true } },
+          recipient: { select: { username: true, display_name: true } },
         },
       }),
       prisma.message.count({ where }),
@@ -87,11 +95,15 @@ async function getById(req, res) {
       where: { message_id: id },
       include: {
         sender: { select: { username: true, display_name: true } },
+        recipient: { select: { username: true, display_name: true } },
       },
     });
 
     if (!message) return res.status(404).json({ error: 'Message not found' });
-    if (message.recipient_id !== req.user.id) {
+    const isOwner = message.folder === 'sent'
+      ? message.sender_id === req.user.id
+      : message.recipient_id === req.user.id;
+    if (!isOwner) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
@@ -113,7 +125,7 @@ async function markRead(req, res) {
 
     const message = await prisma.message.findUnique({ where: { message_id: id } });
     if (!message) return res.status(404).json({ error: 'Message not found' });
-    if (message.recipient_id !== req.user.id) {
+    if (message.recipient_id !== req.user.id || message.folder !== 'inbox') {
       return res.status(403).json({ error: 'Access denied' });
     }
 
@@ -166,7 +178,10 @@ async function remove(req, res) {
 
     const message = await prisma.message.findUnique({ where: { message_id: id } });
     if (!message) return res.status(404).json({ error: 'Message not found' });
-    if (message.recipient_id !== req.user.id) {
+    const isOwner = message.folder === 'sent'
+      ? message.sender_id === req.user.id
+      : message.recipient_id === req.user.id;
+    if (!isOwner) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
@@ -217,20 +232,29 @@ async function send(req, res) {
       }
     }
 
-    const message = await prisma.message.create({
-      data: {
-        sender_id: userId,
-        recipient_id: recipient.user_id,
-        category: 'users',
-        subject: subject.trim(),
-        body: body.trim(),
-      },
-      include: {
-        sender: { select: { username: true, display_name: true } },
-      },
-    });
+    const shared = {
+      sender_id: userId,
+      recipient_id: recipient.user_id,
+      category: 'users',
+      subject: subject.trim(),
+      body: body.trim(),
+    };
 
-    return res.status(201).json(mapMessage(message));
+    // Create inbox copy for recipient and sent copy for sender
+    const [inboxCopy] = await prisma.$transaction([
+      prisma.message.create({
+        data: { ...shared, folder: 'inbox' },
+        include: {
+          sender: { select: { username: true, display_name: true } },
+          recipient: { select: { username: true, display_name: true } },
+        },
+      }),
+      prisma.message.create({
+        data: { ...shared, folder: 'sent', is_read: true },
+      }),
+    ]);
+
+    return res.status(201).json(mapMessage(inboxCopy));
   } catch (err) {
     console.error('[messages/send]', err);
     return res.status(500).json({ error: 'Failed to send message' });

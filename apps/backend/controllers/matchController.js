@@ -1,6 +1,8 @@
 const prisma = require('../lib/prisma');
 const { notifyUsers, buildNameToUserIds, resolveNamesToUserIds } = require('../lib/notify');
 
+//maybe a different controller and db entry for non-tournament matches?
+
 // ─── PATCH /tournaments/:id/matches/:matchId ───────────────────────────────
 // Headers: Authorization: Bearer <token>
 // Body: { winner: "a" | "b" | "tie", scoreA?: number, scoreB?: number, clientUpdatedAt?, reset?: boolean }
@@ -15,8 +17,9 @@ async function reportResult(req, res) {
   }
 
   const { winner, scoreA, scoreB, clientUpdatedAt } = req.body;
+  const isReset = req.body.reset === true;
 
-  if (!req.body.reset && (!winner || typeof winner !== 'string')) {
+  if (!isReset && (!winner || typeof winner !== 'string')) {
     return res.status(400).json({ error: 'winner is required' });
   }
 
@@ -30,7 +33,8 @@ async function reportResult(req, res) {
     }
 
 
-    //to add a moderator role who can also report results
+    // TODO add a moderator role who can also report results
+
     if (tournament.created_by !== req.user.id) {
       return res.status(403).json({ error: 'Only the tournament organizer can report results' });
     }
@@ -61,7 +65,7 @@ async function reportResult(req, res) {
     // ── Tiebreaker match ────────────────────────────────────────────────────
     if (section === 'tiebreaker') {
       // Reset tiebreaker (undo)
-      if (req.body.reset === true) {
+      if (isReset) {
         bracket.tiebreaker = { id: 'tiebreaker', participants: bracket.tiebreaker.participants };
         const updated = await prisma.tournament.update({
           where: { tournament_id: tournamentId },
@@ -82,6 +86,10 @@ async function reportResult(req, res) {
     }
 
     // ── Regular match ───────────────────────────────────────────────────────
+    if (isReset) {
+      return res.status(400).json({ error: 'Reset is only supported for tiebreaker matches' });
+    }
+
     if (!['a', 'b', 'tie'].includes(winner)) {
       return res.status(400).json({ error: 'winner must be "a", "b", or "tie"' });
     }
@@ -90,6 +98,7 @@ async function reportResult(req, res) {
       return res.status(400).json({ error: 'Match participants are not set yet' });
     }
 
+    const wasEdited = !!match.completed;
     const isTie     = winner === 'tie';
     const winnerName = isTie ? null : (winner === 'a' ? match.participantA : match.participantB);
     const loserName  = isTie ? null : (winner === 'a' ? match.participantB : match.participantA);
@@ -141,11 +150,22 @@ async function reportResult(req, res) {
     const nameMap = buildNameToUserIds(updated.participants);
     const tournamentName = tournament.name || 'Tournament';
 
+    // Build a human-readable round label
+    const sectionLabels = { winners: 'Winners Bracket', losers: 'Losers Bracket', knockout: 'Knockout' };
+    const sectionLabel = section.startsWith('group_')
+      ? `Group ${parseInt(section.split('_')[1]) + 1}`
+      : (sectionLabels[section] ?? section);
+    const roundLabel = roundIndex >= 0 ? `${sectionLabel}, Round ${roundIndex + 1}` : sectionLabel;
+
     // Notify match participants of the result
     if (match.participantA && match.participantB) {
       const scoreText = match.scoreA != null && match.scoreB != null
         ? ` Score: ${match.scoreA}–${match.scoreB}.`
         : '';
+
+      const subject = wasEdited
+        ? `Result updated in ${tournamentName}`
+        : `Match result in ${tournamentName}`;
 
       const notifyResult = (playerName, opponentName) => {
         const userIds = resolveNamesToUserIds(nameMap, [playerName]);
@@ -156,10 +176,12 @@ async function reportResult(req, res) {
         else if (playerName === winnerName) outcome = `You won against ${opponentName}.`;
         else outcome = `You lost against ${opponentName}.`;
 
+        const prefix = wasEdited ? '[Updated] ' : '';
+
         notifyUsers(
           userIds,
-          `Match result in ${tournamentName}`,
-          `${outcome}${scoreText}`,
+          subject,
+          `${prefix}${roundLabel}: ${outcome}${scoreText}`,
         );
       };
 
@@ -566,13 +588,22 @@ async function getMatch(req, res) {
   try {
     const tournament = await prisma.tournament.findUnique({
       where: { tournament_id: tournamentId },
-      include: { creator: { select: { user_id: true, username: true } } },
+      include: {
+        creator: { select: { user_id: true, username: true } },
+        participants: { select: { user_id: true, members_snapshot: true } },
+      },
     });
 
     if (!tournament) return res.status(404).json({ error: 'Tournament not found' });
 
-    if (tournament.is_private && (!req.user || req.user.id !== tournament.created_by)) {
-      return res.status(404).json({ error: 'Tournament not found' });
+    if (tournament.is_private) {
+      const isParticipant = tournament.participants.some((p) =>
+        p.user_id === req.user?.id ||
+        (Array.isArray(p.members_snapshot) && p.members_snapshot.some((m) => m.userId === req.user?.id))
+      );
+      if (!req.user || (req.user.id !== tournament.created_by && !isParticipant)) {
+        return res.status(404).json({ error: 'Tournament not found' });
+      }
     }
 
     if (!tournament.bracket_data) {

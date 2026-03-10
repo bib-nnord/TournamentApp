@@ -237,6 +237,7 @@ async function declineRequest(req, res) {
 // Body: none (id from URL params)
 // Response: { ok: true }
 async function removeFriend(req, res) {
+  //maybe notify the other one?
   try {
     const userId = req.user.id;
     const friendshipId = parseInt(req.params.id);

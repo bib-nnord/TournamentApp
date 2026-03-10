@@ -113,6 +113,7 @@ model Message {
   sender_id    Int?
   recipient_id Int
   category     MessageCategory
+  folder       MessageFolder   @default(inbox)
   subject      String          @db.VarChar(200)
   body         String          @db.Text
   is_read      Boolean         @default(false)
@@ -130,6 +131,11 @@ enum MessageCategory {
   teams
   tournaments
   website
+}
+
+enum MessageFolder {
+  inbox
+  sent
 }
 
 // ─── Friendships ───────────────────────────────────────────────────────────

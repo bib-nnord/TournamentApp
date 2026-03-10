@@ -109,7 +109,9 @@ export default function UserSearchInput({
             <div className="px-3 py-2 text-xs text-gray-400">Searching…</div>
           ) : results.length === 0 ? (
             <div className="px-3 py-2 text-xs text-gray-400">
-              No users found — press Enter to add &ldquo;{input.trim()}&rdquo; as guest
+              {onSelectAsGuest
+                ? <>No users found — press Enter to add &ldquo;{input.trim()}&rdquo; as guest</>
+                : <>No users found</>}
             </div>
           ) : (
             results.map((u, idx) => (

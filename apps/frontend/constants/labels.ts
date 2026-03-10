@@ -96,6 +96,7 @@ export const LABEL_FILTER_USERS = "Users";
 export const LABEL_FILTER_TEAMS = "Teams";
 export const LABEL_FILTER_TOURNAMENTS = "Tournaments";
 export const LABEL_FILTER_WEBSITE = "Website";
+export const LABEL_FILTER_SENT = "Sent";
 
 // ─── Message categories ──────────────────────────────────────────────────────
 export const messageCategoryLabel: Record<string, string> = {

@@ -12,6 +12,7 @@ import {
   LABEL_REMOVE,
 } from "@/constants/labels";
 import UserListItem from "@/components/UserListItem";
+import UserSearchInput from "@/components/UserSearchInput";
 import type { Friend, FriendRequest } from "@/types";
 
 export default function FriendsPage() {
@@ -130,14 +131,30 @@ export default function FriendsPage() {
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6">
           <h2 className="text-sm font-semibold text-gray-800 mb-3">Add friend</h2>
           <div className="flex gap-2">
-            <input
-              type="text"
-              placeholder="Enter username..."
-              value={addInput}
-              onChange={(e) => { setAddInput(e.target.value); setAddError(null); }}
-              onKeyDown={(e) => e.key === "Enter" && handleSendRequest()}
-              className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            {addInput ? (
+              <div className="flex-1 flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2">
+                <span className="text-sm text-gray-800 font-medium truncate">{addInput}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAddInput("");
+                    setAddError(null);
+                  }}
+                  className="ml-auto text-xs text-gray-400 hover:text-gray-600"
+                >
+                  ✕
+                </button>
+              </div>
+            ) : (
+              <UserSearchInput
+                onSelect={(username) => {
+                  setAddInput(username);
+                  setAddError(null);
+                }}
+                placeholder="Search users..."
+                className="flex-1"
+              />
+            )}
             <button
               onClick={handleSendRequest}
               disabled={sending || !addInput.trim()}

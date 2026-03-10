@@ -29,8 +29,9 @@ async function register(req, res) {
   //maybe check for a list of common passwords or common weak combinations such as repeating letters or dates
 
   if (passwordErrors.length > 0) {
+    const list = new Intl.ListFormat('en', { type: 'conjunction' }).format(passwordErrors);
     return res.status(400).json({
-      error: `Password must contain ${passwordErrors.join(', ')}`,
+      error: `Password must contain ${list}`,
     });
   }
 

@@ -103,6 +103,41 @@ export default function MatchPage() {
 
   async function handleSubmit() {
     if (!selectedWinner || !data || !tournamentId) return;
+
+    const { match } = data;
+
+    // Detect if editing a completed match would change which participant advances
+    if (match.completed) {
+      const oldWinner = match.tie ? "tie" : (match.winner === match.participantA ? "a" : "b");
+      if (selectedWinner !== oldWinner) {
+        const newLabel =
+          selectedWinner === "a" ? match.participantA :
+          selectedWinner === "b" ? match.participantB : "Draw";
+        const ok = confirm(
+          `Changing the winner to "${newLabel}" may affect matches in later rounds. Continue?`
+        );
+        if (!ok) return;
+      }
+    }
+
+    // Score-mismatch confirmation
+    const sA = scoreA !== "" ? Number(scoreA) : 0;
+    const sB = scoreB !== "" ? Number(scoreB) : 0;
+    const scoreMismatch =
+      (selectedWinner === "a" && sB > sA) ||
+      (selectedWinner === "b" && sA > sB) ||
+      (selectedWinner === "tie" && sA !== sB);
+
+    if (scoreMismatch) {
+      const winnerLabel =
+        selectedWinner === "a" ? match.participantA :
+        selectedWinner === "b" ? match.participantB : "Draw";
+      const ok = confirm(
+        `The scores (${sA}–${sB}) don't match the result "${winnerLabel}". Submit anyway?`
+      );
+      if (!ok) return;
+    }
+
     setSubmitting(true);
     setSubmitError(null);
     setSubmitSuccess(false);
@@ -123,6 +158,40 @@ export default function MatchPage() {
         return;
       }
       // Refresh match data
+      const refreshRes = await apiFetch(`/tournaments/${tournamentId}/matches/${matchId}`);
+      if (refreshRes.ok) {
+        const updated: BracketMatchDetail = await refreshRes.json();
+        setData(updated);
+        setConflictError(false);
+      }
+      setSubmitSuccess(true);
+      setTimeout(() => setSubmitSuccess(false), 3000);
+    } catch {
+      setSubmitError("Network error");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleResetTiebreaker() {
+    if (!data || !tournamentId || data.section !== "tiebreaker") return;
+    setSubmitting(true);
+    setSubmitError(null);
+    setSubmitSuccess(false);
+    try {
+      const res = await apiFetch(`/tournaments/${tournamentId}/matches/${matchId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ reset: true, clientUpdatedAt: data.tournament.updatedAt }),
+      });
+      if (res.status === 409) {
+        setConflictError(true);
+        return;
+      }
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setSubmitError(body.error ?? "Failed to reset tiebreaker");
+        return;
+      }
       const refreshRes = await apiFetch(`/tournaments/${tournamentId}/matches/${matchId}`);
       if (refreshRes.ok) {
         const updated: BracketMatchDetail = await refreshRes.json();
@@ -353,6 +422,17 @@ export default function MatchPage() {
             >
               {submitting ? "Saving…" : match.completed ? "Update result" : "Confirm result"}
             </button>
+
+            {data.section === "tiebreaker" && match.completed && (
+              <button
+                type="button"
+                onClick={handleResetTiebreaker}
+                disabled={submitting}
+                className="w-full mt-2 py-2.5 rounded-lg text-sm font-semibold border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-40 transition-colors"
+              >
+                {submitting ? "Resetting…" : "Reset tiebreaker"}
+              </button>
+            )}
           </div>
         )}
       </div>
