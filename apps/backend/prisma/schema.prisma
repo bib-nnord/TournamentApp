@@ -109,19 +109,21 @@ enum TeamRole {
 // ─── Messages ───────────────────────────────────────────────────────────────
 
 model Message {
-  message_id   Int             @id @default(autoincrement())
-  sender_id    Int?
-  recipient_id Int
-  category     MessageCategory
-  folder       MessageFolder   @default(inbox)
-  subject      String          @db.VarChar(200)
-  body         String          @db.Text
-  is_read      Boolean         @default(false)
-  reference_id Int?
-  created_at   DateTime        @default(now()) @db.Timestamp(6)
+  message_id     Int             @id @default(autoincrement())
+  sender_id      Int?
+  recipient_id   Int?
+  sender_name    String?         @db.VarChar(100)
+  recipient_name String?         @db.VarChar(100)
+  category       MessageCategory
+  folder         MessageFolder   @default(inbox)
+  subject        String          @db.VarChar(200)
+  body           String          @db.Text
+  is_read        Boolean         @default(false)
+  reference_id   Int?
+  created_at     DateTime        @default(now()) @db.Timestamp(6)
 
-  sender    User? @relation("MessageSender", fields: [sender_id], references: [user_id])
-  recipient User  @relation("MessageRecipient", fields: [recipient_id], references: [user_id])
+  sender    User? @relation("MessageSender", fields: [sender_id], references: [user_id], onDelete: SetNull)
+  recipient User? @relation("MessageRecipient", fields: [recipient_id], references: [user_id], onDelete: SetNull)
 
   @@map("message")
 }

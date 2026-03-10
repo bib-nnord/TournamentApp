@@ -3,13 +3,22 @@ const prisma = require('../lib/prisma');
 const VALID_CATEGORIES = ['users', 'teams', 'tournaments', 'website'];
 
 function mapMessage(m) {
+  // Prefer live user data; fall back to stored name + (deleted) tag
+  const fromLive = m.sender ? (m.sender.display_name || m.sender.username) : null;
+  const fromStored = m.sender_name ? `${m.sender_name} (deleted)` : null;
+  const fromName = fromLive ?? fromStored ?? 'Tournament App';
+
+  const toLive = m.recipient ? (m.recipient.display_name || m.recipient.username) : null;
+  const toStored = m.recipient_name ? `${m.recipient_name} (deleted)` : null;
+  const toName = toLive ?? toStored ?? null;
+
   return {
     id: m.message_id,
     category: m.category,
     folder: m.folder,
-    from: m.sender ? (m.sender.display_name || m.sender.username) : 'Tournament App',
+    from: fromName,
     senderId: m.sender_id,
-    to: m.recipient ? (m.recipient.display_name || m.recipient.username) : null,
+    to: toName,
     recipientId: m.recipient_id,
     subject: m.subject,
     preview: m.body.length > 100 ? m.body.slice(0, 100) + '…' : m.body,
@@ -209,7 +218,7 @@ async function send(req, res) {
 
     const recipient = await prisma.user.findUnique({
       where: { username: recipientUsername.trim() },
-      select: { user_id: true, username: true, allow_messages_from: true },
+      select: { user_id: true, username: true, display_name: true, allow_messages_from: true },
     });
 
     if (!recipient) {
@@ -232,9 +241,20 @@ async function send(req, res) {
       }
     }
 
+    // Fetch sender display name for storage
+    const sender = await prisma.user.findUnique({
+      where: { user_id: userId },
+      select: { username: true, display_name: true },
+    });
+
+    const senderLabel = sender.display_name || sender.username;
+    const recipientLabel = recipient.display_name || recipient.username;
+
     const shared = {
       sender_id: userId,
       recipient_id: recipient.user_id,
+      sender_name: senderLabel,
+      recipient_name: recipientLabel,
       category: 'users',
       subject: subject.trim(),
       body: body.trim(),

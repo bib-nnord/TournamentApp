@@ -5,16 +5,23 @@ const prisma = require('./prisma');
  * Fire-and-forget — errors are logged but never thrown.
  */
 function notifyUser(recipientId, subject, body, referenceId) {
-  prisma.message.create({
-    data: {
-      recipient_id: recipientId,
-      sender_id: null,
-      category: 'tournaments',
-      subject,
-      body,
-      reference_id: referenceId ?? null,
-    },
-  }).catch((err) => console.error('[notify]', err));
+  // Look up recipient name for preservation
+  prisma.user.findUnique({ where: { user_id: recipientId }, select: { username: true, display_name: true } })
+    .then((user) => {
+      const recipientName = user ? (user.display_name || user.username) : null;
+      return prisma.message.create({
+        data: {
+          recipient_id: recipientId,
+          recipient_name: recipientName,
+          sender_id: null,
+          category: 'tournaments',
+          subject,
+          body,
+          reference_id: referenceId ?? null,
+        },
+      });
+    })
+    .catch((err) => console.error('[notify]', err));
 }
 
 /**
@@ -26,16 +33,26 @@ function notifyUsers(recipientIds, subject, body, referenceId) {
   const unique = [...new Set(recipientIds.filter((id) => id != null))];
   if (unique.length === 0) return;
 
-  prisma.message.createMany({
-    data: unique.map((id) => ({
-      recipient_id: id,
-      sender_id: null,
-      category: 'tournaments',
-      subject,
-      body,
-      reference_id: referenceId ?? null,
-    })),
-  }).catch((err) => console.error('[notify]', err));
+  // Look up recipient names for preservation
+  prisma.user.findMany({
+    where: { user_id: { in: unique } },
+    select: { user_id: true, username: true, display_name: true },
+  })
+    .then((users) => {
+      const nameMap = new Map(users.map((u) => [u.user_id, u.display_name || u.username]));
+      return prisma.message.createMany({
+        data: unique.map((id) => ({
+          recipient_id: id,
+          recipient_name: nameMap.get(id) ?? null,
+          sender_id: null,
+          category: 'tournaments',
+          subject,
+          body,
+          reference_id: referenceId ?? null,
+        })),
+      });
+    })
+    .catch((err) => console.error('[notify]', err));
 }
 
 /**

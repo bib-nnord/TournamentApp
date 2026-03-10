@@ -303,6 +303,7 @@ async function update(req, res) {
         recipientIds,
         `${tournament.name} ${verb}`,
         `The tournament "${tournament.name}" ${verb}.`,
+        tournament.tournament_id,
       );
     }
 

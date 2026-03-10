@@ -182,6 +182,7 @@ async function reportResult(req, res) {
           userIds,
           subject,
           `${prefix}${roundLabel}: ${outcome}${scoreText}`,
+          tournamentId,
         );
       };
 
@@ -201,6 +202,7 @@ async function reportResult(req, res) {
               ids,
               `New match in ${tournamentName}`,
               `Your next match is ready: ${nm.participantA} vs ${nm.participantB}.`,
+              tournamentId,
             );
             break; // Only one match gets advanced per result
           }

@@ -190,7 +190,7 @@ export default function MessagesPage() {
     window.dispatchEvent(new Event("unread-count-changed"));
   }
 
-  function isInvitationMessage(m: Message) {
+  function hasTournamentLink(m: Message) {
     return m.category === "tournaments" && m.referenceId != null;
   }
 
@@ -421,7 +421,7 @@ export default function MessagesPage() {
 
             <p className="text-sm text-gray-700 leading-relaxed">{openMessage.body}</p>
 
-            {isInvitationMessage(openMessage) && (
+            {hasTournamentLink(openMessage) && (
               <div className="flex items-center gap-2 mt-4 pt-4 border-t border-gray-100">
                 <button
                   onClick={() => router.push(`/tournaments/view/${openMessage.referenceId}`)}
