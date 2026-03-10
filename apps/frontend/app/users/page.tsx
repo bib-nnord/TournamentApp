@@ -1,0 +1,148 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
+import { apiFetch } from "@/lib/api";
+import { getUserInitial } from "@/lib/helpers";
+
+interface UserItem {
+  id: number;
+  username: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  bio: string | null;
+  location: string | null;
+  createdAt: string;
+}
+
+export default function UsersPage() {
+  const [users, setUsers] = useState<UserItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(query), 300);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  const fetchUsers = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ page: String(page), limit: "20" });
+      if (debouncedQuery) params.set("q", debouncedQuery);
+      const res = await apiFetch(`/users?${params}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setUsers(data.users);
+      setTotalPages(data.totalPages);
+      setTotal(data.total);
+    } catch {
+      // silent
+    } finally {
+      setLoading(false);
+    }
+  }, [page, debouncedQuery]);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
+
+  // Reset to page 1 when search changes
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedQuery]);
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-3xl mx-auto px-4 py-10">
+
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-gray-900">Users</h1>
+            {total > 0 && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 font-medium">
+                {total}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Search */}
+        <div className="mb-4">
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search by username or display name…"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+        </div>
+
+        {/* User list */}
+        {loading ? (
+          <p className="text-sm text-gray-500">Loading…</p>
+        ) : users.length === 0 ? (
+          <p className="text-sm text-gray-500">No users found.</p>
+        ) : (
+          <div className="bg-white rounded-xl border border-gray-100 divide-y divide-gray-100 overflow-hidden">
+            {users.map((u) => (
+              <Link
+                key={u.id}
+                href={`/profile/${u.username}`}
+                className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50 transition-colors"
+              >
+                <div className="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center text-sm font-bold text-indigo-600 shrink-0">
+                  {getUserInitial(u.username)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-gray-900">{u.displayName || u.username}</span>
+                    {u.displayName && (
+                      <span className="text-xs text-gray-400">@{u.username}</span>
+                    )}
+                  </div>
+                  {u.bio && (
+                    <p className="text-xs text-gray-500 truncate">{u.bio}</p>
+                  )}
+                </div>
+                {u.location && (
+                  <span className="text-xs text-gray-400 shrink-0">{u.location}</span>
+                )}
+              </Link>
+            ))}
+          </div>
+        )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-3 mt-6">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1}
+              className="text-sm px-3 py-1.5 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Previous
+            </button>
+            <span className="text-xs text-gray-500">
+              Page {page} of {totalPages}
+            </span>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages}
+              className="text-sm px-3 py-1.5 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+}

@@ -92,6 +92,7 @@ export default function Navbar() {
         {mounted && (
           <nav className="flex items-center gap-1">
             <NavLink href="/tournaments">Tournaments</NavLink>
+            <NavLink href="/users">Users</NavLink>
             {isLoggedIn && (
               <>
                 <NavLink href="/dashboard">Dashboard</NavLink>

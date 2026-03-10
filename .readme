@@ -2,3 +2,12 @@ docker-compose up
 
 cd apps/frontend
 pnpm dev
+
+current TODOS:
+
+teams page
+teams logic
+follows?
+scheduled tournaments
+show all users page
+redesign

@@ -1,5 +1,62 @@
 const prisma = require('../lib/prisma');
 
+// GET /users
+// Query params: page?, limit?, q?
+// Response: { users: [{ id, username, displayName, avatarUrl, bio, location, createdAt }], page, totalPages, total }
+async function list(req, res) {
+  try {
+    const page = Math.max(parseInt(req.query.page) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit) || 20, 1), 100);
+    const q = (req.query.q || '').trim();
+
+    const where = q
+      ? {
+          OR: [
+            { username: { contains: q, mode: 'insensitive' } },
+            { display_name: { contains: q, mode: 'insensitive' } },
+          ],
+        }
+      : {};
+
+    const [users, total] = await Promise.all([
+      prisma.user.findMany({
+        where,
+        orderBy: { created_at: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+        select: {
+          user_id: true,
+          username: true,
+          display_name: true,
+          avatar_url: true,
+          bio: true,
+          location: true,
+          created_at: true,
+        },
+      }),
+      prisma.user.count({ where }),
+    ]);
+
+    res.json({
+      users: users.map((u) => ({
+        id: u.user_id,
+        username: u.username,
+        displayName: u.display_name,
+        avatarUrl: u.avatar_url,
+        bio: u.bio,
+        location: u.location,
+        createdAt: u.created_at.toISOString(),
+      })),
+      page,
+      totalPages: Math.ceil(total / limit) || 1,
+      total,
+    });
+  } catch (err) {
+    console.error('[users/list]', err);
+    res.status(500).json({ error: 'Failed to fetch users' });
+  }
+}
+
 // GET /users/search?q=<query>&limit=<n>
 // Body: none (query params: q, limit)
 // Response: [{ id, username, displayName, avatarUrl }]
@@ -112,4 +169,4 @@ async function updateMe(req, res) {
   }
 }
 
-module.exports = { search, getMe, updateMe };
+module.exports = { list, search, getMe, updateMe };
