@@ -103,9 +103,7 @@ export default function UsersPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-gray-900">{u.displayName || u.username}</span>
-                    {u.displayName && (
-                      <span className="text-xs text-gray-400">@{u.username}</span>
-                    )}
+                    <span className="text-xs text-gray-400">@{u.username}</span>
                   </div>
                   {u.bio && (
                     <p className="text-xs text-gray-500 truncate">{u.bio}</p>

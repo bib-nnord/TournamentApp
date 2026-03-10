@@ -296,7 +296,8 @@ async function update(req, res) {
 
     // Notify participants on status changes
     if (status === 'completed' || status === 'cancelled') {
-      const recipientIds = collectAllUserIds(updated.participants)
+      const confirmedParticipants = updated.participants.filter((p) => p.confirmed);
+      const recipientIds = collectAllUserIds(confirmedParticipants)
         .filter((uid) => uid !== req.user.id);
       const verb = status === 'completed' ? 'has been completed' : 'has been cancelled';
       notifyUsers(

@@ -10,13 +10,6 @@ import { LABEL_CREATE_TOURNAMENT, LABEL_BROWSE_TOURNAMENTS } from "@/constants/l
 import type { TournamentSummary } from "@/components/TournamentList/types";
 import DashboardCard from "@/components/DashboardCard";
 
-// Placeholder
-const teamNews = [
-  { id: "n1", team: "The Knights", message: "New member joined: diana", time: "2h ago" },
-  { id: "n2", team: "Storm Squad", message: "Match scheduled vs Iron Bishops", time: "5h ago" },
-  { id: "n3", team: "The Knights", message: "Team practice moved to Thursday", time: "1d ago" },
-];
-
 type MyMatch = {
   id: string;
   tournamentId: number;
@@ -105,21 +98,8 @@ export default function DashboardPage() {
             </div>
           </DashboardCard>
 
-          <DashboardCard title="Team news" dotColor="bg-purple-500" empty={teamNews.length === 0} emptyMessage="No news from your teams.">
-            <div className="flex flex-col gap-2">
-              {teamNews.map((n) => (
-                <div
-                  key={n.id}
-                  className="flex items-start justify-between px-3 py-2 rounded-lg hover:bg-gray-50"
-                >
-                  <div>
-                    <span className="text-xs font-semibold text-indigo-600">{n.team}</span>
-                    <p className="text-sm text-gray-800">{n.message}</p>
-                  </div>
-                  <span className="text-xs text-gray-400 whitespace-nowrap ml-3">{n.time}</span>
-                </div>
-              ))}
-            </div>
+          <DashboardCard title="Team news" dotColor="bg-purple-500" empty={true} emptyMessage="No news from your teams.">
+            <div className="flex flex-col gap-2" />
           </DashboardCard>
 
           <DashboardCard title="My matches" dotColor="bg-orange-500" loading={myMatchesLoading} empty={myMatches.length === 0} emptyMessage="No matches found.">

@@ -147,7 +147,8 @@ async function reportResult(req, res) {
     });
 
     // ── Notifications (fire-and-forget) ──────────────────────────────────
-    const nameMap = buildNameToUserIds(updated.participants);
+    const confirmedParticipants = updated.participants.filter((p) => p.confirmed);
+    const nameMap = buildNameToUserIds(confirmedParticipants);
     const tournamentName = tournament.name || 'Tournament';
 
     // Build a human-readable round label
