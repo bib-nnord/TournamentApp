@@ -7,7 +7,7 @@ const router = Router();
 // Search teams by name
 router.get('/search', teamController.search);
 
-// Current user's teams (authenticated)
+// Current user's teams (taken from auth)
 router.get('/my', authenticate, teamController.myTeams);
 
 // Teams for a specific user (public)

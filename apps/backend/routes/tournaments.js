@@ -5,7 +5,7 @@ const { reportResult, getMatch } = require('../controllers/matchController');
 
 const router = Router();
 
-// Public (but respects private flag inside controller)
+// Public (unless marked private)
 router.get('/', optionalAuth, list);
 router.get('/my-matches', authenticate, myMatches);
 router.get('/:id', optionalAuth, getById);
