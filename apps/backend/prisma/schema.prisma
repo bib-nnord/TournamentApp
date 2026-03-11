@@ -198,6 +198,7 @@ model TournamentParticipant {
   display_name     String          @db.VarChar(100)
   members_snapshot Json?           // snapshot of team members at tournament time
   confirmed        Boolean         @default(false)
+  declined         Boolean         @default(false)
   joined_at        DateTime        @default(now()) @db.Timestamp(6)
 
   tournament Tournament @relation(fields: [tournament_id], references: [tournament_id], onDelete: Cascade)

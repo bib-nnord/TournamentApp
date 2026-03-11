@@ -8,6 +8,8 @@ router.use(authenticate);
 
 // Static routes before :id
 router.get('/requests', friendController.listRequests);
+router.get('/status/:username', friendController.getStatus);
+router.get('/user/:username', friendController.listUserFriends);
 
 router.get('/', friendController.listFriends);
 router.post('/request', friendController.sendRequest);

@@ -376,6 +376,10 @@ async function confirmParticipation(req, res) {
       return res.status(400).json({ error: 'Already confirmed' });
     }
 
+    if (participant.declined) {
+      return res.status(400).json({ error: 'Already declined' });
+    }
+
     if (accept) {
       await prisma.tournamentParticipant.update({
         where: {
@@ -384,11 +388,12 @@ async function confirmParticipation(req, res) {
         data: { confirmed: true },
       });
     } else {
-      // Decline: remove participant and clear from bracket
-      await prisma.tournamentParticipant.delete({
+      // Decline: mark as declined and clear from bracket
+      await prisma.tournamentParticipant.update({
         where: {
           tournament_id_seed: { tournament_id: id, seed: participant.seed },
         },
+        data: { declined: true },
       });
 
       // Clear participant name from bracket data
@@ -478,6 +483,7 @@ function formatTournament(t) {
           type: p.participant_type || (p.guest_name ? 'guest' : 'account'),
           membersSnapshot: p.members_snapshot || null,
           confirmed: p.confirmed,
+          declined: p.declined,
         }))
       : undefined,
     matches: t.matches

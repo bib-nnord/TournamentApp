@@ -10,6 +10,7 @@ export interface TournamentParticipantData {
   type: "account" | "guest" | "team";
   membersSnapshot: { name: string; type: string; userId: number | null }[] | null;
   confirmed: boolean;
+  declined: boolean;
 }
 
 export interface TournamentData {

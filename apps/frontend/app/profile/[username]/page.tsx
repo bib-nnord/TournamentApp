@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useCallback } from "react";
 import Link from "next/link";
 import { useSelector } from "react-redux";
 import { useParams } from "next/navigation";
@@ -10,6 +11,7 @@ import { LABEL_EDIT_PROFILE, LABEL_VIEW_ALL } from "@/constants/labels";
 import { teamRoleColors, tournamentStatusColors } from "@/lib/colors";
 import { getUserInitial } from "@/lib/helpers";
 import { useFetch } from "@/hooks/useFetch";
+import { apiFetch } from "@/lib/api";
 import UserListItem from "@/components/UserListItem";
 import type { TournamentSummary } from "@/components/TournamentList/types";
 import type { Friend } from "@/types";
@@ -22,19 +24,100 @@ interface MyTeam {
   open: boolean;
 }
 
+type FriendshipStatus = "none" | "pending_sent" | "pending_received" | "accepted" | "blocked" | "self";
 
+interface FriendStatusData {
+  status: FriendshipStatus;
+  friendshipId?: number;
+}
 
 export default function ProfilePage() {
   const { username } = useParams<{ username: string }>();
   const user = useSelector((state: RootState) => state.auth.user);
   const isOwnProfile = user?.username === username;
 
-  const { data: friendsData, loading: friendsLoading } = useFetch<{ friends: Friend[] }>("/friends");
+  const friendsUrl = isOwnProfile ? "/friends" : `/friends/user/${username}`;
+  const { data: friendsData, loading: friendsLoading } = useFetch<{ friends: Friend[] }>(friendsUrl);
+  const [showAllFriends, setShowAllFriends] = useState(false);
   const { data: teamsData, loading: teamsLoading } = useFetch<{ teams: MyTeam[] }>("/teams/my");
   const { data: tournamentsData, loading: tournamentsLoading } = useFetch<{ tournaments: TournamentSummary[] }>("/tournaments?limit=20");
+  const { data: friendStatus, setData: setFriendStatus } = useFetch<FriendStatusData>(
+    !isOwnProfile ? `/friends/status/${username}` : null
+  );
+  const [friendLoading, setFriendLoading] = useState(false);
   const myTournaments = (tournamentsData?.tournaments ?? []).filter(
     (t) => t.creator.username === username
   );
+
+  const handleAddFriend = useCallback(async () => {
+    setFriendLoading(true);
+    try {
+      const res = await apiFetch("/friends/request", {
+        method: "POST",
+        body: JSON.stringify({ username }),
+      });
+      if (res.ok) {
+        const { friendship } = await res.json();
+        setFriendStatus({ status: "pending_sent", friendshipId: friendship.id });
+      }
+    } catch {
+      /* ignore */
+    } finally {
+      setFriendLoading(false);
+    }
+  }, [username, setFriendStatus]);
+
+  const handleAcceptRequest = useCallback(async () => {
+    if (!friendStatus?.friendshipId) return;
+    setFriendLoading(true);
+    try {
+      const res = await apiFetch(`/friends/${friendStatus.friendshipId}/accept`, {
+        method: "PATCH",
+      });
+      if (res.ok) {
+        const { friendship } = await res.json();
+        setFriendStatus({ status: "accepted", friendshipId: friendship.id });
+      }
+    } catch {
+      /* ignore */
+    } finally {
+      setFriendLoading(false);
+    }
+  }, [friendStatus, setFriendStatus]);
+
+  const handleDeclineRequest = useCallback(async () => {
+    if (!friendStatus?.friendshipId) return;
+    setFriendLoading(true);
+    try {
+      const res = await apiFetch(`/friends/${friendStatus.friendshipId}/decline`, {
+        method: "PATCH",
+      });
+      if (res.ok) {
+        setFriendStatus({ status: "none" });
+      }
+    } catch {
+      /* ignore */
+    } finally {
+      setFriendLoading(false);
+    }
+  }, [friendStatus, setFriendStatus]);
+
+  const handleRemoveFriend = useCallback(async () => {
+    if (!friendStatus?.friendshipId) return;
+    setFriendLoading(true);
+    try {
+      const res = await apiFetch(`/friends/${friendStatus.friendshipId}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        setFriendStatus({ status: "none" });
+      }
+    } catch {
+      /* ignore */
+    } finally {
+      setFriendLoading(false);
+    }
+  }, [friendStatus, setFriendStatus]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -56,6 +139,51 @@ export default function ProfilePage() {
               {LABEL_EDIT_PROFILE}
             </button>
           )}
+          {!isOwnProfile && friendStatus && friendStatus.status === "none" && (
+            <button
+              onClick={handleAddFriend}
+              disabled={friendLoading}
+              className="text-sm px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+            >
+              {friendLoading ? "Sending…" : "Add Friend"}
+            </button>
+          )}
+          {!isOwnProfile && friendStatus && friendStatus.status === "pending_sent" && (
+            <button
+              onClick={handleRemoveFriend}
+              disabled={friendLoading}
+              className="text-sm px-4 py-2 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+            >
+              {friendLoading ? "Cancelling…" : "Request Sent"}
+            </button>
+          )}
+          {!isOwnProfile && friendStatus && friendStatus.status === "pending_received" && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleAcceptRequest}
+                disabled={friendLoading}
+                className="text-sm px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+              >
+                {friendLoading ? "Accepting…" : "Accept Request"}
+              </button>
+              <button
+                onClick={handleDeclineRequest}
+                disabled={friendLoading}
+                className="text-sm px-4 py-2 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+              >
+                {friendLoading ? "Declining…" : "Decline"}
+              </button>
+            </div>
+          )}
+          {!isOwnProfile && friendStatus && friendStatus.status === "accepted" && (
+            <button
+              onClick={handleRemoveFriend}
+              disabled={friendLoading}
+              className="text-sm px-4 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 disabled:opacity-50"
+            >
+              {friendLoading ? "Removing…" : "Remove Friend"}
+            </button>
+          )}
         </div>
 
         {/* Friends */}
@@ -64,7 +192,13 @@ export default function ProfilePage() {
             <h2 className="text-base font-semibold text-gray-800">
               Friends <span className="text-gray-400 font-normal">({friendsData?.friends.length ?? 0})</span>
             </h2>
-            <Link href="/friends" className="text-xs text-blue-600 hover:underline">{LABEL_VIEW_ALL}</Link>
+            {isOwnProfile ? (
+              <Link href="/friends" className="text-xs text-blue-600 hover:underline">{LABEL_VIEW_ALL}</Link>
+            ) : (friendsData?.friends.length ?? 0) > 3 ? (
+              <button onClick={() => setShowAllFriends((v) => !v)} className="text-xs text-blue-600 hover:underline">
+                {showAllFriends ? "Show less" : LABEL_VIEW_ALL}
+              </button>
+            ) : null}
           </div>
           {friendsLoading ? (
             <p className="text-sm text-gray-400">Loading…</p>
@@ -72,7 +206,7 @@ export default function ProfilePage() {
             <p className="text-sm text-gray-400">No friends yet.</p>
           ) : (
             <div className="flex flex-col gap-2">
-              {friendsData!.friends.slice(0, 3).map((f) => (
+              {(showAllFriends ? friendsData!.friends : friendsData!.friends.slice(0, 3)).map((f) => (
                 <UserListItem key={f.id} username={f.username} />
               ))}
             </div>

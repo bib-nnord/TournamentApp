@@ -225,7 +225,7 @@ async function send(req, res) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Check privacy setting
+    // TODO need to deal with blocked users here when its implemented
     if (recipient.allow_messages_from === 'friends_only') {
       const friendship = await prisma.friendship.findFirst({
         where: {
@@ -241,7 +241,7 @@ async function send(req, res) {
       }
     }
 
-    // Fetch sender display name for storage
+    // store sender name in case the account gets deleted
     const sender = await prisma.user.findUnique({
       where: { user_id: userId },
       select: { username: true, display_name: true },
@@ -260,7 +260,7 @@ async function send(req, res) {
       body: body.trim(),
     };
 
-    // Create inbox copy for recipient and sent copy for sender
+    // Create inbox copy for recipient and sent copy for sender, so one doesnt delete the others messages
     const [inboxCopy] = await prisma.$transaction([
       prisma.message.create({
         data: { ...shared, folder: 'inbox' },

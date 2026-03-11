@@ -262,11 +262,99 @@ async function removeFriend(req, res) {
   }
 }
 
+// GET /friends/user/:username
+// Returns the friends list of a given user (public).
+// Response: { friends: [{ id, userId, username, displayName }] }
+async function listUserFriends(req, res) {
+  try {
+    const { username } = req.params;
+
+    const target = await prisma.user.findUnique({
+      where: { username },
+      select: { user_id: true },
+    });
+
+    if (!target) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const friendships = await prisma.friendship.findMany({
+      where: {
+        status: 'accepted',
+        OR: [{ requester_id: target.user_id }, { recipient_id: target.user_id }],
+      },
+      include: {
+        requester: { select: userSelect },
+        recipient: { select: userSelect },
+      },
+      orderBy: { updated_at: 'desc' },
+    });
+
+    const friends = friendships.map((f) => mapFriend(f, target.user_id));
+    return res.json({ friends });
+  } catch (err) {
+    console.error('[friends.listUserFriends]', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+// GET /friends/status/:username
+// Returns the friendship status between the current user and the target user.
+// Response: { status: 'none' | 'pending_sent' | 'pending_received' | 'accepted' | 'blocked', friendshipId?: number }
+async function getStatus(req, res) {
+  try {
+    const userId = req.user.id;
+    const { username } = req.params;
+
+    const target = await prisma.user.findUnique({
+      where: { username },
+      select: { user_id: true },
+    });
+
+    if (!target) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (target.user_id === userId) {
+      return res.json({ status: 'self' });
+    }
+
+    const friendship = await prisma.friendship.findFirst({
+      where: {
+        OR: [
+          { requester_id: userId, recipient_id: target.user_id },
+          { requester_id: target.user_id, recipient_id: userId },
+        ],
+      },
+    });
+
+    if (!friendship) {
+      return res.json({ status: 'none' });
+    }
+
+    if (friendship.status === 'accepted') {
+      return res.json({ status: 'accepted', friendshipId: friendship.friendship_id });
+    }
+
+    if (friendship.status === 'pending') {
+      const direction = friendship.requester_id === userId ? 'pending_sent' : 'pending_received';
+      return res.json({ status: direction, friendshipId: friendship.friendship_id });
+    }
+
+    return res.json({ status: friendship.status, friendshipId: friendship.friendship_id });
+  } catch (err) {
+    console.error('[friends.getStatus]', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
 module.exports = {
   listFriends,
+  listUserFriends,
   listRequests,
   sendRequest,
   acceptRequest,
   declineRequest,
   removeFriend,
+  getStatus,
 };

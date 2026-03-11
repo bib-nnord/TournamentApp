@@ -144,7 +144,7 @@ export default function TournamentPage() {
     if (p.membersSnapshot?.some((m) => m.userId === currentUser.id)) return true;
     return false;
   }) : null;
-  const isUnconfirmedParticipant = myParticipant != null && !myParticipant.confirmed;
+  const isUnconfirmedParticipant = myParticipant != null && !myParticipant.confirmed && !myParticipant.declined;
 
   async function handleConfirm(accept: boolean) {
     setConfirming(true);
@@ -438,8 +438,10 @@ export default function TournamentPage() {
                       {p.type}
                     </span>
                     {p.type === "account" && !p.confirmed && (
-                      <span className="text-[10px] uppercase px-1.5 py-0.5 rounded font-medium shrink-0 bg-orange-100 text-orange-600">
-                        Unconfirmed
+                      <span className={`text-[10px] uppercase px-1.5 py-0.5 rounded font-medium shrink-0 ${
+                        p.declined ? "bg-red-100 text-red-600" : "bg-orange-100 text-orange-600"
+                      }`}>
+                        {p.declined ? "Declined" : "Unconfirmed"}
                       </span>
                     )}
                   </div>
