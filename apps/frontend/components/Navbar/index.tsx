@@ -96,6 +96,7 @@ export default function Navbar() {
             {isLoggedIn && (
               <>
                 <NavLink href="/dashboard">Dashboard</NavLink>
+                <NavLink href="/teams">My Teams</NavLink>
                 <NavLink href="/friends">Friends</NavLink>
               </>
             )}

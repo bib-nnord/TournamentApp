@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { logoutAsync } from "@/store/authSlice";
 import type { AppDispatch } from "@/store/store";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
-import { apiFetch } from "@/lib/apiFetch";
+import { apiFetch } from "@/lib/api";
 import {
   LABEL_CHANGE_PASSWORD,
   LABEL_CHANGE_EMAIL,

@@ -215,7 +215,10 @@ export default function ProfilePage() {
 
         {/* My teams */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
-          <h2 className="text-base font-semibold text-gray-800 mb-4">{isOwnProfile ? "My teams" : "Teams"}</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-base font-semibold text-gray-800">{isOwnProfile ? "My teams" : "Teams"}</h2>
+            <Link href="/teams" className="text-xs text-blue-600 hover:underline">View all</Link>
+          </div>
           {teamsLoading ? (
             <p className="text-sm text-gray-400">Loading…</p>
           ) : (teamsData?.teams.length ?? 0) === 0 ? (
@@ -236,7 +239,7 @@ export default function ProfilePage() {
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${t.open ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
                       {t.open ? "Open" : "Closed"}
                     </span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${teamRoleColors[t.role]}`}>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${teamRoleColors[t.role]}`}> 
                       {t.role}
                     </span>
                   </div>

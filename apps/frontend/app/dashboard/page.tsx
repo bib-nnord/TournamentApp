@@ -64,6 +64,12 @@ export default function DashboardPage() {
           >
             {LABEL_BROWSE_TOURNAMENTS}
           </Link>
+          <Link
+            href="/teams"
+            className="text-sm px-4 py-2 border border-gray-300 bg-white rounded-lg hover:bg-gray-50"
+          >
+            My Teams
+          </Link>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
