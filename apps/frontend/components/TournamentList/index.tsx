@@ -12,21 +12,29 @@ import type { Filter, TournamentSummary } from "./types";
 
 const filters: { label: string; value: Filter }[] = [
   { label: "All", value: "all" },
-  { label: "Draft", value: "draft" },
   { label: "Registration", value: "registration" },
   { label: "Active", value: "active" },
   { label: "Completed", value: "completed" },
   { label: "Cancelled", value: "cancelled" },
+  { label: "Draft", value: "draft" },
 ];
+
+const statusOrder: Record<string, number> = {
+  registration: 0,
+  active: 1,
+  completed: 2,
+  cancelled: 3,
+  draft: 4,
+};
 
 export default function TournamentList() {
   const { data, loading, error } = useFetch<{ tournaments: TournamentSummary[] }>("/tournaments");
   const { activeFilters, toggleFilter } = useFilterToggle<Filter>(["all"], "all");
 
   const tournaments = data?.tournaments ?? [];
-  const filtered = tournaments.filter((t) =>
-    activeFilters.includes("all") ? true : activeFilters.includes(t.status)
-  );
+  const filtered = tournaments
+    .filter((t) => activeFilters.includes("all") ? true : activeFilters.includes(t.status))
+    .sort((a, b) => (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99));
 
   return (
     <div>

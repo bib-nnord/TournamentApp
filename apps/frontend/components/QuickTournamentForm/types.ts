@@ -19,6 +19,8 @@ export interface Participant {
   members?: ParticipantMember[];
   /** If this team came from the database, store its ID */
   existingTeamId?: number;
+  /** Original username for account participants (before dedup suffix) */
+  accountName?: string;
 }
 
 export interface TeamSearchResult {

@@ -101,11 +101,23 @@ export default function TournamentPreview({ data, onBack, onConfirm, submitting,
   const [expandedTeam, setExpandedTeam] = useState<number | null>(null);
 
   function addParticipant(name: string, type: ParticipantMemberType | "team") {
-    const finalName = generateUniqueName(name, participantNames);
+    const trimmed = name.trim();
+    if (!trimmed) return;
+
+    // Prevent adding the same account twice
+    if (type === "account") {
+      const alreadyAdded = participants.some(
+        (p) => p.type === "account" && (p.accountName ?? p.name).toLowerCase() === trimmed.toLowerCase()
+      );
+      if (alreadyAdded) return;
+    }
+
+    const finalName = generateUniqueName(trimmed, participantNames);
     if (!finalName) return;
     setParticipants((prev) => [...prev, {
       name: finalName,
       type,
+      ...(type === "account" ? { accountName: trimmed } : {}),
       ...(type === "team" ? { members: [] } : {}),
     }]);
   }

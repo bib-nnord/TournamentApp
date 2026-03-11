@@ -23,7 +23,7 @@ export default function Home() {
       {/* Tournaments */}
       <div className="max-w-4xl mx-auto px-4 py-10">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-gray-900">My Tournaments</h2>
+          <h2 className="text-xl font-bold text-gray-900">Current Tournaments</h2>
           <Link
             href="/tournaments"
             className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
@@ -37,7 +37,7 @@ export default function Home() {
       {/* Teams */}
       <div className="max-w-4xl mx-auto px-4 pb-10">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-gray-900">My Teams</h2>
+          <h2 className="text-xl font-bold text-gray-900">Teams</h2>
           <Link
             href="/teams"
             className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"

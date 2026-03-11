@@ -44,12 +44,22 @@ async function create(req, res) {
     // ── Resolve account usernames → user_id ──────────────────────────────
     const accountNames = [];
     for (const p of participants) {
-      if (p.type === 'account') accountNames.push(p.name);
+      if (p.type === 'account') accountNames.push(p.accountName || p.name);
       if (p.type === 'team' && Array.isArray(p.members)) {
         for (const m of p.members) {
-          if (m.type === 'account') accountNames.push(m.name);
+          if (m.type === 'account') accountNames.push(m.accountName || m.name);
         }
       }
+    }
+
+    // Check for duplicate account usernames
+    const seenAccounts = new Set();
+    for (const acct of accountNames) {
+      const lower = acct.toLowerCase();
+      if (seenAccounts.has(lower)) {
+        return res.status(400).json({ error: `Duplicate account: "${acct}"` });
+      }
+      seenAccounts.add(lower);
     }
 
     const userMap = {};
@@ -77,7 +87,7 @@ async function create(req, res) {
 
       if (p.type === 'team') {
         const membersSnapshot = (p.members || []).map((m) => {
-          const resolved = m.type === 'account' ? userMap[m.name.toLowerCase()] : null;
+          const resolved = m.type === 'account' ? userMap[(m.accountName || m.name).toLowerCase()] : null;
           return {
             name: resolved ? resolved.display_name || resolved.username : m.name,
             type: m.type,
@@ -96,7 +106,7 @@ async function create(req, res) {
       }
 
       if (p.type === 'account') {
-        const resolved = userMap[p.name.toLowerCase()];
+        const resolved = userMap[(p.accountName || p.name).toLowerCase()];
         return {
           ...base,
           participant_type: 'account',
