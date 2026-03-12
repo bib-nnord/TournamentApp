@@ -1,15 +1,20 @@
 "use client";
 
 import { useState } from "react";
+import { apiFetch } from "@/lib/api";
 import { LABEL_SAVE_CHANGES, LABEL_DISBAND } from "@/constants/labels";
 import type { TeamSettingsFormProps } from "./types";
 
-export default function TeamSettingsForm({ team, isLead, onSuccess }: TeamSettingsFormProps) {
+export default function TeamSettingsForm({ teamId, team, isLead, onSuccess, onDisband }: TeamSettingsFormProps) {
   const [form, setForm] = useState({
     name: team.name,
     description: team.description,
     open: team.open,
+    disciplines: team.disciplines ?? [],
   });
+  const [saving, setSaving] = useState(false);
+  const [disbanding, setDisbanding] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
     const { name, value, type } = e.target;
@@ -19,11 +24,44 @@ export default function TeamSettingsForm({ team, isLead, onSuccess }: TeamSettin
     }));
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    // TODO: PATCH to backend
-    console.log("Saving team settings:", form);
-    onSuccess?.();
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await apiFetch(`/teams/${teamId}`, {
+        method: "PATCH",
+        body: JSON.stringify(form),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError(body.error ?? "Failed to save");
+        return;
+      }
+      onSuccess?.(form);
+    } catch {
+      setError("Network error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDisband() {
+    if (!confirm("Are you sure you want to disband this team? This cannot be undone.")) return;
+    setDisbanding(true);
+    try {
+      const res = await apiFetch(`/teams/${teamId}`, { method: "DELETE" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError(body.error ?? "Failed to disband");
+        return;
+      }
+      onDisband?.();
+    } catch {
+      setError("Network error");
+    } finally {
+      setDisbanding(false);
+    }
   }
 
   return (
@@ -68,11 +106,14 @@ export default function TeamSettingsForm({ team, isLead, onSuccess }: TeamSettin
             </label>
           </div>
 
+          {error && <p className="text-xs text-red-500">{error}</p>}
+
           <button
             type="submit"
-            className="mt-2 w-full py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700"
+            disabled={saving}
+            className="mt-2 w-full py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-60"
           >
-            {LABEL_SAVE_CHANGES}
+            {saving ? "Saving…" : LABEL_SAVE_CHANGES}
           </button>
         </form>
       </div>
@@ -86,8 +127,13 @@ export default function TeamSettingsForm({ team, isLead, onSuccess }: TeamSettin
               <p className="text-sm font-medium text-gray-800">Disband team</p>
               <p className="text-xs text-gray-400 mt-0.5">Permanently delete this team and remove all members.</p>
             </div>
-            <button className="text-sm px-4 py-2 border border-red-300 text-red-500 rounded-lg hover:bg-red-50">
-              {LABEL_DISBAND}
+            <button
+              type="button"
+              onClick={handleDisband}
+              disabled={disbanding}
+              className="text-sm px-4 py-2 border border-red-300 text-red-500 rounded-lg hover:bg-red-50 disabled:opacity-60"
+            >
+              {disbanding ? "Disbanding…" : LABEL_DISBAND}
             </button>
           </div>
         </div>

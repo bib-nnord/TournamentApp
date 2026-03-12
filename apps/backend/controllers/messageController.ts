@@ -1,67 +1,70 @@
-const prisma = require('../lib/prisma');
+import type { Request, Response } from 'express';
 
-const VALID_CATEGORIES = ['users', 'teams', 'tournaments', 'website'];
+import prisma from '../lib/prisma';
+import * as messageService from '../services/messageService';
 
-function mapMessage(m) {
-  // Prefer live user data; fall back to stored name + (deleted) tag
-  const fromLive = m.sender ? (m.sender.display_name || m.sender.username) : null;
-  const fromStored = m.sender_name ? `${m.sender_name} (deleted)` : null;
-  const fromName = fromLive ?? fromStored ?? 'Tournament App';
+type MessageCategory = 'users' | 'teams' | 'tournaments' | 'website';
 
-  const toLive = m.recipient ? (m.recipient.display_name || m.recipient.username) : null;
-  const toStored = m.recipient_name ? `${m.recipient_name} (deleted)` : null;
-  const toName = toLive ?? toStored ?? null;
+interface DomainUser {
+  label?: string | null;
+}
+
+interface DomainMessage {
+  id: number;
+  category: MessageCategory;
+  folder: 'inbox' | 'sent';
+  senderId: number | null;
+  recipientId: number | null;
+  sender?: DomainUser | null;
+  recipient?: DomainUser | null;
+  subject: string;
+  body: string;
+  isRead: boolean;
+  referenceId: number | null;
+  createdAt: Date;
+}
+
+const VALID_CATEGORIES: MessageCategory[] = ['users', 'teams', 'tournaments', 'website'];
+
+function mapMessage(message: DomainMessage) {
+  const fromName = message.sender?.label ?? 'Tournament App';
+  const toName = message.recipient?.label ?? null;
 
   return {
-    id: m.message_id,
-    category: m.category,
-    folder: m.folder,
+    id: message.id,
+    category: message.category,
+    folder: message.folder,
     from: fromName,
-    senderId: m.sender_id,
+    senderId: message.senderId,
     to: toName,
-    recipientId: m.recipient_id,
-    subject: m.subject,
-    preview: m.body.length > 100 ? m.body.slice(0, 100) + '…' : m.body,
-    body: m.body,
-    read: m.is_read,
-    referenceId: m.reference_id ?? null,
-    time: m.created_at.toISOString(),
+    recipientId: message.recipientId,
+    subject: message.subject,
+    preview: message.body.length > 100 ? message.body.slice(0, 100) + '…' : message.body,
+    body: message.body,
+    read: message.isRead,
+    referenceId: message.referenceId,
+    time: message.createdAt.toISOString(),
   };
 }
 
-// GET /messages
-// Headers: Authorization: Bearer <token>
-// Body: none (query params: category?, page?, limit?)
-// Response: { messages: [{ id, category, from, senderId, subject, preview, body, read, referenceId, time }], page, totalPages, total }
-async function list(req, res) {
+export async function list(req: Request, res: Response) {
   try {
     const userId = req.user.id;
-    const page = Math.max(parseInt(req.query.page) || 1, 1);
-    const limit = Math.min(Math.max(parseInt(req.query.limit) || 20, 1), 100);
-    const category = req.query.category;
+    const page = Math.max(parseInt(String(req.query.page), 10) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(String(req.query.limit), 10) || 20, 1), 100);
+    const category = typeof req.query.category === 'string' ? req.query.category : undefined;
     const folder = req.query.folder === 'sent' ? 'sent' : 'inbox';
 
-    const where = folder === 'sent'
-      ? { sender_id: userId, folder: 'sent' }
-      : { recipient_id: userId, folder: 'inbox' };
+    const where: Record<string, unknown> =
+      folder === 'sent'
+        ? { sender_id: userId, folder: 'sent' }
+        : { recipient_id: userId, folder: 'inbox' };
 
-    if (category && VALID_CATEGORIES.includes(category)) {
+    if (category && VALID_CATEGORIES.includes(category as MessageCategory)) {
       where.category = category;
     }
 
-    const [messages, total] = await Promise.all([
-      prisma.message.findMany({
-        where,
-        orderBy: { created_at: 'desc' },
-        skip: (page - 1) * limit,
-        take: limit,
-        include: {
-          sender: { select: { username: true, display_name: true } },
-          recipient: { select: { username: true, display_name: true } },
-        },
-      }),
-      prisma.message.count({ where }),
-    ]);
+    const { messages, total } = await messageService.findMessages({ where, page, limit });
 
     res.json({
       messages: messages.map(mapMessage),
@@ -75,11 +78,7 @@ async function list(req, res) {
   }
 }
 
-// GET /messages/unread-count
-// Headers: Authorization: Bearer <token>
-// Body: none
-// Response: { count }
-async function unreadCount(req, res) {
+export async function unreadCount(req: Request, res: Response) {
   try {
     const count = await prisma.message.count({
       where: { recipient_id: req.user.id, is_read: false },
@@ -91,27 +90,15 @@ async function unreadCount(req, res) {
   }
 }
 
-// GET /messages/:id
-// Headers: Authorization: Bearer <token>
-// Body: none (id from URL params)
-// Response: { id, category, from, senderId, subject, preview, body, read, referenceId, time }
-async function getById(req, res) {
+export async function getById(req: Request, res: Response) {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(String(req.params.id), 10);
     if (!id) return res.status(400).json({ error: 'Invalid message ID' });
 
-    const message = await prisma.message.findUnique({
-      where: { message_id: id },
-      include: {
-        sender: { select: { username: true, display_name: true } },
-        recipient: { select: { username: true, display_name: true } },
-      },
-    });
+    const message = await messageService.findMessageById(id);
 
     if (!message) return res.status(404).json({ error: 'Message not found' });
-    const isOwner = message.folder === 'sent'
-      ? message.sender_id === req.user.id
-      : message.recipient_id === req.user.id;
+    const isOwner = message.folder === 'sent' ? message.senderId === req.user.id : message.recipientId === req.user.id;
     if (!isOwner) {
       return res.status(403).json({ error: 'Access denied' });
     }
@@ -123,13 +110,9 @@ async function getById(req, res) {
   }
 }
 
-// PATCH /messages/:id/read
-// Headers: Authorization: Bearer <token>
-// Body: { read: boolean }
-// Response: { ok: true }
-async function markRead(req, res) {
+export async function markRead(req: Request, res: Response) {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(String(req.params.id), 10);
     if (!id) return res.status(400).json({ error: 'Invalid message ID' });
 
     const message = await prisma.message.findUnique({ where: { message_id: id } });
@@ -155,13 +138,9 @@ async function markRead(req, res) {
   }
 }
 
-// PATCH /messages/read-all
-// Headers: Authorization: Bearer <token>
-// Body: { category?: "users" | "teams" | "tournaments" | "website" }
-// Response: { ok: true }
-async function markAllRead(req, res) {
+export async function markAllRead(req: Request, res: Response) {
   try {
-    const where = { recipient_id: req.user.id, is_read: false };
+    const where: Record<string, unknown> = { recipient_id: req.user.id, is_read: false };
     const category = req.body.category;
     if (category && VALID_CATEGORIES.includes(category)) {
       where.category = category;
@@ -176,20 +155,14 @@ async function markAllRead(req, res) {
   }
 }
 
-// DELETE /messages/:id
-// Headers: Authorization: Bearer <token>
-// Body: none (id from URL params)
-// Response: { ok: true }
-async function remove(req, res) {
+export async function remove(req: Request, res: Response) {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(String(req.params.id), 10);
     if (!id) return res.status(400).json({ error: 'Invalid message ID' });
 
     const message = await prisma.message.findUnique({ where: { message_id: id } });
     if (!message) return res.status(404).json({ error: 'Message not found' });
-    const isOwner = message.folder === 'sent'
-      ? message.sender_id === req.user.id
-      : message.recipient_id === req.user.id;
+    const isOwner = message.folder === 'sent' ? message.sender_id === req.user.id : message.recipient_id === req.user.id;
     if (!isOwner) {
       return res.status(403).json({ error: 'Access denied' });
     }
@@ -203,14 +176,14 @@ async function remove(req, res) {
   }
 }
 
-// POST /messages
-// Headers: Authorization: Bearer <token>
-// Body: { recipientUsername, subject, body }
-// Response 201: { id, category, from, senderId, subject, preview, body, read, referenceId, time }
-async function send(req, res) {
+export async function send(req: Request, res: Response) {
   try {
     const userId = req.user.id;
-    const { recipientUsername, subject, body } = req.body;
+    const { recipientUsername, subject, body } = req.body as {
+      recipientUsername?: string;
+      subject?: string;
+      body?: string;
+    };
 
     if (!recipientUsername || !subject?.trim() || !body?.trim()) {
       return res.status(400).json({ error: 'recipientUsername, subject, and body are required' });
@@ -225,7 +198,6 @@ async function send(req, res) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // TODO need to deal with blocked users here when its implemented
     if (recipient.allow_messages_from === 'friends_only') {
       const friendship = await prisma.friendship.findFirst({
         where: {
@@ -241,13 +213,12 @@ async function send(req, res) {
       }
     }
 
-    // store sender name in case the account gets deleted
     const sender = await prisma.user.findUnique({
       where: { user_id: userId },
       select: { username: true, display_name: true },
     });
 
-    const senderLabel = sender.display_name || sender.username;
+    const senderLabel = sender?.display_name || sender?.username || null;
     const recipientLabel = recipient.display_name || recipient.username;
 
     const shared = {
@@ -255,12 +226,11 @@ async function send(req, res) {
       recipient_id: recipient.user_id,
       sender_name: senderLabel,
       recipient_name: recipientLabel,
-      category: 'users',
+      category: 'users' as const,
       subject: subject.trim(),
       body: body.trim(),
     };
 
-    // Create inbox copy for recipient and sent copy for sender, so one doesnt delete the others messages
     const [inboxCopy] = await prisma.$transaction([
       prisma.message.create({
         data: { ...shared, folder: 'inbox' },
@@ -274,11 +244,10 @@ async function send(req, res) {
       }),
     ]);
 
-    return res.status(201).json(mapMessage(inboxCopy));
+    const domainMessage = messageService.toDomainMessage(inboxCopy);
+    return res.status(201).json(mapMessage(domainMessage));
   } catch (err) {
     console.error('[messages/send]', err);
     return res.status(500).json({ error: 'Failed to send message' });
   }
 }
-
-module.exports = { list, unreadCount, getById, markRead, markAllRead, remove, send };

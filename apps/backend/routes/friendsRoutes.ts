@@ -1,12 +1,11 @@
-const { Router } = require('express');
-const { authenticate } = require('../middleware/auth');
-const friendController = require('../controllers/friendController');
+import { Router } from 'express';
+import { authenticate } from '../middleware/authMiddleware';
+import * as friendController from '../controllers/friendController';
 
 const router = Router();
 
 router.use(authenticate);
 
-// Static routes before :id
 router.get('/requests', friendController.listRequests);
 router.get('/status/:username', friendController.getStatus);
 router.get('/user/:username', friendController.listUserFriends);
@@ -17,4 +16,4 @@ router.patch('/:id/accept', friendController.acceptRequest);
 router.patch('/:id/decline', friendController.declineRequest);
 router.delete('/:id', friendController.removeFriend);
 
-module.exports = router;
+export default router;

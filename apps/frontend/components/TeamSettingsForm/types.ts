@@ -1,5 +1,7 @@
 export interface TeamSettingsFormProps {
-  team: { name: string; description: string; open: boolean };
+  teamId: number;
+  team: { name: string; description: string; open: boolean; disciplines?: string[] };
   isLead: boolean;
-  onSuccess?: () => void;
+  onSuccess?: (updated: { name: string; description: string; open: boolean; disciplines: string[] }) => void;
+  onDisband?: () => void;
 }

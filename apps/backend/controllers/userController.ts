@@ -1,15 +1,16 @@
-const prisma = require('../lib/prisma');
+import type { Request, Response } from 'express';
 
-// GET /users
-// Query params: page?, limit?, q?
-// Response: { users: [{ id, username, displayName, avatarUrl, bio, location, createdAt }], page, totalPages, total }
-async function list(req, res) {
+import prisma from '../lib/prisma';
+
+type MessagePrivacy = 'everyone' | 'friends_only';
+
+export async function list(req: Request, res: Response) {
   try {
-    const page = Math.max(parseInt(req.query.page) || 1, 1);
-    const limit = Math.min(Math.max(parseInt(req.query.limit) || 20, 1), 100);
-    const q = (req.query.q || '').trim();
+    const page = Math.max(parseInt(String(req.query.page), 10) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(String(req.query.limit), 10) || 20, 1), 100);
+    const q = String(req.query.q ?? '').trim();
 
-    const where = q
+    const where: any = q
       ? {
           OR: [
             { username: { contains: q, mode: 'insensitive' } },
@@ -38,14 +39,14 @@ async function list(req, res) {
     ]);
 
     res.json({
-      users: users.map((u) => ({
-        id: u.user_id,
-        username: u.username,
-        displayName: u.display_name,
-        avatarUrl: u.avatar_url,
-        bio: u.bio,
-        location: u.location,
-        createdAt: u.created_at.toISOString(),
+      users: users.map((user: any) => ({
+        id: user.user_id,
+        username: user.username,
+        displayName: user.display_name,
+        avatarUrl: user.avatar_url,
+        bio: user.bio,
+        location: user.location,
+        createdAt: user.created_at.toISOString(),
       })),
       page,
       totalPages: Math.ceil(total / limit) || 1,
@@ -57,13 +58,10 @@ async function list(req, res) {
   }
 }
 
-// GET /users/search?q=<query>&limit=<n>
-// Body: none (query params: q, limit)
-// Response: [{ id, username, displayName, avatarUrl }]
-async function search(req, res) {
+export async function search(req: Request, res: Response) {
   try {
-    const q = (req.query.q || '').trim();
-    const limit = Math.min(parseInt(req.query.limit) || 10, 50);
+    const q = String(req.query.q ?? '').trim();
+    const limit = Math.min(parseInt(String(req.query.limit), 10) || 10, 50);
 
     if (!q) {
       return res.json([]);
@@ -86,11 +84,11 @@ async function search(req, res) {
       },
     });
 
-    const result = users.map((u) => ({
-      id: u.user_id,
-      username: u.username,
-      displayName: u.display_name,
-      avatarUrl: u.avatar_url,
+    const result = users.map((user: any) => ({
+      id: user.user_id,
+      username: user.username,
+      displayName: user.display_name,
+      avatarUrl: user.avatar_url,
     }));
 
     res.json(result);
@@ -100,11 +98,7 @@ async function search(req, res) {
   }
 }
 
-// GET /users/me
-// Headers: Authorization: Bearer <token>
-// Body: none
-// Response: { id, username, email, displayName, bio, location, avatarUrl, allowMessagesFrom }
-async function getMe(req, res) {
+export async function getMe(req: Request, res: Response) {
   try {
     const user = await prisma.user.findUnique({
       where: { user_id: req.user.id },
@@ -119,6 +113,7 @@ async function getMe(req, res) {
         allow_messages_from: true,
       },
     });
+
     if (!user) return res.status(404).json({ error: 'User not found' });
 
     res.json({
@@ -137,14 +132,10 @@ async function getMe(req, res) {
   }
 }
 
-// PATCH /users/me
-// Headers: Authorization: Bearer <token>
-// Body: { allowMessagesFrom?: "everyone" | "friends_only" }
-// Response: { ok: true }
-async function updateMe(req, res) {
+export async function updateMe(req: Request, res: Response) {
   try {
-    const data = {};
-    const { allowMessagesFrom } = req.body;
+    const data: { allow_messages_from?: MessagePrivacy } = {};
+    const { allowMessagesFrom } = req.body as { allowMessagesFrom?: MessagePrivacy };
 
     if (allowMessagesFrom !== undefined) {
       if (!['everyone', 'friends_only'].includes(allowMessagesFrom)) {
@@ -168,5 +159,3 @@ async function updateMe(req, res) {
     res.status(500).json({ error: 'Failed to update user' });
   }
 }
-
-module.exports = { list, search, getMe, updateMe };

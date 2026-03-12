@@ -1,0 +1,34 @@
+import 'dotenv/config';
+import express, { type NextFunction, type Request, type Response } from 'express';
+import cors from 'cors';
+import authRoutes from './routes/authRoutes';
+import friendRoutes from './routes/friendsRoutes';
+import messageRoutes from './routes/messagesRoutes';
+import teamRoutes from './routes/teamsRoutes';
+import tournamentRoutes from './routes/tournamentsRoutes';
+import userRoutes from './routes/usersRoutes';
+
+
+const app = express();
+
+app.use(cors());
+app.use(express.json());
+
+app.get('/', (_req: Request, res: Response) => res.json({ status: 'ok' }));
+
+app.use('/auth', authRoutes);
+app.use('/tournaments', tournamentRoutes);
+app.use('/teams', teamRoutes);
+app.use('/users', userRoutes);
+app.use('/messages', messageRoutes);
+app.use('/friends', friendRoutes);
+
+app.use((_req: Request, res: Response) => res.status(404).json({ error: 'Route not found' }));
+
+app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+  console.error('[unhandled]', err);
+  res.status(500).json({ error: 'Internal server error' });
+});
+
+const PORT = Number(process.env.PORT) || 2000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

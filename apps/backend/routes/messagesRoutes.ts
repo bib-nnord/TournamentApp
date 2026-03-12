@@ -1,12 +1,11 @@
-const { Router } = require('express');
-const { authenticate } = require('../middleware/auth');
-const messageController = require('../controllers/messageController');
+import { Router } from 'express';
+import { authenticate } from '../middleware/authMiddleware';
+import * as messageController from '../controllers/messageController';
 
 const router = Router();
 
 router.use(authenticate);
 
-// Static routes before :id to avoid conflicts
 router.get('/unread-count', messageController.unreadCount);
 router.patch('/read-all', messageController.markAllRead);
 
@@ -16,4 +15,4 @@ router.get('/:id', messageController.getById);
 router.patch('/:id/read', messageController.markRead);
 router.delete('/:id', messageController.remove);
 
-module.exports = router;
+export default router;

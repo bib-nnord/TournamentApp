@@ -1,78 +1,85 @@
-const crypto = require('crypto');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const prisma = require('../lib/prisma');
+import type { Request, Response } from 'express';
 
-function hashToken(token) {
+import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import prisma from '../lib/prisma';
+
+const JWT_SECRET = process.env.JWT_SECRET ?? '';
+
+function hashToken(token: string) {
   return crypto.createHash('sha256').update(token).digest('hex');
 }
 
-// POST /auth/register
-// Body: { username, email, password, date_of_birth, display_name, first_name, last_name }
-// Response 201: { message: string }
-async function register(req, res) {
-  const { username, email, password, display_name, first_name, last_name, date_of_birth } = req.body;
+export async function register(req: Request, res: Response) {
+  const { username, email, password, display_name, first_name, last_name, date_of_birth } = req.body as {
+    username?: string;
+    email?: string;
+    password?: string;
+    display_name?: string;
+    first_name?: string;
+    last_name?: string;
+    date_of_birth?: string;
+  };
 
   const requiredFields = { username, email, password, date_of_birth, display_name, first_name, last_name };
-  const missing = Object.entries(requiredFields).filter(([, v]) => !v).map(([k]) => k);
+  const missing = Object.entries(requiredFields)
+    .filter(([, value]) => !value)
+    .map(([key]) => key);
 
   if (missing.length > 0) {
     return res.status(400).json({ error: `Missing required fields: ${missing.join(', ')}` });
   }
 
-  const passwordErrors = [];
-  if (password.length < 8) passwordErrors.push('at least 8 characters');
-  if (!/[a-z]/.test(password)) passwordErrors.push('at least one lowercase letter');
-  if (!/[A-Z]/.test(password)) passwordErrors.push('at least one uppercase letter');
-  if (!/[^a-zA-Z0-9]/.test(password)) passwordErrors.push('at least one special character');
-
-  //maybe check for a list of common passwords or common weak combinations such as repeating letters or dates
+  const passwordErrors: string[] = [];
+  if ((password as string).length < 8) passwordErrors.push('at least 8 characters');
+  if (!/[a-z]/.test(password as string)) passwordErrors.push('at least one lowercase letter');
+  if (!/[A-Z]/.test(password as string)) passwordErrors.push('at least one uppercase letter');
+  if (!/[^a-zA-Z0-9]/.test(password as string)) passwordErrors.push('at least one special character');
 
   if (passwordErrors.length > 0) {
     const list = new Intl.ListFormat('en', { type: 'conjunction' }).format(passwordErrors);
-    return res.status(400).json({
-      error: `Password must contain ${list}`,
-    });
+    return res.status(400).json({ error: `Password must contain ${list}` });
   }
 
-  const dob = new Date(date_of_birth);
+  const dob = new Date(date_of_birth as string);
   if (isNaN(dob.getTime())) {
     return res.status(400).json({ error: 'Invalid date of birth' });
   }
+
   if (dob > new Date()) {
     return res.status(400).json({ error: 'Date of birth cannot be in the future' });
   }
 
- // minimum age check?
-
-  //100 years
-  if ( Math.floor((Date.now() - dob.getTime()) / (365 * 24 * 3600 * 1000)) > 100) {
+  if (Math.floor((Date.now() - dob.getTime()) / (365 * 24 * 3600 * 1000)) > 100) {
     return res.status(400).json({ error: 'Invalid date of birth' });
   }
 
   try {
+    const normalizedEmail = (email as string).toLowerCase();
+
     const existing = await prisma.user.findFirst({
       where: {
-        OR: [{ email: email.toLowerCase() }, { username }],
+        OR: [{ email: normalizedEmail }, { username }],
       },
     });
 
     if (existing) {
-      const field = existing.email === email.toLowerCase() ? 'email' : 'username';
+      const field = existing.email === normalizedEmail ? 'email' : 'username';
       return res.status(409).json({ error: `An account with that ${field} has already been created` });
     }
 
-    const password_hash = await bcrypt.hash(password, 16);
+    const password_hash = await bcrypt.hash(password as string, 16);
 
     await prisma.user.create({
       data: {
-        username,
-        email: email.toLowerCase(),
+        username: username as string,
+        email: normalizedEmail,
         password_hash,
         display_name,
         first_name,
         last_name,
-        date_of_birth: new Date(date_of_birth),
+        date_of_birth: new Date(date_of_birth as string),
       },
     });
 
@@ -83,11 +90,12 @@ async function register(req, res) {
   }
 }
 
-// POST /auth/login
-// Body: { email, password }
-// Response 200: { token: string, user: { id, username, email } }
-async function login(req, res) {
-  const { email, username, password } = req.body;
+export async function login(req: Request, res: Response) {
+  const { email, username, password } = req.body as {
+    email?: string;
+    username?: string;
+    password?: string;
+  };
 
   if ((!email && !username) || !password) {
     return res.status(400).json({ error: 'email/username and password are required' });
@@ -95,26 +103,21 @@ async function login(req, res) {
 
   try {
     const user = await prisma.user.findFirst({
-      where: email
-        ? { email: email.toLowerCase() }
-        : { username },
+      where: email ? { email: email.toLowerCase() } : { username },
     });
 
-
-    const passwordMatch = await bcrypt.compare(password, user.password_hash);
+    const passwordMatch = user ? await bcrypt.compare(password, user.password_hash) : false;
     if (!passwordMatch || !user) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
     const accessToken = jwt.sign(
       { sub: user.user_id, username: user.username, email: user.email, role: user.site_role },
-      process.env.JWT_SECRET,
+      JWT_SECRET,
       { expiresIn: '15m' }
     );
 
     const refreshToken = crypto.randomBytes(32).toString('hex');
-
-    //7 days after creation
     const expiresAt = new Date(Date.now() + 7 * 24 * 3600 * 1000);
 
     await prisma.refreshToken.create({
@@ -140,12 +143,8 @@ async function login(req, res) {
   }
 }
 
-// POST /auth/refresh
-// Body: { refreshToken }
-// Response 200: { accessToken }
-
-async function refresh(req, res) {
-  const { refreshToken } = req.body;
+export async function refresh(req: Request, res: Response) {
+  const { refreshToken } = req.body as { refreshToken?: string };
 
   if (!refreshToken) {
     return res.status(400).json({ error: 'refreshToken is required' });
@@ -173,7 +172,7 @@ async function refresh(req, res) {
         email: stored.user.email,
         role: stored.user.site_role,
       },
-      process.env.JWT_SECRET,
+      JWT_SECRET,
       { expiresIn: '15m' }
     );
 
@@ -184,11 +183,8 @@ async function refresh(req, res) {
   }
 }
 
-// POST /auth/logout
-// Body: { refreshToken }
-// Response 200: { message }
-async function logout(req, res) {
-  const { refreshToken } = req.body;
+export async function logout(req: Request, res: Response) {
+  const { refreshToken } = req.body as { refreshToken?: string };
 
   if (!refreshToken) {
     return res.status(400).json({ error: 'refreshToken is required' });
@@ -205,5 +201,3 @@ async function logout(req, res) {
     return res.status(500).json({ error: 'Internal server error' });
   }
 }
-
-module.exports = { register, login, refresh, logout };
