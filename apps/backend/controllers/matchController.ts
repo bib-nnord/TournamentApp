@@ -3,6 +3,7 @@ import type { Request, Response } from 'express';
 import prisma from '../lib/prisma';
 import { notifyUsers, buildNameToUserIds, resolveNamesToUserIds } from '../lib/notify';
 import Tournament from '../models/Tournament';
+import * as tournamentService from '../services/tournamentService';
 
 export async function reportResult(req: Request, res: Response) {
   const tournamentId = parseInt(String(req.params.id), 10);
@@ -61,7 +62,7 @@ export async function reportResult(req: Request, res: Response) {
       bracket_data: tournament.bracket_data as any,
     });
 
-    const found = tournamentModel.findMatch(matchId);
+    const found = tournamentService.findMatch(tournamentModel, matchId);
     if (!found) {
       return res.status(404).json({ error: 'Match not found' });
     }
@@ -117,47 +118,12 @@ export async function reportResult(req: Request, res: Response) {
     match.completed = true;
 
     if (!isTie) {
-      tournamentModel.advanceBracket(section, roundIndex, match, winnerName, loserName);
-    } else if (section.startsWith('group_') && tournamentModel.bracket_data) {
-      // Private method access would be needed; for now use inline logic
-      const bracket = tournamentModel.bracket_data;
-      if (!bracket.knockoutRounds?.length || !bracket.groups) return res.status(400).json({ error: 'Invalid bracket structure' });
-
-      const regularGroups = bracket.groups.filter((g) => !g.autoAdvance);
-      const autoAdvanceGroups = bracket.groups.filter((g) => g.autoAdvance);
-      const advancersPerGroup = bracket.advancersPerGroup ?? 2;
-
-      const advancers: Array<string | null> = [];
-      for (const group of regularGroups) {
-        const standings = computeGroupStandings(group);
-        if (!standings) break;
-        for (let i = 0; i < advancersPerGroup; i++) advancers.push(standings[i] ?? null);
-      }
-      for (const group of autoAdvanceGroups) {
-        for (const participant of group.participants) advancers.push(participant);
-      }
-
-      const roundOne = bracket.knockoutRounds[0];
-      if (roundOne) {
-        const knockoutSize = (roundOne.matches?.[0]?.position ?? 0) > 0 ? roundOne.matches.length * 2 : roundOne.matches.length;
-        const seeds = generateSeedPositions(knockoutSize);
-
-        while (advancers.length < knockoutSize) advancers.push(null);
-
-        for (let i = 0; i < seeds.length; i += 2) {
-          const advancerA = advancers[seeds[i] - 1] ?? null;
-          const advancerB = advancers[seeds[i + 1] - 1] ?? null;
-          const matchPosition = i / 2;
-          const m = roundOne.matches.find((x) => x.position === matchPosition);
-          if (!m) continue;
-
-          if ((!m.participantA || m.participantA === 'TBD') && advancerA) m.participantA = advancerA;
-          if ((!m.participantB || m.participantB === 'TBD') && advancerB) m.participantB = advancerB;
-        }
-      }
+      tournamentService.advanceBracket(tournamentModel, section, roundIndex, match, winnerName, loserName);
+    } else if (section.startsWith('group_')) {
+      tournamentService.advanceBracket(tournamentModel, section, roundIndex, match, null, null);
     }
 
-    if (tournamentModel.isTrueFinalMatch(section, roundIndex)) {
+    if (tournamentService.isTrueFinalMatch(tournamentModel, section, roundIndex)) {
       if (isTie && !tournamentModel.bracket_data?.tiebreaker?.completed) {
         if (tournamentModel.bracket_data) {
           tournamentModel.bracket_data.tiebreaker = { id: 'tiebreaker', participants: [match.participantA, match.participantB] };
@@ -169,7 +135,7 @@ export async function reportResult(req: Request, res: Response) {
 
     if (tournamentModel.bracket_data && ['round_robin', 'double_round_robin', 'swiss'].includes(tournamentModel.bracket_data.format)) {
       if (!tournamentModel.bracket_data.tiebreaker?.completed) {
-        const tied = tournamentModel.findRRTiedParticipants();
+        const tied = tournamentService.findRRTiedParticipants(tournamentModel);
         if (tied) {
           tournamentModel.bracket_data.tiebreaker = { id: 'tiebreaker', participants: tied };
         } else if (tournamentModel.bracket_data.tiebreaker) {
@@ -218,7 +184,7 @@ export async function reportResult(req: Request, res: Response) {
     }
 
     if (!isTie && section !== 'tiebreaker') {
-      const allBracketMatches = tournamentModel.extractAllMatches();
+      const allBracketMatches = tournamentService.extractAllMatches(tournamentModel);
       for (const nextMatch of allBracketMatches) {
         if (nextMatch.participantA && nextMatch.participantB && !nextMatch.completed) {
           if (nextMatch.participantA === winnerName || nextMatch.participantB === winnerName) {
@@ -240,50 +206,6 @@ export async function reportResult(req: Request, res: Response) {
     console.error('[match.reportResult]', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
-}
-
-// Helper functions for bracket manipulation
-function generateSeedPositions(size: number) {
-  let positions = [1, 2];
-  while (positions.length < size) {
-    const next: number[] = [];
-    const currentSize = positions.length * 2;
-    for (const seed of positions) next.push(seed, currentSize + 1 - seed);
-    positions = next;
-  }
-  return positions;
-}
-
-function computeGroupStandings(group: any): string[] | null {
-  const points = new Map<string, number>();
-  const scoreDiff = new Map<string, number>();
-  for (const participant of group.participants) {
-    points.set(participant, 0);
-    scoreDiff.set(participant, 0);
-  }
-
-  for (const round of group.rounds) {
-    for (const match of round.matches) {
-      if (!match.completed) return null;
-      if (match.winner) {
-        points.set(match.winner, (points.get(match.winner) ?? 0) + 2);
-      } else if (match.tie) {
-        if (match.participantA) points.set(match.participantA, (points.get(match.participantA) ?? 0) + 1);
-        if (match.participantB) points.set(match.participantB, (points.get(match.participantB) ?? 0) + 1);
-      }
-      if (match.scoreA != null && match.participantA) {
-        scoreDiff.set(match.participantA, (scoreDiff.get(match.participantA) ?? 0) + match.scoreA - (match.scoreB ?? 0));
-      }
-      if (match.scoreB != null && match.participantB) {
-        scoreDiff.set(match.participantB, (scoreDiff.get(match.participantB) ?? 0) + match.scoreB - (match.scoreA ?? 0));
-      }
-    }
-  }
-
-  return [...group.participants].sort((left, right) => {
-    const pointsDiff = (points.get(right) ?? 0) - (points.get(left) ?? 0);
-    return pointsDiff !== 0 ? pointsDiff : (scoreDiff.get(right) ?? 0) - (scoreDiff.get(left) ?? 0);
-  });
 }
 
 export async function getMatch(req: Request, res: Response) {
@@ -332,7 +254,7 @@ export async function getMatch(req: Request, res: Response) {
       bracket_data: tournament.bracket_data as any,
     });
 
-    const found = tournamentModel.findMatch(matchId);
+    const found = tournamentService.findMatch(tournamentModel, matchId);
     if (!found) return res.status(404).json({ error: 'Match not found' });
 
     return res.json({

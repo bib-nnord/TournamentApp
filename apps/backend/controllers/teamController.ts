@@ -1,48 +1,7 @@
 import type { Request, Response } from 'express';
 
 import prisma from '../lib/prisma';
-
-type TeamRole = 'lead' | 'moderator' | 'member' | 'none';
-
-function mapTeamSummaryFromMembership(membership: any) {
-  return {
-    id: membership.team.team_id,
-    name: membership.team.name,
-    role: membership.role,
-    members: membership.team._count.members,
-    open: membership.team.is_open,
-  };
-}
-
-function mapTeamDetail(team: any, currentUserId: number | null = null) {
-  const members = team.members.map((member: any) => ({
-    id: member.user.user_id,
-    username: member.user.username,
-    displayName: member.user.display_name,
-    role: member.role,
-  }));
-
-  const myMembership = currentUserId ? team.members.find((member: any) => member.user_id === currentUserId) : null;
-
-  return {
-    id: team.team_id,
-    name: team.name,
-    description: team.description,
-    imageUrl: team.image_url,
-    open: team.is_open,
-    disciplines: team.disciplines ?? [],
-    createdBy: team.creator
-      ? {
-          id: team.creator.user_id,
-          username: team.creator.username,
-          displayName: team.creator.display_name,
-        }
-      : null,
-    members,
-    membersCount: members.length,
-    myRole: (myMembership ? myMembership.role : 'none') as TeamRole,
-  };
-}
+import * as teamService from '../services/teamService';
 
 export async function search(req: Request, res: Response) {
   try {
@@ -106,7 +65,7 @@ export async function myTeams(req: Request, res: Response) {
       orderBy: { joined_at: 'desc' },
     });
 
-    const teams = memberships.map(mapTeamSummaryFromMembership);
+    const teams = memberships.map(teamService.mapTeamSummaryFromMembership);
 
     res.json({ teams });
   } catch (err) {
@@ -139,7 +98,7 @@ export async function userTeams(req: Request, res: Response) {
       orderBy: { joined_at: 'desc' },
     });
 
-    const teams = memberships.map(mapTeamSummaryFromMembership);
+    const teams = memberships.map(teamService.mapTeamSummaryFromMembership);
 
     res.json({ teams });
   } catch (err) {
@@ -173,7 +132,7 @@ export async function getById(req: Request, res: Response) {
     }
 
     const currentUserId = req.user?.id ?? null;
-    return res.json({ team: mapTeamDetail(team, currentUserId) });
+    return res.json({ team: teamService.mapTeamDetail(team, currentUserId) });
   } catch (err) {
     console.error('[teams/getById]', err);
     res.status(500).json({ error: 'Failed to fetch team' });
@@ -230,7 +189,7 @@ export async function create(req: Request, res: Response) {
       });
     });
 
-    return res.status(201).json({ team: mapTeamSummaryFromMembership(created) });
+    return res.status(201).json({ team: teamService.mapTeamSummaryFromMembership(created) });
   } catch (err) {
     console.error('[teams/create]', err);
     res.status(500).json({ error: 'Failed to create team' });
@@ -242,9 +201,7 @@ export async function update(req: Request, res: Response) {
     const teamId = parseInt(String(req.params.id), 10);
     if (isNaN(teamId)) return res.status(400).json({ error: 'Invalid team ID' });
 
-    const membership = await prisma.teamMember.findUnique({
-      where: { team_id_user_id: { team_id: teamId, user_id: req.user.id } },
-    });
+    const membership = await teamService.findMembership(teamId, req.user.id);
 
     if (!membership || (membership.role !== 'lead' && membership.role !== 'moderator')) {
       return res.status(403).json({ error: 'Not authorized' });
@@ -283,7 +240,7 @@ export async function update(req: Request, res: Response) {
       },
     });
 
-    return res.json({ team: mapTeamDetail(team, req.user.id) });
+    return res.json({ team: teamService.mapTeamDetail(team, req.user.id) });
   } catch (err) {
     console.error('[teams/update]', err);
     res.status(500).json({ error: 'Failed to update team' });
@@ -299,9 +256,7 @@ export async function join(req: Request, res: Response) {
     if (!team) return res.status(404).json({ error: 'Team not found' });
     if (!team.is_open) return res.status(403).json({ error: 'This team is closed' });
 
-    const existing = await prisma.teamMember.findUnique({
-      where: { team_id_user_id: { team_id: teamId, user_id: req.user.id } },
-    });
+    const existing = await teamService.findMembership(teamId, req.user.id);
     if (existing) return res.status(409).json({ error: 'Already a member' });
 
     await prisma.teamMember.create({
@@ -319,7 +274,7 @@ export async function join(req: Request, res: Response) {
       },
     });
 
-    return res.json({ team: mapTeamDetail(updated, req.user.id) });
+    return res.json({ team: teamService.mapTeamDetail(updated, req.user.id) });
   } catch (err) {
     console.error('[teams/join]', err);
     res.status(500).json({ error: 'Failed to join team' });
@@ -331,9 +286,7 @@ export async function leave(req: Request, res: Response) {
     const teamId = parseInt(String(req.params.id), 10);
     if (isNaN(teamId)) return res.status(400).json({ error: 'Invalid team ID' });
 
-    const membership = await prisma.teamMember.findUnique({
-      where: { team_id_user_id: { team_id: teamId, user_id: req.user.id } },
-    });
+    const membership = await teamService.findMembership(teamId, req.user.id);
     if (!membership) return res.status(404).json({ error: 'Not a member' });
 
     if (membership.role === 'lead') {
@@ -362,9 +315,7 @@ export async function updateMember(req: Request, res: Response) {
     const targetId = parseInt(String(req.params.userId), 10);
     if (isNaN(teamId) || isNaN(targetId)) return res.status(400).json({ error: 'Invalid IDs' });
 
-    const actorMembership = await prisma.teamMember.findUnique({
-      where: { team_id_user_id: { team_id: teamId, user_id: req.user.id } },
-    });
+    const actorMembership = await teamService.findMembership(teamId, req.user.id);
     if (!actorMembership || actorMembership.role !== 'lead') {
       return res.status(403).json({ error: 'Only the team lead can change roles' });
     }
@@ -400,14 +351,10 @@ export async function kickMember(req: Request, res: Response) {
     const targetId = parseInt(String(req.params.userId), 10);
     if (isNaN(teamId) || isNaN(targetId)) return res.status(400).json({ error: 'Invalid IDs' });
 
-    const actorMembership = await prisma.teamMember.findUnique({
-      where: { team_id_user_id: { team_id: teamId, user_id: req.user.id } },
-    });
+    const actorMembership = await teamService.findMembership(teamId, req.user.id);
     if (!actorMembership) return res.status(403).json({ error: 'Not authorized' });
 
-    const targetMembership = await prisma.teamMember.findUnique({
-      where: { team_id_user_id: { team_id: teamId, user_id: targetId } },
-    });
+    const targetMembership = await teamService.findMembership(teamId, targetId);
     if (!targetMembership) return res.status(404).json({ error: 'Member not found' });
 
     const canKick = actorMembership.role === 'lead' || (actorMembership.role === 'moderator' && targetMembership.role === 'member');
@@ -430,9 +377,7 @@ export async function disband(req: Request, res: Response) {
     const teamId = parseInt(String(req.params.id), 10);
     if (isNaN(teamId)) return res.status(400).json({ error: 'Invalid team ID' });
 
-    const membership = await prisma.teamMember.findUnique({
-      where: { team_id_user_id: { team_id: teamId, user_id: req.user.id } },
-    });
+    const membership = await teamService.findMembership(teamId, req.user.id);
     if (!membership || membership.role !== 'lead') {
       return res.status(403).json({ error: 'Only the team lead can disband the team' });
     }

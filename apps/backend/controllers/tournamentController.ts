@@ -3,6 +3,7 @@ import type { Request, Response } from 'express';
 import prisma from '../lib/prisma';
 import { notifyUsers, collectAllUserIds } from '../lib/notify';
 import Tournament from '../models/Tournament';
+import * as tournamentService from '../services/tournamentService';
 
 export async function create(req: Request, res: Response) {
   const { name, game, description, format, isPrivate, participants, bracketData, maxParticipants, startDate, status } =
@@ -394,7 +395,7 @@ export async function confirmParticipation(req: Request, res: Response) {
           bracket_data: tournament.bracket_data as any,
         });
         const name = participant.display_name;
-        tournamentModel.clearParticipant(name);
+        tournamentService.clearParticipant(tournamentModel, name);
         await prisma.tournament.update({
           where: { tournament_id: id },
           data: { bracket_data: tournamentModel.bracket_data as any },
