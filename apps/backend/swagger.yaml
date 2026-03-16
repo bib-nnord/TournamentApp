@@ -16,7 +16,15 @@ components:
       bearerFormat: JWT
 
   schemas:
-    User:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+      example:
+        error: Something went wrong
+
+    UserProfile:
       type: object
       properties:
         id:
@@ -25,14 +33,306 @@ components:
           type: string
         email:
           type: string
+        displayName:
+          type: string
+          nullable: true
+        bio:
+          type: string
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        avatarUrl:
+          type: string
+          nullable: true
+        allowMessagesFrom:
+          type: string
+          enum: [everyone, friends_only]
 
-    Error:
+    UserSummary:
       type: object
       properties:
-        error:
+        id:
+          type: integer
+        username:
           type: string
+        displayName:
+          type: string
+          nullable: true
+        avatarUrl:
+          type: string
+          nullable: true
+
+    UserListItem:
+      allOf:
+        - $ref: "#/components/schemas/UserSummary"
+        - type: object
+          properties:
+            bio:
+              type: string
+              nullable: true
+            location:
+              type: string
+              nullable: true
+            createdAt:
+              type: string
+              format: date-time
+
+    TeamMember:
+      type: object
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        displayName:
+          type: string
+          nullable: true
+        role:
+          type: string
+          enum: [lead, moderator, member]
+
+    TeamDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        imageUrl:
+          type: string
+          nullable: true
+        open:
+          type: boolean
+        disciplines:
+          type: array
+          items:
+            type: string
+        createdBy:
+          $ref: "#/components/schemas/UserSummary"
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/TeamMember"
+        membersCount:
+          type: integer
+        myRole:
+          type: string
+          enum: [lead, moderator, member, none]
+
+    TeamSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        role:
+          type: string
+          enum: [lead, moderator, member]
+        members:
+          type: integer
+        open:
+          type: boolean
+
+    Message:
+      type: object
+      properties:
+        id:
+          type: integer
+        category:
+          type: string
+          enum: [users, teams, tournaments, website]
+        folder:
+          type: string
+          enum: [inbox, sent]
+        senderId:
+          type: integer
+          nullable: true
+        recipientId:
+          type: integer
+          nullable: true
+        sender:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/UserSummary"
+        recipient:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/UserSummary"
+        subject:
+          type: string
+        body:
+          type: string
+        isRead:
+          type: boolean
+        referenceId:
+          type: integer
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    FriendshipStatus:
+      type: string
+      enum: [pending, accepted, blocked, pending_sent, pending_received]
+
+    FriendListItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+          nullable: true
+        username:
+          type: string
+          nullable: true
+        displayName:
+          type: string
+          nullable: true
+
+    FriendRequest:
+      type: object
+      properties:
+        id:
+          type: integer
+        status:
+          $ref: "#/components/schemas/FriendshipStatus"
+        requesterId:
+          type: integer
+        recipientId:
+          type: integer
+        requester:
+          $ref: "#/components/schemas/UserSummary"
+        recipient:
+          $ref: "#/components/schemas/UserSummary"
+        createdAt:
+          type: string
+          format: date-time
+
+    BracketMatch:
+      type: object
+      properties:
+        id:
+          type: string
+        position:
+          type: integer
+        participantA:
+          type: string
+          nullable: true
+        participantB:
+          type: string
+          nullable: true
+        winner:
+          type: string
+          nullable: true
+        tie:
+          type: boolean
+        completed:
+          type: boolean
+        scoreA:
+          type: number
+          nullable: true
+        scoreB:
+          type: number
+          nullable: true
+
+    TournamentParticipant:
+      type: object
+      properties:
+        seed:
+          type: integer
+        name:
+          type: string
+        type:
+          type: string
+          enum: [account, guest]
+        confirmed:
+          type: boolean
+        declined:
+          type: boolean
+
+    TournamentSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        game:
+          type: string
+        format:
+          type: string
+          enum: [single_elimination, double_elimination, round_robin, double_round_robin, combination, swiss]
+        status:
+          type: string
+          enum: [active, completed, cancelled]
+        isPrivate:
+          type: boolean
+        createdBy:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    TournamentDetail:
+      allOf:
+        - $ref: "#/components/schemas/TournamentSummary"
+        - type: object
+          properties:
+            description:
+              type: string
+              nullable: true
+            maxParticipants:
+              type: integer
+              nullable: true
+            startDate:
+              type: string
+              format: date-time
+              nullable: true
+            bracketData:
+              type: object
+              nullable: true
+            participants:
+              type: array
+              items:
+                $ref: "#/components/schemas/TournamentParticipant"
+            updatedAt:
+              type: string
+              format: date-time
 
   responses:
+    Unauthorized:
+      description: Missing or invalid authorization token
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error: Authorization header required
+
+    Forbidden:
+      description: Authenticated but not permitted to perform this action
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error: Not authorized
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error: Not found
+
     InternalServerError:
       description: Internal server error
       content:
@@ -43,6 +343,8 @@ components:
             error: Internal server error
 
 paths:
+  # ─── Health ────────────────────────────────────────────────────────────────
+
   /:
     get:
       summary: Health check
@@ -60,6 +362,8 @@ paths:
               example:
                 status: ok
 
+  # ─── Auth ──────────────────────────────────────────────────────────────────
+
   /auth/register:
     post:
       summary: Create a new account
@@ -70,7 +374,7 @@ paths:
           application/json:
             schema:
               type: object
-              required: [username, email, password]
+              required: [username, email, password, display_name, first_name, last_name, date_of_birth]
               properties:
                 username:
                   type: string
@@ -82,6 +386,7 @@ paths:
                 password:
                   type: string
                   minLength: 8
+                  description: Must contain uppercase, lowercase, and a special character
                 display_name:
                   type: string
                   maxLength: 100
@@ -112,26 +417,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
-              examples:
-                missingFields:
-                  value:
-                    error: "username, email, and password are required"
-                weakPassword:
-                  value:
-                    error: Password must be at least 8 characters
         "409":
-          description: Conflict — duplicate email or username
+          description: Email or username already taken
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
-              examples:
-                duplicateEmail:
-                  value:
-                    error: An account with that email already exists
-                duplicateUsername:
-                  value:
-                    error: An account with that username already exists
         "500":
           $ref: "#/components/responses/InternalServerError"
 
@@ -145,13 +436,15 @@ paths:
           application/json:
             schema:
               type: object
-              required: [email, password]
               properties:
                 email:
                   type: string
                   format: email
+                username:
+                  type: string
                 password:
                   type: string
+              description: Provide either email or username plus password
       responses:
         "200":
           description: Login successful
@@ -167,30 +460,19 @@ paths:
                     type: string
                     description: Opaque token (7d expiry)
                   user:
-                    $ref: "#/components/schemas/User"
-              example:
-                accessToken: eyJhbGciOiJIUzI1NiIs...
-                refreshToken: a1b2c3d4e5f6...
-                user:
-                  id: 1
-                  username: johndoe
-                  email: john@example.com
+                    $ref: "#/components/schemas/UserProfile"
         "400":
           description: Missing fields
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
-              example:
-                error: email and password are required
         "401":
           description: Invalid credentials
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
-              example:
-                error: Invalid email or password
         "500":
           $ref: "#/components/responses/InternalServerError"
 
@@ -210,7 +492,7 @@ paths:
                   type: string
       responses:
         "200":
-          description: New access token
+          description: New access token issued
           content:
             application/json:
               schema:
@@ -218,30 +500,18 @@ paths:
                 properties:
                   accessToken:
                     type: string
-                    description: JWT token (15m expiry)
-              example:
-                accessToken: eyJhbGciOiJIUzI1NiIs...
         "400":
           description: Missing refresh token
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
-              example:
-                error: refreshToken is required
         "401":
           description: Invalid or expired refresh token
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
-              examples:
-                invalid:
-                  value:
-                    error: Invalid refresh token
-                expired:
-                  value:
-                    error: Refresh token expired
         "500":
           $ref: "#/components/responses/InternalServerError"
 
@@ -261,7 +531,7 @@ paths:
                   type: string
       responses:
         "200":
-          description: Logged out
+          description: Logged out successfully
           content:
             application/json:
               schema:
@@ -269,16 +539,979 @@ paths:
                 properties:
                   message:
                     type: string
-              example:
-                message: Logged out successfully
         "400":
           description: Missing refresh token
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
-              example:
-                error: refreshToken is required
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  # ─── Users ─────────────────────────────────────────────────────────────────
+
+  /users:
+    get:
+      summary: List all users (paginated)
+      tags: [Users]
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+        - in: query
+          name: q
+          schema:
+            type: string
+          description: Search by username or display name
+      responses:
+        "200":
+          description: Paginated user list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  users:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/UserListItem"
+                  page:
+                    type: integer
+                  totalPages:
+                    type: integer
+                  total:
+                    type: integer
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /users/search:
+    get:
+      summary: Search users by username or display name
+      tags: [Users]
+      parameters:
+        - in: query
+          name: q
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+            maximum: 50
+      responses:
+        "200":
+          description: List of matching users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserSummary"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /users/me:
+    get:
+      summary: Get the current user's profile
+      tags: [Users]
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Current user profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+    patch:
+      summary: Update the current user's settings
+      tags: [Users]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                allowMessagesFrom:
+                  type: string
+                  enum: [everyone, friends_only]
+      responses:
+        "200":
+          description: Updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+        "400":
+          description: No valid fields to update
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  # ─── Teams ─────────────────────────────────────────────────────────────────
+
+  /teams/search:
+    get:
+      summary: Search teams by name
+      tags: [Teams]
+      parameters:
+        - in: query
+          name: q
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+            maximum: 50
+      responses:
+        "200":
+          description: List of matching teams
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TeamDetail"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /teams/my:
+    get:
+      summary: Get the current user's teams
+      tags: [Teams]
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: List of teams the current user belongs to
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  teams:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TeamSummary"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /teams/user/{userId}:
+    get:
+      summary: Get teams for a specific user
+      tags: [Teams]
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Teams the user belongs to
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  teams:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TeamSummary"
+        "400":
+          description: Invalid user ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /teams:
+    post:
+      summary: Create a new team
+      tags: [Teams]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                  maxLength: 100
+                description:
+                  type: string
+                open:
+                  type: boolean
+                  default: false
+                disciplines:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "201":
+          description: Team created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  team:
+                    $ref: "#/components/schemas/TeamSummary"
+        "400":
+          description: Team name is required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /teams/{id}:
+    get:
+      summary: Get team details
+      tags: [Teams]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Team details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  team:
+                    $ref: "#/components/schemas/TeamDetail"
+        "400":
+          description: Invalid team ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+    patch:
+      summary: Update team settings (lead or moderator)
+      tags: [Teams]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                open:
+                  type: boolean
+                disciplines:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: Updated team
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  team:
+                    $ref: "#/components/schemas/TeamDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+    delete:
+      summary: Disband a team (lead only)
+      tags: [Teams]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Team disbanded
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /teams/{id}/join:
+    post:
+      summary: Join an open team
+      tags: [Teams]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Joined the team
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  team:
+                    $ref: "#/components/schemas/TeamDetail"
+        "403":
+          description: Team is closed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Already a member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /teams/{id}/leave:
+    post:
+      summary: Leave a team
+      tags: [Teams]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Left the team
+        "400":
+          description: Transfer leadership before leaving
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Not a member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /teams/{id}/members/{userId}:
+    patch:
+      summary: Update a team member's role (lead only)
+      tags: [Teams]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role]
+              properties:
+                role:
+                  type: string
+                  enum: [moderator, member]
+      responses:
+        "200":
+          description: Member role updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  member:
+                    $ref: "#/components/schemas/TeamMember"
+        "400":
+          description: Invalid role
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+    delete:
+      summary: Kick a team member (lead or moderator)
+      tags: [Teams]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Member kicked
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Member not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  # ─── Messages ──────────────────────────────────────────────────────────────
+
+  /messages:
+    get:
+      summary: List messages (inbox or sent)
+      tags: [Messages]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: query
+          name: folder
+          schema:
+            type: string
+            enum: [inbox, sent]
+            default: inbox
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Paginated message list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  messages:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Message"
+                  page:
+                    type: integer
+                  totalPages:
+                    type: integer
+                  total:
+                    type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+    post:
+      summary: Send a message
+      tags: [Messages]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [recipientId, subject, body, category]
+              properties:
+                recipientId:
+                  type: integer
+                subject:
+                  type: string
+                body:
+                  type: string
+                category:
+                  type: string
+                  enum: [users, teams, tournaments, website]
+                referenceId:
+                  type: integer
+                  nullable: true
+      responses:
+        "201":
+          description: Message sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Recipient does not accept messages from you
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /messages/unread-count:
+    get:
+      summary: Get count of unread inbox messages
+      tags: [Messages]
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Unread message count
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /messages/read-all:
+    patch:
+      summary: Mark all inbox messages as read
+      tags: [Messages]
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: All messages marked as read
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /messages/{id}:
+    get:
+      summary: Get a single message
+      tags: [Messages]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Message details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+    delete:
+      summary: Delete a message
+      tags: [Messages]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Message deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /messages/{id}/read:
+    patch:
+      summary: Mark a message as read
+      tags: [Messages]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Message marked as read
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  # ─── Friends ───────────────────────────────────────────────────────────────
+
+  /friends:
+    get:
+      summary: List accepted friends
+      tags: [Friends]
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: List of friends
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  friends:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/FriendListItem"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /friends/requests:
+    get:
+      summary: List pending friend requests (incoming and outgoing)
+      tags: [Friends]
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Pending friend requests
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  incoming:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/FriendRequest"
+                  outgoing:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/FriendRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /friends/status/{username}:
+    get:
+      summary: Get friendship status with a user
+      tags: [Friends]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: username
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Friendship status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    $ref: "#/components/schemas/FriendshipStatus"
+                  friendshipId:
+                    type: integer
+                    nullable: true
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /friends/user/{username}:
+    get:
+      summary: List accepted friends of a specific user
+      tags: [Friends]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: username
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Friend list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  friends:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/FriendListItem"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /friends/request:
+    post:
+      summary: Send a friend request
+      tags: [Friends]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username]
+              properties:
+                username:
+                  type: string
+      responses:
+        "201":
+          description: Friend request sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FriendRequest"
+        "400":
+          description: Cannot send request to yourself or already friends
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Request already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /friends/{id}/accept:
+    patch:
+      summary: Accept a friend request
+      tags: [Friends]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Friend request accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FriendRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /friends/{id}/decline:
+    patch:
+      summary: Decline a friend request
+      tags: [Friends]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Friend request declined
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /friends/{id}:
+    delete:
+      summary: Remove a friend
+      tags: [Friends]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Friend removed
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
         "500":
           $ref: "#/components/responses/InternalServerError"
 
@@ -293,7 +1526,7 @@ paths:
           name: status
           schema:
             type: string
-            enum: [draft, registration, active, completed, cancelled]
+            enum: [active, completed, cancelled]
         - in: query
           name: page
           schema:
@@ -304,6 +1537,11 @@ paths:
           schema:
             type: integer
             default: 20
+        - in: query
+          name: q
+          schema:
+            type: string
+          description: Search by name
       responses:
         "200":
           description: Paginated list of tournaments
@@ -349,6 +1587,15 @@ paths:
                   enum: [single_elimination, double_elimination, round_robin, double_round_robin, combination, swiss]
                 isPrivate:
                   type: boolean
+                  default: false
+                maxParticipants:
+                  type: integer
+                startDate:
+                  type: string
+                  format: date-time
+                status:
+                  type: string
+                  enum: [active, completed, cancelled]
                 participants:
                   type: array
                   items:
@@ -361,14 +1608,42 @@ paths:
                         enum: [account, guest]
                 bracketData:
                   type: object
-                  description: JSON bracket structure from the client
+                  description: Pre-generated bracket structure from the client
       responses:
         "201":
           description: Tournament created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TournamentDetail"
         "400":
           description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "401":
-          description: Unauthorized
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /tournaments/my-matches:
+    get:
+      summary: Get tournaments the current user is a participant in
+      tags: [Tournaments]
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: List of tournament summaries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TournamentSummary"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "500":
           $ref: "#/components/responses/InternalServerError"
 
@@ -385,8 +1660,12 @@ paths:
       responses:
         "200":
           description: Tournament details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TournamentDetail"
         "404":
-          description: Not found
+          $ref: "#/components/responses/NotFound"
         "500":
           $ref: "#/components/responses/InternalServerError"
 
@@ -415,16 +1694,32 @@ paths:
                   type: string
                 status:
                   type: string
-                  enum: [draft, registration, active, completed, cancelled]
+                  enum: [active, completed, cancelled]
                 bracketData:
                   type: object
+                clientUpdatedAt:
+                  type: string
+                  format: date-time
+                  description: Optimistic concurrency check
       responses:
         "200":
           description: Updated tournament
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TournamentDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "403":
-          description: Forbidden
+          $ref: "#/components/responses/Forbidden"
         "404":
-          description: Not found
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Concurrent modification conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "500":
           $ref: "#/components/responses/InternalServerError"
 
@@ -441,14 +1736,174 @@ paths:
             type: integer
       responses:
         "200":
-          description: Deleted
+          description: Tournament deleted
           content:
             application/json:
-              example:
-                message: Tournament deleted
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "403":
-          description: Forbidden
+          $ref: "#/components/responses/Forbidden"
         "404":
-          description: Not found
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /tournaments/{id}/confirm:
+    patch:
+      summary: Confirm or decline participation in a tournament
+      tags: [Tournaments]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [confirm]
+              properties:
+                confirm:
+                  type: boolean
+                  description: true to confirm, false to decline
+      responses:
+        "200":
+          description: Participation updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TournamentDetail"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /tournaments/{id}/matches/{matchId}:
+    get:
+      summary: Get a specific match
+      tags: [Tournaments]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+        - in: path
+          name: matchId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Match details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  match:
+                    $ref: "#/components/schemas/BracketMatch"
+                  section:
+                    type: string
+                  roundIndex:
+                    type: integer
+                  allowTies:
+                    type: boolean
+                  tournament:
+                    $ref: "#/components/schemas/TournamentSummary"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+    patch:
+      summary: Report a match result
+      tags: [Tournaments]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+        - in: path
+          name: matchId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                winner:
+                  type: string
+                  enum: [a, b, tie]
+                  description: Required unless reset is true
+                scoreA:
+                  type: number
+                  nullable: true
+                scoreB:
+                  type: number
+                  nullable: true
+                reset:
+                  type: boolean
+                  description: Reset a tiebreaker match result
+                clientUpdatedAt:
+                  type: string
+                  format: date-time
+                  description: Optimistic concurrency check
+      responses:
+        "200":
+          description: Match result recorded and bracket advanced
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  bracketData:
+                    type: object
+                  updatedAt:
+                    type: string
+                    format: date-time
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Concurrent modification conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "500":
           $ref: "#/components/responses/InternalServerError"

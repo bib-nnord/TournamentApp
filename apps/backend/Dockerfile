@@ -18,4 +18,4 @@ COPY . .
 EXPOSE 2000
 
 # Start the server
-CMD ["npm", "start"]
+CMD ["npx", "tsx", "server.ts"]

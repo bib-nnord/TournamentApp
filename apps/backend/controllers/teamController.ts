@@ -3,6 +3,32 @@ import type { Request, Response } from 'express';
 import prisma from '../lib/prisma';
 import * as teamService from '../services/teamService';
 
+export async function list(req: Request, res: Response) {
+  try {
+    const limit = Math.min(Math.max(parseInt(String(req.query.limit), 10) || 6, 1), 20);
+
+    const teams = await prisma.team.findMany({
+      take: limit,
+      orderBy: { created_at: 'desc' },
+      include: {
+        _count: { select: { members: true } },
+      },
+    });
+
+    return res.json({
+      teams: teams.map((team) => ({
+        id: team.team_id,
+        name: team.name,
+        open: team.is_open,
+        members: team._count.members,
+      })),
+    });
+  } catch (err) {
+    console.error('[teams/list]', err);
+    return res.status(500).json({ error: 'Failed to fetch teams' });
+  }
+}
+
 export async function search(req: Request, res: Response) {
   try {
     const q = String(req.query.q ?? '').trim();

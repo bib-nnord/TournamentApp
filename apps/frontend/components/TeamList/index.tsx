@@ -1,15 +1,31 @@
-import Link from "next/link";
-import type { TeamSummary } from "@/types";
+"use client";
 
-// Placeholder — replace with real data once backend is ready
-const teams: TeamSummary[] = [
-  { id: "t1", name: "The Knights", members: 4, open: true },
-  { id: "t2", name: "Storm Squad", members: 6, open: false },
-  { id: "t3", name: "Iron Bishops", members: 3, open: true },
-  { id: "t4", name: "Rapid Rookies", members: 8, open: false },
-];
+import Link from "next/link";
+import { useFetch } from "@/hooks/useFetch";
+
+interface TeamCard {
+  id: number;
+  name: string;
+  open: boolean;
+  members: number;
+}
 
 export default function TeamList() {
+  const { data, loading, error } = useFetch<{ teams: TeamCard[] }>("/teams?limit=4");
+  const teams = data?.teams ?? [];
+
+  if (loading) {
+    return <p className="text-sm text-gray-400">Loading…</p>;
+  }
+
+  if (error) {
+    return <p className="text-sm text-red-500">{error}</p>;
+  }
+
+  if (teams.length === 0) {
+    return <p className="text-sm text-gray-500">No teams yet.</p>;
+  }
+
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
       {teams.map((t) => (

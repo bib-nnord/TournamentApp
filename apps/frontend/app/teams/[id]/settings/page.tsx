@@ -23,7 +23,7 @@ export default function TeamSettingsPage() {
         </Link>
         <h1 className="text-2xl font-bold text-gray-900 mb-6">Team settings</h1>
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
-          <TeamSettingsForm team={team} isLead={currentUserRole === "lead"} />
+          <TeamSettingsForm teamId={Number(team.id.replace("t", ""))} team={team} isLead={currentUserRole === "lead"} />
         </div>
       </div>
     </div>

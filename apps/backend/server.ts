@@ -1,6 +1,10 @@
 import 'dotenv/config';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import cors from 'cors';
+import swaggerUi from 'swagger-ui-express';
+import yaml from 'js-yaml';
+import fs from 'fs';
+import path from 'path';
 import authRoutes from './routes/authRoutes';
 import friendRoutes from './routes/friendsRoutes';
 import messageRoutes from './routes/messagesRoutes';
@@ -13,6 +17,9 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
+
+const swaggerDoc = yaml.load(fs.readFileSync(path.join(__dirname, 'swagger.yaml'), 'utf8')) as object;
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDoc));
 
 app.get('/', (_req: Request, res: Response) => res.json({ status: 'ok' }));
 

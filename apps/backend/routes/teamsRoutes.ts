@@ -4,6 +4,7 @@ import * as teamController from '../controllers/teamController';
 
 const router = Router();
 
+router.get('/', teamController.list);
 router.get('/search', teamController.search);
 router.get('/my', authenticate, teamController.myTeams);
 router.get('/user/:userId', teamController.userTeams);
