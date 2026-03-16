@@ -236,6 +236,37 @@ export async function markAllNewsRead(req: Request, res: Response) {
   }
 }
 
+export async function allNews(req: Request, res: Response) {
+  try {
+    const limit = Math.min(Math.max(parseInt(String(req.query.limit), 10) || 10, 1), 50);
+
+    const messages = await prisma.message.findMany({
+      where: {
+        category: 'teams',
+        folder: 'inbox',
+        recipient_id: req.user.id,
+        subject: { not: 'Team invitation' },
+      },
+      orderBy: { created_at: 'desc' },
+      take: limit,
+    });
+
+    return res.json({
+      news: messages.map((message) => ({
+        id: message.message_id,
+        teamId: message.reference_id,
+        subject: message.subject,
+        body: message.body,
+        read: message.is_read,
+        time: message.created_at.toISOString(),
+      })),
+    });
+  } catch (err) {
+    console.error('[teams/allNews]', err);
+    return res.status(500).json({ error: 'Failed to fetch team news' });
+  }
+}
+
 export async function create(req: Request, res: Response) {
   try {
     const userId = req.user.id;

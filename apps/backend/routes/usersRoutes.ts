@@ -9,5 +9,7 @@ router.get('/search', userController.search);
 
 router.get('/me', authenticate, userController.getMe);
 router.patch('/me', authenticate, userController.updateMe);
+router.patch('/me/password', authenticate, userController.changePassword);
+router.patch('/me/email', authenticate, userController.changeEmail);
 
 export default router;

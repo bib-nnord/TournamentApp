@@ -10,6 +10,7 @@ import { teamRoleColors } from "@/lib/colors";
 import { getUserInitial, getTeamPermissions } from "@/lib/helpers";
 import { teamRoleLabel } from "@/constants/labels";
 import type { TeamRelation as TeamRole } from "@/types";
+import UserSearchInput from "@/components/UserSearchInput";
 import {
   LABEL_BACK_TO_TEAMS,
   LABEL_JOIN_TEAM,
@@ -53,6 +54,9 @@ export default function TeamPage() {
   const { id } = useParams<{ id: string }>();
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [inviteUsername, setInviteUsername] = useState("");
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [inviteSent, setInviteSent] = useState<string | null>(null);
 
   const { data, loading, error, setData } = useFetch<{ team: TeamDetailDto }>(id ? `/teams/${id}` : null);
   const { data: newsData, loading: newsLoading, setData: setNewsData } = useFetch<{ news: TeamNewsItem[] }>(
@@ -185,22 +189,21 @@ export default function TeamPage() {
   }
 
   async function handleInviteMember() {
-    const username = window.prompt("Enter the username to invite:")?.trim();
-    if (!username) return;
-
+    if (!inviteUsername) return;
+    setInviteError(null);
+    setInviteSent(null);
     await doAction("invite", async () => {
       const res = await apiFetch(`/teams/${id}/invite`, {
         method: "POST",
-        body: JSON.stringify({ username }),
+        body: JSON.stringify({ username: inviteUsername }),
       });
-
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        setActionError(body.error ?? "Failed to send invite");
+        setInviteError(body.error ?? "Failed to send invite");
         return;
       }
-
-      window.alert(`Invitation sent to ${username}.`);
+      setInviteSent(inviteUsername);
+      setInviteUsername("");
     });
   }
 
@@ -301,17 +304,47 @@ export default function TeamPage() {
               </button>
             )}
 
-            {(isModerator || isLead) && (
-              <button
-                onClick={handleInviteMember}
-                disabled={actionLoading === "invite"}
-                className="text-sm px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-60"
-              >
-                {actionLoading === "invite" ? "Sending…" : LABEL_INVITE_MEMBER}
-              </button>
-            )}
           </div>
         </div>
+
+        {(isModerator || isLead) && (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6">
+            <h2 className="text-sm font-semibold text-gray-800 mb-3">{LABEL_INVITE_MEMBER}</h2>
+            <div className="flex gap-2">
+              {inviteUsername ? (
+                <div className="flex-1 flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2">
+                  <span className="text-sm text-gray-800 font-medium truncate">{inviteUsername}</span>
+                  <button
+                    type="button"
+                    onClick={() => { setInviteUsername(""); setInviteError(null); setInviteSent(null); }}
+                    className="ml-auto text-xs text-gray-400 hover:text-gray-600"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ) : (
+                <UserSearchInput
+                  onSelect={(username) => {
+                    setInviteUsername(username);
+                    setInviteError(null);
+                    setInviteSent(null);
+                  }}
+                  placeholder="Search users…"
+                  className="flex-1"
+                />
+              )}
+              <button
+                onClick={handleInviteMember}
+                disabled={actionLoading === "invite" || !inviteUsername}
+                className="text-sm px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+              >
+                {actionLoading === "invite" ? "Sending…" : "Send invite"}
+              </button>
+            </div>
+            {inviteError && <p className="mt-2 text-xs text-red-500">{inviteError}</p>}
+            {inviteSent && <p className="mt-2 text-xs text-green-600">Invitation sent to {inviteSent}.</p>}
+          </div>
+        )}
 
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
           <div className="flex items-center justify-between mb-4">

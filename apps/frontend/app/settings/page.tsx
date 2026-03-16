@@ -19,6 +19,8 @@ export default function SettingsPage() {
   const dispatch = useDispatch<AppDispatch>();
   const user = useRequireAuth();
   const [allowMessagesFrom, setAllowMessagesFrom] = useState("everyone");
+  const [pwForm, setPwForm] = useState({ open: false, current: "", next: "", loading: false, error: null as string | null, done: false });
+  const [emailForm, setEmailForm] = useState({ open: false, email: "", password: "", loading: false, error: null as string | null, done: false });
 
   useEffect(() => {
     apiFetch("/users/me").then((res) => {
@@ -40,6 +42,44 @@ export default function SettingsPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ allowMessagesFrom: value }),
     });
+  }
+
+  async function handleChangePassword(e: React.FormEvent) {
+    e.preventDefault();
+    setPwForm(f => ({ ...f, loading: true, error: null }));
+    try {
+      const res = await apiFetch("/users/me/password", {
+        method: "PATCH",
+        body: JSON.stringify({ currentPassword: pwForm.current, newPassword: pwForm.next }),
+      });
+      const body = await res.json();
+      if (!res.ok) {
+        setPwForm(f => ({ ...f, loading: false, error: body.error ?? "Failed to change password" }));
+        return;
+      }
+      setPwForm({ open: false, current: "", next: "", loading: false, error: null, done: true });
+    } catch {
+      setPwForm(f => ({ ...f, loading: false, error: "Network error" }));
+    }
+  }
+
+  async function handleChangeEmail(e: React.FormEvent) {
+    e.preventDefault();
+    setEmailForm(f => ({ ...f, loading: true, error: null }));
+    try {
+      const res = await apiFetch("/users/me/email", {
+        method: "PATCH",
+        body: JSON.stringify({ email: emailForm.email, password: emailForm.password }),
+      });
+      const body = await res.json();
+      if (!res.ok) {
+        setEmailForm(f => ({ ...f, loading: false, error: body.error ?? "Failed to change email" }));
+        return;
+      }
+      setEmailForm({ open: false, email: "", password: "", loading: false, error: null, done: true });
+    } catch {
+      setEmailForm(f => ({ ...f, loading: false, error: "Network error" }));
+    }
   }
 
   return (
@@ -134,12 +174,82 @@ export default function SettingsPage() {
           <h2 className="text-base font-semibold text-gray-800 mb-4">Account</h2>
           <p className="text-sm text-gray-500 mb-4">Signed in as <span className="font-medium text-gray-700">{user.email}</span></p>
           <div className="flex flex-col gap-3">
-            <button className="w-full text-left text-sm px-4 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700">
-              {LABEL_CHANGE_PASSWORD}
-            </button>
-            <button className="w-full text-left text-sm px-4 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700">
-              {LABEL_CHANGE_EMAIL}
-            </button>
+            <div>
+              <button
+                onClick={() => setPwForm(f => ({ ...f, open: !f.open, error: null, done: false }))}
+                className="w-full text-left text-sm px-4 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700"
+              >
+                {LABEL_CHANGE_PASSWORD}
+              </button>
+              {pwForm.open && (
+                <form onSubmit={handleChangePassword} className="mt-2 flex flex-col gap-2 px-4 py-3 bg-gray-50 rounded-lg border border-gray-200">
+                  <input
+                    type="password"
+                    placeholder="Current password"
+                    required
+                    value={pwForm.current}
+                    onChange={e => setPwForm(f => ({ ...f, current: e.target.value }))}
+                    className="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  />
+                  <input
+                    type="password"
+                    placeholder="New password"
+                    required
+                    value={pwForm.next}
+                    onChange={e => setPwForm(f => ({ ...f, next: e.target.value }))}
+                    className="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  />
+                  {pwForm.error && <p className="text-xs text-red-500">{pwForm.error}</p>}
+                  <div className="flex gap-2">
+                    <button type="submit" disabled={pwForm.loading} className="text-sm px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50">
+                      {pwForm.loading ? "Saving…" : "Save"}
+                    </button>
+                    <button type="button" onClick={() => setPwForm(f => ({ ...f, open: false, current: "", next: "", error: null }))} className="text-sm px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-600">
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              )}
+              {pwForm.done && !pwForm.open && <p className="text-xs text-green-600 mt-1 px-1">Password changed successfully.</p>}
+            </div>
+            <div>
+              <button
+                onClick={() => setEmailForm(f => ({ ...f, open: !f.open, error: null, done: false }))}
+                className="w-full text-left text-sm px-4 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700"
+              >
+                {LABEL_CHANGE_EMAIL}
+              </button>
+              {emailForm.open && (
+                <form onSubmit={handleChangeEmail} className="mt-2 flex flex-col gap-2 px-4 py-3 bg-gray-50 rounded-lg border border-gray-200">
+                  <input
+                    type="email"
+                    placeholder="New email address"
+                    required
+                    value={emailForm.email}
+                    onChange={e => setEmailForm(f => ({ ...f, email: e.target.value }))}
+                    className="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  />
+                  <input
+                    type="password"
+                    placeholder="Confirm with your current password"
+                    required
+                    value={emailForm.password}
+                    onChange={e => setEmailForm(f => ({ ...f, password: e.target.value }))}
+                    className="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  />
+                  {emailForm.error && <p className="text-xs text-red-500">{emailForm.error}</p>}
+                  <div className="flex gap-2">
+                    <button type="submit" disabled={emailForm.loading} className="text-sm px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50">
+                      {emailForm.loading ? "Saving…" : "Save"}
+                    </button>
+                    <button type="button" onClick={() => setEmailForm(f => ({ ...f, open: false, email: "", password: "", error: null }))} className="text-sm px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-600">
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              )}
+              {emailForm.done && !emailForm.open && <p className="text-xs text-green-600 mt-1 px-1">Email changed successfully.</p>}
+            </div>
             <button
               onClick={handleLogout}
               className="w-full text-left text-sm px-4 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700"

@@ -8,6 +8,7 @@ router.get('/', teamController.list);
 router.get('/search', teamController.search);
 router.get('/my', authenticate, teamController.myTeams);
 router.get('/user/:userId', teamController.userTeams);
+router.get('/news', authenticate, teamController.allNews);
 router.get('/:id/news', authenticate, teamController.news);
 router.patch('/:id/news/read-all', authenticate, teamController.markAllNewsRead);
 

@@ -10,6 +10,15 @@ import { LABEL_CREATE_TOURNAMENT, LABEL_BROWSE_TOURNAMENTS } from "@/constants/l
 import type { TournamentSummary } from "@/components/TournamentList/types";
 import DashboardCard from "@/components/DashboardCard";
 
+interface TeamNewsItem {
+  id: number;
+  teamId: number | null;
+  subject: string;
+  body: string;
+  read: boolean;
+  time: string;
+}
+
 type MyMatch = {
   id: string;
   tournamentId: number;
@@ -28,6 +37,7 @@ export default function DashboardPage() {
   const { data: registrationData, loading: registrationLoading } = useFetch<{ tournaments: TournamentSummary[] }>("/tournaments?status=registration&limit=5");
   const { data: completedData, loading: completedLoading } = useFetch<{ tournaments: TournamentSummary[] }>("/tournaments?status=completed&limit=5");
   const { data: myMatchesData, loading: myMatchesLoading } = useFetch<{ matches: MyMatch[] }>("/tournaments/my-matches");
+  const { data: teamNewsData, loading: teamNewsLoading } = useFetch<{ news: TeamNewsItem[] }>("/teams/news?limit=8");
 
   useEffect(() => setMounted(true), []);
 
@@ -37,6 +47,7 @@ export default function DashboardPage() {
   const upcomingTournaments = registrationData?.tournaments ?? [];
   const recentResults = completedData?.tournaments ?? [];
   const myMatches = myMatchesData?.matches ?? [];
+  const teamNews = teamNewsData?.news ?? [];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -104,8 +115,15 @@ export default function DashboardPage() {
             </div>
           </DashboardCard>
 
-          <DashboardCard title="Team news" dotColor="bg-purple-500" empty={true} emptyMessage="No news from your teams.">
-            <div className="flex flex-col gap-2" />
+          <DashboardCard title="Team news" dotColor="bg-purple-500" loading={teamNewsLoading} empty={teamNews.length === 0} emptyMessage="No news from your teams.">
+            <div className="flex flex-col gap-2">
+              {teamNews.map((item) => (
+                <div key={item.id} className={`px-3 py-2 rounded-lg ${item.read ? "" : "bg-indigo-50"}`}>
+                  <p className="text-sm font-medium text-gray-800">{item.subject}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">{item.body}</p>
+                </div>
+              ))}
+            </div>
           </DashboardCard>
 
           <DashboardCard title="My matches" dotColor="bg-orange-500" loading={myMatchesLoading} empty={myMatches.length === 0} emptyMessage="No matches found.">
