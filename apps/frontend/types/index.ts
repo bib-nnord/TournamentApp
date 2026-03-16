@@ -36,6 +36,9 @@ export const tournamentFormatInfo: Record<TournamentFormat, { label: string; des
 };
 
 export type TournamentStatus = "draft" | "registration" | "active" | "completed" | "cancelled";
+export type TournamentCreationMode = "quick" | "scheduled";
+export type TournamentRegistrationMode = "invite_only" | "open" | "approval";
+export type TournamentRegistrationStatus = "invited" | "pending" | "approved" | "declined" | "withdrawn";
 
 /** Human-readable labels for tournament status badges */
 export const tournamentStatusLabel: Record<TournamentStatus, string> = {
@@ -50,6 +53,8 @@ export interface Tournament {
   id: number;
   name: string;
   status: TournamentStatus;
+  creationMode?: TournamentCreationMode;
+  registrationMode?: TournamentRegistrationMode;
   startDate: string | null;
   participants: number;
   max: number;

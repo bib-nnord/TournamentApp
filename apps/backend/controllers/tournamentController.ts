@@ -108,6 +108,7 @@ export async function create(req: Request, res: Response) {
           team_id: participant.existingTeamId || null,
           members_snapshot: membersSnapshot,
           confirmed: creatorIsMember,
+          registration_status: creatorIsMember ? 'approved' : 'invited',
         };
       }
 
@@ -119,6 +120,7 @@ export async function create(req: Request, res: Response) {
           user_id: resolved?.user_id || null,
           display_name: resolved ? resolved.display_name || resolved.username : participant.name,
           confirmed: resolved?.user_id === req.user.id,
+          registration_status: resolved?.user_id === req.user.id ? 'approved' : 'invited',
         };
       }
 
@@ -126,6 +128,7 @@ export async function create(req: Request, res: Response) {
         ...base,
         participant_type: 'guest',
         guest_name: participant.name,
+        registration_status: 'approved',
       };
     });
 
@@ -135,11 +138,15 @@ export async function create(req: Request, res: Response) {
         game,
         description: description || null,
         format: format as any,
+        creation_mode: 'quick',
         status: (status || 'active') as any,
         is_private: isPrivate ?? false,
+        registration_mode: 'invite_only',
+        auto_start: false,
         max_participants: maxParticipants ?? participants.length,
         start_date: startDate ? new Date(startDate) : null,
         bracket_data: bracketData ?? null,
+        preview_bracket_data: bracketData ?? null,
         created_by: req.user.id,
         participants: {
           create: participantRecords as any,
@@ -406,14 +413,14 @@ export async function confirmParticipation(req: Request, res: Response) {
         where: {
           tournament_id_seed: { tournament_id: id, seed: participant.seed },
         },
-        data: { confirmed: true },
+        data: { confirmed: true, registration_status: 'approved' },
       });
     } else {
       await prisma.tournamentParticipant.update({
         where: {
           tournament_id_seed: { tournament_id: id, seed: participant.seed },
         },
-        data: { declined: true },
+        data: { declined: true, registration_status: 'declined' },
       });
 
       if (tournament.bracket_data) {
@@ -463,11 +470,17 @@ function formatTournament(tournament: any) {
     game: tournament.game,
     description: tournament.description,
     format: tournament.format,
+    creationMode: tournament.creation_mode,
     status: tournament.status,
     isPrivate: tournament.is_private,
+    registrationMode: tournament.registration_mode,
+    autoStart: tournament.auto_start,
     max: tournament.max_participants,
     startDate: tournament.start_date,
     bracketData: tournament.bracket_data,
+    previewBracketData: tournament.preview_bracket_data,
+    registrationClosesAt: tournament.registration_closes_at,
+    startedAt: tournament.started_at,
     creator: tournament.creator
       ? { id: tournament.creator.user_id, username: tournament.creator.username }
       : undefined,
@@ -482,6 +495,7 @@ function formatTournament(tournament: any) {
           membersSnapshot: participant.members_snapshot || null,
           confirmed: participant.confirmed,
           declined: participant.declined,
+          registrationStatus: participant.registration_status,
         }))
       : undefined,
     matches: tournament.matches

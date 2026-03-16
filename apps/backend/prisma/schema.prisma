@@ -173,11 +173,17 @@ model Tournament {
   game           String            @db.VarChar(100)
   description    String?           @db.Text
   format         TournamentFormat
+  creation_mode  TournamentCreationMode @default(quick)
   status         TournamentStatus  @default(draft)
   is_private     Boolean           @default(false)
+  registration_mode TournamentRegistrationMode @default(invite_only)
+  auto_start     Boolean           @default(false)
   max_participants Int?
   start_date     DateTime?         @db.Timestamp(6)
+  registration_closes_at DateTime? @db.Timestamp(6)
   bracket_data   Json?
+  preview_bracket_data Json?
+  started_at     DateTime?         @db.Timestamp(6)
   created_by     Int
   created_at     DateTime          @default(now()) @db.Timestamp(6)
   updated_at     DateTime          @updatedAt @db.Timestamp(6)
@@ -200,6 +206,7 @@ model TournamentParticipant {
   members_snapshot Json?           // snapshot of team members at tournament time
   confirmed        Boolean         @default(false)
   declined         Boolean         @default(false)
+  registration_status TournamentRegistrationStatus @default(invited)
   joined_at        DateTime        @default(now()) @db.Timestamp(6)
 
   tournament Tournament @relation(fields: [tournament_id], references: [tournament_id], onDelete: Cascade)
@@ -223,6 +230,25 @@ enum TournamentFormat {
   double_round_robin
   combination
   swiss
+}
+
+enum TournamentCreationMode {
+  quick
+  scheduled
+}
+
+enum TournamentRegistrationMode {
+  invite_only
+  open
+  approval
+}
+
+enum TournamentRegistrationStatus {
+  invited
+  pending
+  approved
+  declined
+  withdrawn
 }
 
 enum TournamentStatus {

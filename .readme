@@ -11,3 +11,60 @@ scheduled tournaments
 redesign
 work on profile more.
 settings page
+
+
+scheduled tournaments plan:
+
+phase 1a done:
+- added schema compatibility fields/enums
+- added migration for scheduled tournament fields
+- added creationMode / registrationMode / previewBracketData / registrationStatus types
+- kept old confirmed/declined flow working for quick tournaments
+
+agreed product behavior:
+- private scheduled tournaments = invite only
+- public scheduled tournaments = open signup OR approval required
+- invites always exist
+- participants in v1 = accounts + teams
+- bracket generates on start
+- organizer sees/tweaks preview before start
+- start mode = manual first, auto-start later
+
+recommended mvp scope:
+- separate scheduled create page + form
+- create scheduled tournament in registration state
+- registration modes: invite_only / open / approval
+- register/request/invite endpoints
+- organizer approve/decline entrants
+- organizer preview bracket
+- manual start endpoint to generate final bracket and set active
+
+schema added:
+- tournament.creation_mode = quick | scheduled
+- tournament.registration_mode = invite_only | open | approval
+- tournament.auto_start
+- tournament.registration_closes_at
+- tournament.preview_bracket_data
+- tournament.started_at
+- tournament_participant.registration_status = invited | pending | approved | declined | withdrawn
+
+next phase (1b):
+- POST /tournaments/scheduled
+- POST /tournaments/:id/register
+- DELETE /tournaments/:id/register
+- PATCH /tournaments/:id/respond-invite
+- PATCH /tournaments/:id/participants/:seed/approve
+- PATCH /tournaments/:id/participants/:seed/decline
+- POST /tournaments/:id/preview-bracket
+- POST /tournaments/:id/start
+
+frontend after backend:
+- enable scheduled card on tournaments/create
+- add app/tournaments/create/scheduled/page.tsx
+- add ScheduledTournamentForm
+- update tournament view page with registration / approval / preview / start UI
+
+important:
+- quick and scheduled should stay separate flows
+- do not overload quick tournament form
+- manual start first, true auto-start later with worker/scheduler

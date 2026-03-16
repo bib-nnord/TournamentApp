@@ -1,4 +1,4 @@
-import type { TournamentStatus, TournamentFormat } from "@/types";
+import type { TournamentStatus, TournamentFormat, TournamentCreationMode, TournamentRegistrationMode, TournamentRegistrationStatus } from "@/types";
 import type { Bracket } from "@/lib/generateBracket";
 
 export interface TournamentParticipantData {
@@ -11,6 +11,7 @@ export interface TournamentParticipantData {
   membersSnapshot: { name: string; type: string; userId: number | null }[] | null;
   confirmed: boolean;
   declined: boolean;
+  registrationStatus?: TournamentRegistrationStatus;
 }
 
 export interface TournamentData {
@@ -20,10 +21,16 @@ export interface TournamentData {
   description: string | null;
   format: TournamentFormat;
   status: TournamentStatus;
+  creationMode?: TournamentCreationMode;
+  registrationMode?: TournamentRegistrationMode;
   isPrivate: boolean;
   max: number;
   bracketData: Bracket | null;
+  previewBracketData?: Bracket | null;
   startDate: string | null;
+  registrationClosesAt?: string | null;
+  autoStart?: boolean;
+  startedAt?: string | null;
   creator: { id: number; username: string };
   participants: TournamentParticipantData[];
   createdAt: string;
