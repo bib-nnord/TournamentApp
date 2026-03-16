@@ -11,6 +11,7 @@ router.patch('/read-all', messageController.markAllRead);
 
 router.get('/', messageController.list);
 router.post('/', messageController.send);
+router.patch('/:id/team-invite', messageController.respondTeamInvite);
 router.get('/:id', messageController.getById);
 router.patch('/:id/read', messageController.markRead);
 router.delete('/:id', messageController.remove);

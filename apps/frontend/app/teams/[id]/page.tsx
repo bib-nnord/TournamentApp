@@ -2,9 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
-import Modal from "@/components/Modal";
-import TeamSettingsForm from "@/components/TeamSettingsForm";
+import { useParams } from "next/navigation";
 import { useFetch } from "@/hooks/useFetch";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { apiFetch } from "@/lib/api";
@@ -18,6 +16,7 @@ import {
   LABEL_REQUEST_TO_JOIN,
   LABEL_LEAVE_TEAM,
   LABEL_INVITE_MEMBER,
+  LABEL_EDIT_TEAM,
   LABEL_DEMOTE,
   LABEL_PROMOTE,
   LABEL_KICK,
@@ -41,16 +40,26 @@ interface TeamDetailDto {
   myRole: TeamRole;
 }
 
+interface TeamNewsItem {
+  id: number;
+  subject: string;
+  body: string;
+  read: boolean;
+  time: string;
+}
+
 export default function TeamPage() {
   const user = useRequireAuth();
   const { id } = useParams<{ id: string }>();
-  const router = useRouter();
-  const [showSettings, setShowSettings] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const { data, loading, error, setData } = useFetch<{ team: TeamDetailDto }>(id ? `/teams/${id}` : null);
+  const { data: newsData, loading: newsLoading, setData: setNewsData } = useFetch<{ news: TeamNewsItem[] }>(
+    id ? `/teams/${id}/news?limit=10` : null
+  );
   const team = data?.team;
+  const teamNews = newsData?.news ?? [];
 
   if (!user) return null;
   const userId = user.id;
@@ -175,21 +184,43 @@ export default function TeamPage() {
     });
   }
 
-  function handleSettingsSaved(updated: { name: string; description: string; open: boolean; disciplines: string[] }) {
-    setData((prev) =>
-      prev
-        ? {
-            team: {
-              ...prev.team,
-              name: updated.name,
-              description: updated.description,
-              open: updated.open,
-              disciplines: updated.disciplines,
-            },
-          }
-        : prev
-    );
-    setShowSettings(false);
+  async function handleInviteMember() {
+    const username = window.prompt("Enter the username to invite:")?.trim();
+    if (!username) return;
+
+    await doAction("invite", async () => {
+      const res = await apiFetch(`/teams/${id}/invite`, {
+        method: "POST",
+        body: JSON.stringify({ username }),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setActionError(body.error ?? "Failed to send invite");
+        return;
+      }
+
+      window.alert(`Invitation sent to ${username}.`);
+    });
+  }
+
+  async function handleMarkAllNewsRead() {
+    await doAction("news-read-all", async () => {
+      const res = await apiFetch(`/teams/${id}/news/read-all`, { method: "PATCH" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setActionError(body.error ?? "Failed to mark team news as read");
+        return;
+      }
+
+      setNewsData((prev) =>
+        prev
+          ? {
+              news: prev.news.map((item) => ({ ...item, read: true })),
+            }
+          : prev
+      );
+    });
   }
 
   return (
@@ -218,14 +249,14 @@ export default function TeamPage() {
                   {teamRoleLabel[currentUserRole as "lead" | "moderator" | "member"]}
                 </span>
               )}
-              {canManage && (
-                <button
-                  onClick={() => setShowSettings(true)}
+              {currentUserRole !== "none" && (
+                <Link
+                  href={`/teams/${team.id}/settings`}
                   className="text-sm px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-500"
-                  title="Team settings"
+                  title={LABEL_EDIT_TEAM}
                 >
-                  ⚙
-                </button>
+                  {LABEL_EDIT_TEAM}
+                </Link>
               )}
             </div>
           </div>
@@ -272,17 +303,45 @@ export default function TeamPage() {
 
             {(isModerator || isLead) && (
               <button
-                disabled
-                title="Invite by username — coming soon"
-                className="text-sm px-4 py-2 bg-indigo-600 text-white rounded-lg opacity-50 cursor-not-allowed"
+                onClick={handleInviteMember}
+                disabled={actionLoading === "invite"}
+                className="text-sm px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-60"
               >
-                {LABEL_INVITE_MEMBER}
+                {actionLoading === "invite" ? "Sending…" : LABEL_INVITE_MEMBER}
               </button>
             )}
           </div>
         </div>
 
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-base font-semibold text-gray-800">Team news</h2>
+            {teamNews.some((item) => !item.read) && (
+              <button
+                onClick={handleMarkAllNewsRead}
+                disabled={actionLoading === "news-read-all"}
+                className="text-xs px-2.5 py-1 border border-gray-300 rounded hover:bg-gray-50 text-gray-600 disabled:opacity-60"
+              >
+                {actionLoading === "news-read-all" ? "Marking…" : "Mark all as read"}
+              </button>
+            )}
+          </div>
+          {newsLoading ? (
+            <p className="text-sm text-gray-400 mb-5">Loading team news…</p>
+          ) : teamNews.length === 0 ? (
+            <p className="text-sm text-gray-500 mb-5">No team news yet.</p>
+          ) : (
+            <div className="mb-5 flex flex-col gap-3">
+              {teamNews.map((item) => (
+                <div key={item.id} className={`px-3 py-2 rounded-lg border ${item.read ? "border-gray-100 bg-gray-50" : "border-indigo-100 bg-indigo-50"}`}>
+                  <p className="text-sm font-medium text-gray-800">{item.subject}</p>
+                  <p className="text-xs text-gray-600 mt-0.5">{item.body}</p>
+                  <p className="text-[11px] text-gray-400 mt-1">{new Date(item.time).toLocaleString()}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
           <h2 className="text-base font-semibold text-gray-800 mb-4">Members ({team.membersCount})</h2>
           <div className="flex flex-col gap-2">
             {team.members.map((member) => (
@@ -326,16 +385,6 @@ export default function TeamPage() {
           </div>
         </div>
       </div>
-
-      <Modal isOpen={showSettings} onClose={() => setShowSettings(false)} title="Team settings">
-        <TeamSettingsForm
-          teamId={team.id}
-          team={{ name: team.name, description: team.description || "", open: team.open, disciplines: team.disciplines }}
-          isLead={isLead}
-          onSuccess={handleSettingsSaved}
-          onDisband={() => router.push("/teams")}
-        />
-      </Modal>
     </div>
   );
 }

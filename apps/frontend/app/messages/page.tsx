@@ -194,6 +194,10 @@ export default function MessagesPage() {
     return m.category === "tournaments" && m.referenceId != null;
   }
 
+  function isTeamInviteMessage(m: Message) {
+    return m.category === "teams" && m.folder === "inbox" && m.subject === "Team invitation" && m.referenceId != null;
+  }
+
   async function handleSendMessage() {
     if (!composeRecipient.trim() || !composeSubject.trim() || !composeBody.trim()) return;
     setComposeSending(true);
@@ -420,6 +424,51 @@ export default function MessagesPage() {
             <hr className="border-gray-100 mb-4" />
 
             <p className="text-sm text-gray-700 leading-relaxed">{openMessage.body}</p>
+
+            {isTeamInviteMessage(openMessage) && !openMessage.read && (
+              <div className="flex items-center gap-2 mt-4 pt-4 border-t border-gray-100">
+                <button
+                  onClick={async () => {
+                    const res = await apiFetch(`/messages/${openMessage.id}/team-invite`, {
+                      method: "PATCH",
+                      body: JSON.stringify({ accept: true }),
+                    });
+                    if (!res.ok) {
+                      const body = await res.json().catch(() => ({}));
+                      alert(body.error ?? "Failed to accept invite");
+                      return;
+                    }
+                    setMessages((prev) => prev.filter((m) => m.id !== openMessage.id));
+                    setOpenId(null);
+                    window.dispatchEvent(new Event("unread-count-changed"));
+                    alert("Invite accepted. You are now in the team.");
+                  }}
+                  className="text-sm px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                >
+                  Accept invite
+                </button>
+                <button
+                  onClick={async () => {
+                    const res = await apiFetch(`/messages/${openMessage.id}/team-invite`, {
+                      method: "PATCH",
+                      body: JSON.stringify({ accept: false }),
+                    });
+                    if (!res.ok) {
+                      const body = await res.json().catch(() => ({}));
+                      alert(body.error ?? "Failed to decline invite");
+                      return;
+                    }
+                    setMessages((prev) => prev.filter((m) => m.id !== openMessage.id));
+                    setOpenId(null);
+                    window.dispatchEvent(new Event("unread-count-changed"));
+                    alert("Invite declined.");
+                  }}
+                  className="text-sm px-4 py-2 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50"
+                >
+                  Decline
+                </button>
+              </div>
+            )}
 
             {hasTournamentLink(openMessage) && (
               <div className="flex items-center gap-2 mt-4 pt-4 border-t border-gray-100">

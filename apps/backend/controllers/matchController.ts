@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 
 import prisma from '../lib/prisma';
 import { notifyUsers, buildNameToUserIds, resolveNamesToUserIds } from '../lib/notify';
+import { publishTeamNewsToTeams } from '../lib/teamNews';
 import Tournament from '../models/Tournament';
 import * as tournamentService from '../services/tournamentService';
 
@@ -181,6 +182,24 @@ export async function reportResult(req: Request, res: Response) {
 
       notifyResult(match.participantA, match.participantB);
       notifyResult(match.participantB, match.participantA);
+
+      const teamIdsForCompletedMatch = [...new Set(
+        confirmedParticipants
+          .filter((participant: any) => [match.participantA, match.participantB].includes(participant.display_name) && participant.team_id != null)
+          .map((participant: any) => participant.team_id)
+      )] as number[];
+
+      if (teamIdsForCompletedMatch.length > 0) {
+        try {
+          await publishTeamNewsToTeams(
+            teamIdsForCompletedMatch,
+            `Match completed: ${tournamentName}`,
+            `${match.participantA} vs ${match.participantB} has been completed.${scoreText}`
+          );
+        } catch (newsErr) {
+          console.error('[match.reportResult.teamNews]', newsErr);
+        }
+      }
     }
 
     if (!isTie && section !== 'tiebreaker') {

@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 
 import prisma from '../lib/prisma';
 import { notifyUsers, collectAllUserIds } from '../lib/notify';
+import { publishTeamNewsToTeams } from '../lib/teamNews';
 import Tournament from '../models/Tournament';
 import * as tournamentService from '../services/tournamentService';
 
@@ -158,6 +159,23 @@ export async function create(req: Request, res: Response) {
       tournament.tournament_id
     );
 
+    const participatingTeamIds = tournament.participants
+      .map((participant: { team_id?: number | null }) => participant.team_id ?? null)
+      .filter((teamId: number | null): teamId is number => teamId != null);
+
+    if (tournament.start_date && new Date(tournament.start_date).getTime() > Date.now() && participatingTeamIds.length > 0) {
+      const startText = new Date(tournament.start_date).toLocaleString();
+      try {
+        await publishTeamNewsToTeams(
+          participatingTeamIds,
+          `Upcoming tournament: ${name}`,
+          `${name} (${game}) is scheduled for ${startText}.`
+        );
+      } catch (newsErr) {
+        console.error('[tournament.create.teamNews]', newsErr);
+      }
+    }
+
     return res.status(201).json(formatTournament(tournament));
   } catch (err) {
     console.error('[tournament.create]', err);
@@ -303,6 +321,21 @@ export async function update(req: Request, res: Response) {
       const recipientIds = collectAllUserIds(confirmedParticipants).filter((uid: number) => uid !== req.user.id);
       const verb = status === 'completed' ? 'has been completed' : 'has been cancelled';
       notifyUsers(recipientIds, `${tournament.name} ${verb}`, `The tournament "${tournament.name}" ${verb}.`, tournament.tournament_id);
+
+      if (status === 'completed') {
+        const teamIds = confirmedParticipants
+          .map((participant: { team_id?: number | null }) => participant.team_id ?? null)
+          .filter((teamId: number | null): teamId is number => teamId != null);
+        try {
+          await publishTeamNewsToTeams(
+            teamIds,
+            `Tournament completed: ${tournament.name}`,
+            `The tournament "${tournament.name}" has been completed.`
+          );
+        } catch (newsErr) {
+          console.error('[tournament.update.teamNews]', newsErr);
+        }
+      }
     }
 
     return res.json(formatTournament(updated));

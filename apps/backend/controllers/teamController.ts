@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 
 import prisma from '../lib/prisma';
 import * as teamService from '../services/teamService';
+import { publishTeamNews } from '../lib/teamNews';
 
 export async function list(req: Request, res: Response) {
   try {
@@ -165,6 +166,76 @@ export async function getById(req: Request, res: Response) {
   }
 }
 
+export async function news(req: Request, res: Response) {
+  try {
+    const teamId = parseInt(String(req.params.id), 10);
+    if (isNaN(teamId)) {
+      return res.status(400).json({ error: 'Invalid team ID' });
+    }
+
+    const membership = await teamService.findMembership(teamId, req.user.id);
+    if (!membership) {
+      return res.status(403).json({ error: 'Not authorized' });
+    }
+
+    const limit = Math.min(Math.max(parseInt(String(req.query.limit), 10) || 20, 1), 100);
+
+    const messages = await prisma.message.findMany({
+      where: {
+        category: 'teams',
+        folder: 'inbox',
+        recipient_id: req.user.id,
+        reference_id: teamId,
+      },
+      orderBy: { created_at: 'desc' },
+      take: limit,
+    });
+
+    return res.json({
+      news: messages.map((message) => ({
+        id: message.message_id,
+        subject: message.subject,
+        body: message.body,
+        read: message.is_read,
+        time: message.created_at.toISOString(),
+      })),
+    });
+  } catch (err) {
+    console.error('[teams/news]', err);
+    return res.status(500).json({ error: 'Failed to fetch team news' });
+  }
+}
+
+export async function markAllNewsRead(req: Request, res: Response) {
+  try {
+    const teamId = parseInt(String(req.params.id), 10);
+    if (isNaN(teamId)) {
+      return res.status(400).json({ error: 'Invalid team ID' });
+    }
+
+    const membership = await teamService.findMembership(teamId, req.user.id);
+    if (!membership) {
+      return res.status(403).json({ error: 'Not authorized' });
+    }
+
+    await prisma.message.updateMany({
+      where: {
+        category: 'teams',
+        folder: 'inbox',
+        recipient_id: req.user.id,
+        reference_id: teamId,
+        is_read: false,
+      },
+      data: { is_read: true },
+    });
+
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('[teams/markAllNewsRead]', err);
+    return res.status(500).json({ error: 'Failed to mark team news as read' });
+  }
+}
+
 export async function create(req: Request, res: Response) {
   try {
     const userId = req.user.id;
@@ -289,6 +360,17 @@ export async function join(req: Request, res: Response) {
       data: { team_id: teamId, user_id: req.user.id, role: 'member' },
     });
 
+    try {
+      const user = await prisma.user.findUnique({
+        where: { user_id: req.user.id },
+        select: { username: true, display_name: true },
+      });
+      const memberName = user?.display_name || user?.username || 'A member';
+      await publishTeamNews(teamId, `${memberName} joined ${team.name}`, `${memberName} just joined the team.`);
+    } catch (newsErr) {
+      console.error('[teams/join.news]', newsErr);
+    }
+
     const updated = await prisma.team.findUnique({
       where: { team_id: teamId },
       include: {
@@ -304,6 +386,98 @@ export async function join(req: Request, res: Response) {
   } catch (err) {
     console.error('[teams/join]', err);
     res.status(500).json({ error: 'Failed to join team' });
+  }
+}
+
+export async function inviteMember(req: Request, res: Response) {
+  try {
+    const teamId = parseInt(String(req.params.id), 10);
+    if (isNaN(teamId)) return res.status(400).json({ error: 'Invalid team ID' });
+
+    const actorMembership = await teamService.findMembership(teamId, req.user.id);
+    if (!actorMembership || (actorMembership.role !== 'lead' && actorMembership.role !== 'moderator')) {
+      return res.status(403).json({ error: 'Not authorized to invite members' });
+    }
+
+    const username = String((req.body as { username?: string }).username ?? '').trim();
+    if (!username) {
+      return res.status(400).json({ error: 'username is required' });
+    }
+
+    const [team, targetUser, senderUser] = await Promise.all([
+      prisma.team.findUnique({ where: { team_id: teamId }, select: { team_id: true, name: true } }),
+      prisma.user.findFirst({
+        where: { username: { equals: username, mode: 'insensitive' } },
+        select: { user_id: true, username: true, display_name: true },
+      }),
+      prisma.user.findUnique({
+        where: { user_id: req.user.id },
+        select: { user_id: true, username: true, display_name: true },
+      }),
+    ]);
+
+    if (!team) return res.status(404).json({ error: 'Team not found' });
+    if (!targetUser) return res.status(404).json({ error: 'User not found' });
+    if (targetUser.user_id === req.user.id) return res.status(400).json({ error: 'You cannot invite yourself' });
+
+    const existingMembership = await teamService.findMembership(teamId, targetUser.user_id);
+    if (existingMembership) {
+      return res.status(409).json({ error: 'User is already a member of this team' });
+    }
+
+    const pendingInvite = await prisma.message.findFirst({
+      where: {
+        category: 'teams',
+        folder: 'inbox',
+        recipient_id: targetUser.user_id,
+        reference_id: teamId,
+        subject: 'Team invitation',
+        is_read: false,
+      },
+      select: { message_id: true },
+    });
+
+    if (pendingInvite) {
+      return res.status(409).json({ error: 'A pending invite already exists for this user' });
+    }
+
+    const senderName = senderUser?.display_name || senderUser?.username || null;
+    const recipientName = targetUser.display_name || targetUser.username;
+
+    await prisma.$transaction([
+      prisma.message.create({
+        data: {
+          sender_id: req.user.id,
+          recipient_id: targetUser.user_id,
+          sender_name: senderName,
+          recipient_name: recipientName,
+          category: 'teams',
+          folder: 'inbox',
+          subject: 'Team invitation',
+          body: `${senderName || 'A team member'} invited you to join the team "${team.name}".`,
+          reference_id: teamId,
+        },
+      }),
+      prisma.message.create({
+        data: {
+          sender_id: req.user.id,
+          recipient_id: targetUser.user_id,
+          sender_name: senderName,
+          recipient_name: recipientName,
+          category: 'teams',
+          folder: 'sent',
+          subject: 'Team invitation',
+          body: `You invited ${recipientName} to join "${team.name}".`,
+          reference_id: teamId,
+          is_read: true,
+        },
+      }),
+    ]);
+
+    return res.status(201).json({ ok: true });
+  } catch (err) {
+    console.error('[teams/inviteMember]', err);
+    return res.status(500).json({ error: 'Failed to send invite' });
   }
 }
 

@@ -11,12 +11,14 @@ import messageRoutes from './routes/messagesRoutes';
 import teamRoutes from './routes/teamsRoutes';
 import tournamentRoutes from './routes/tournamentsRoutes';
 import userRoutes from './routes/usersRoutes';
+import { optionalAuth } from './middleware/authMiddleware';
 
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
+app.use(optionalAuth);
 
 const swaggerDoc = yaml.load(fs.readFileSync(path.join(__dirname, 'swagger.yaml'), 'utf8')) as object;
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDoc));
