@@ -6,7 +6,6 @@ const router = Router();
 
 router.get('/', userController.list);
 router.get('/search', userController.search);
-
 router.get('/me', authenticate, userController.getMe);
 router.patch('/me', authenticate, userController.updateMe);
 router.patch('/me/password', authenticate, userController.changePassword);

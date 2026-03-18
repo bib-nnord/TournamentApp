@@ -7,8 +7,12 @@
   "type": "commonjs",
   "main": "server.ts",
   "scripts": {
+    "swagger:generate": "tsx scripts/generate-swagger.ts",
+    "predev": "tsx scripts/generate-swagger.ts",
     "dev": "tsx watch server.ts",
+    "prestart": "tsx scripts/generate-swagger.ts",
     "start": "tsx server.ts",
+    "build": "tsx scripts/generate-swagger.ts && tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "postinstall": "prisma generate",
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -24,6 +28,7 @@
     "jsonwebtoken": "^9.0.3",
     "pg": "^8.18.0",
     "prisma": "^7.4.1",
+    "swagger-autogen": "^2.23.7",
     "swagger-ui-express": "^5.0.1",
     "tsx": "^4.20.5"
   },
