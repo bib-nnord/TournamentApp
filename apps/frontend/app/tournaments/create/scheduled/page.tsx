@@ -1,0 +1,78 @@
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { LABEL_BACK_TO_TOURNAMENT_TYPE } from "@/constants/labels";
+import ScheduledTournamentForm, { type ScheduledTournamentData } from "@/components/ScheduledTournamentForm";
+import { apiFetch } from "@/lib/api";
+
+export default function ScheduledTournamentPage() {
+  const router = useRouter();
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  async function handleSubmit(data: ScheduledTournamentData) {
+    setSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      const res = await apiFetch("/tournaments/scheduled", {
+        method: "POST",
+        body: JSON.stringify({
+          name: data.name,
+          game: data.game,
+          description: data.description || undefined,
+          format: data.format,
+          isPrivate: data.isPrivate,
+          teamMode: data.teamMode,
+          registrationMode: data.registrationMode,
+          maxParticipants: data.maxParticipants ?? undefined,
+          startDate: data.startDate ? new Date(data.startDate).toISOString() : undefined,
+          registrationClosesAt: data.registrationClosesAt ? new Date(data.registrationClosesAt).toISOString() : undefined,
+          invites: data.invites,
+        }),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setSubmitError(body.error ?? "Failed to create tournament");
+        return;
+      }
+
+      const created = await res.json();
+      router.push(`/tournaments/view/${created.id}`);
+    } catch {
+      setSubmitError("Network error — please try again");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-6xl mx-auto px-4 py-10">
+        <Link
+          href="/tournaments/create"
+          className="text-sm text-gray-500 hover:text-gray-700 mb-6 inline-block"
+        >
+          {LABEL_BACK_TO_TOURNAMENT_TYPE}
+        </Link>
+
+        <div className="max-w-2xl">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+            <h1 className="text-2xl font-bold text-gray-900 mb-1">Scheduled Tournament</h1>
+            <p className="text-sm text-gray-500 mb-6">
+              Set a future date and open registration. Participants sign up on their own.
+            </p>
+            <ScheduledTournamentForm
+              onSubmit={handleSubmit}
+              submitting={submitting}
+              submitError={submitError}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

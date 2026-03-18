@@ -10,6 +10,7 @@ import {
   LABEL_GENERATE_BRACKET,
   LABEL_TEAM_MODE,
 } from "@/constants/labels";
+import { inputClass, labelClass, ToggleSwitch, FormSection } from "../FormPrimitives";
 import UserSearchInput from "../UserSearchInput";
 import type { Participant, ParticipantMemberType, TournamentTeam, TeamSearchResult, QuickTournamentData } from "./types";
 
@@ -153,14 +154,9 @@ export default function QuickTournamentForm({ initial, onSubmit, onChange }: Pro
     onSubmit({ name, game, description, format, participants, isPrivate, teamMode, allowTies });
   }
 
-  const inputClass =
-    "w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-400";
-  const labelClass = "block text-xs text-gray-400 uppercase tracking-wide mb-1";
-
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-      <div>
-        <label className={labelClass}>Tournament name</label>
+      <FormSection label="Tournament name">
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -168,10 +164,9 @@ export default function QuickTournamentForm({ initial, onSubmit, onChange }: Pro
           placeholder="e.g. Friday Night Showdown"
           className={inputClass}
         />
-      </div>
+      </FormSection>
 
-      <div>
-        <label className={labelClass}>Game / Discipline</label>
+      <FormSection label="Game / Discipline">
         <input
           value={game}
           onChange={(e) => setGame(e.target.value)}
@@ -179,12 +174,9 @@ export default function QuickTournamentForm({ initial, onSubmit, onChange }: Pro
           placeholder="e.g. Chess, Rocket League"
           className={inputClass}
         />
-      </div>
+      </FormSection>
 
-      <div>
-        <label className={labelClass}>
-          Description <span className="normal-case text-gray-300">(optional)</span>
-        </label>
+      <FormSection label="Description" optional>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
@@ -192,10 +184,9 @@ export default function QuickTournamentForm({ initial, onSubmit, onChange }: Pro
           placeholder="Describe the format, rules, prizes…"
           className={`${inputClass} resize-none`}
         />
-      </div>
+      </FormSection>
 
-      <div>
-        <label className={labelClass}>Tournament format</label>
+      <FormSection label="Tournament format">
         <select
           value={format}
           onChange={(e) => setFormat(e.target.value as TournamentFormat)}
@@ -207,76 +198,30 @@ export default function QuickTournamentForm({ initial, onSubmit, onChange }: Pro
             </option>
           ))}
         </select>
-      </div>
+      </FormSection>
 
-      {/* Team mode toggle */}
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          role="switch"
-          aria-checked={teamMode}
-          onClick={() => setTeamMode((v) => !v)}
-          className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
-            teamMode ? "bg-purple-600" : "bg-gray-200"
-          }`}
-        >
-          <span
-            className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-              teamMode ? "translate-x-4" : "translate-x-0"
-            }`}
-          />
-        </button>
-        <span className="text-sm text-gray-700">
-          {LABEL_TEAM_MODE}{" "}
-          <span className="text-gray-400">— teams compete instead of individuals</span>
-        </span>
-      </div>
+      <ToggleSwitch
+        checked={teamMode}
+        onChange={setTeamMode}
+        label={LABEL_TEAM_MODE}
+        hint="teams compete instead of individuals"
+        activeColor="bg-purple-600"
+      />
 
-      {/* Allow ties toggle */}
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          role="switch"
-          aria-checked={allowTies}
-          onClick={() => setAllowTies((v) => !v)}
-          className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
-            allowTies ? "bg-indigo-600" : "bg-gray-200"
-          }`}
-        >
-          <span
-            className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-              allowTies ? "translate-x-4" : "translate-x-0"
-            }`}
-          />
-        </button>
-        <span className="text-sm text-gray-700">
-          Allow ties{" "}
-          <span className="text-gray-400">— matches can end in a draw</span>
-        </span>
-      </div>
+      <ToggleSwitch
+        checked={allowTies}
+        onChange={setAllowTies}
+        label="Allow ties"
+        hint="matches can end in a draw"
+      />
 
-      {/* Private toggle */}
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          role="switch"
-          aria-checked={isPrivate}
-          onClick={() => setIsPrivate((v) => !v)}
-          className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
-            isPrivate ? "bg-gray-700" : "bg-gray-200"
-          }`}
-        >
-          <span
-            className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-              isPrivate ? "translate-x-4" : "translate-x-0"
-            }`}
-          />
-        </button>
-        <span className="text-sm text-gray-700">
-          Private tournament{" "}
-          <span className="text-gray-400">— only visible to you and participants</span>
-        </span>
-      </div>
+      <ToggleSwitch
+        checked={isPrivate}
+        onChange={setIsPrivate}
+        label="Private tournament"
+        hint="only visible to you and participants"
+        activeColor="bg-gray-700"
+      />
 
       {/* Participants */}
       {teamMode ? (

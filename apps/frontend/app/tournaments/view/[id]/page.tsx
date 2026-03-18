@@ -28,7 +28,7 @@ import StatusBadge from "@/components/StatusBadge";
 import { tournamentStatusColors, participantTypeColors } from "@/lib/colors";
 import { formatDate, getTournamentWinner } from "@/lib/helpers";
 import type { RootState } from "@/store/store";
-import type { TournamentParticipantData, TournamentData } from "./types";
+import type { TournamentParticipantData, TournamentData, TeamAssignment } from "./types";
 
 
 
@@ -50,6 +50,19 @@ export default function TournamentPage() {
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [conflictError, setConflictError] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [registering, setRegistering] = useState(false);
+  const [registerError, setRegisterError] = useState<string | null>(null);
+  const [previewing, setPreviewing] = useState(false);
+  const [starting, setStarting] = useState(false);
+  const [decidingParticipant, setDecidingParticipant] = useState<number | null>(null);
+
+  // ─── Team assignment local state ────────────────────────────────────────────
+  type LocalTeam = { tempId: string; name: string; memberSeeds: number[] };
+  const [localTeams, setLocalTeams] = useState<LocalTeam[]>([]);
+  const [assignmentDirty, setAssignmentDirty] = useState(false);
+  const [savingAssignments, setSavingAssignments] = useState(false);
+  const [assignmentError, setAssignmentError] = useState<string | null>(null);
+  const [expandedAssign, setExpandedAssign] = useState<number | null>(null); // seed of player with open team picker
 
   const cancelAction = useConfirmAction(useCallback(async () => {
     try {
@@ -110,7 +123,7 @@ export default function TournamentPage() {
     } catch { /* silent */ }
   }, [params.id]);
 
-  usePolling(pollTournament, 5000, tournament?.status === "active" && !editingSettings);
+  usePolling(pollTournament, 5000, (tournament?.status === "active" || tournament?.status === "registration") && !editingSettings);
 
   if (loading) {
     return (
@@ -161,6 +174,219 @@ export default function TournamentPage() {
       // silently fail
     } finally {
       setConfirming(false);
+    }
+  }
+
+  // ─── Scheduled tournament helpers ──────────────────────────────────────────
+  const isScheduled = tournament.creationMode === "scheduled";
+  const isRegistrationPhase = isScheduled && tournament.status === "registration";
+  const registrationClosed = tournament.registrationClosesAt
+    ? new Date(tournament.registrationClosesAt).getTime() < Date.now()
+    : false;
+  const canRegister =
+    isRegistrationPhase &&
+    !registrationClosed &&
+    tournament.registrationMode !== "invite_only" &&
+    !isCreator;
+
+  // Does current user have an invite to respond to? (scheduled only)
+  const hasScheduledInvite =
+    isScheduled && myParticipant?.registrationStatus === "invited";
+
+  // Is user already registered / approved?
+  const isRegistered =
+    myParticipant != null &&
+    ["approved", "pending"].includes(myParticipant.registrationStatus ?? "");
+
+  const approvedCount = tournament.participants.filter(
+    (p) => p.registrationStatus === "approved"
+  ).length;
+
+  const approvedParticipants = tournament.participants.filter(
+    (p) => p.registrationStatus === "approved" && !p.declined
+  );
+
+  async function handleRegister() {
+    setRegistering(true);
+    setRegisterError(null);
+    try {
+      const res = await apiFetch(`/tournaments/${tournament!.id}/register`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+      if (res.ok) {
+        setTournament(await res.json());
+      } else {
+        const body = await res.json().catch(() => ({}));
+        setRegisterError(body.error ?? "Failed to register");
+      }
+    } catch {
+      setRegisterError("Network error");
+    } finally {
+      setRegistering(false);
+    }
+  }
+
+  async function handleUnregister() {
+    setRegistering(true);
+    setRegisterError(null);
+    try {
+      const res = await apiFetch(`/tournaments/${tournament!.id}/register`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        setTournament(await res.json());
+      } else {
+        const body = await res.json().catch(() => ({}));
+        setRegisterError(body.error ?? "Failed to unregister");
+      }
+    } catch {
+      setRegisterError("Network error");
+    } finally {
+      setRegistering(false);
+    }
+  }
+
+  async function handleRespondInvite(accept: boolean) {
+    setConfirming(true);
+    try {
+      const res = await apiFetch(`/tournaments/${tournament!.id}/respond-invite`, {
+        method: "PATCH",
+        body: JSON.stringify({ accept }),
+      });
+      if (res.ok) {
+        setTournament(await res.json());
+      }
+    } catch { /* silent */ }
+    finally { setConfirming(false); }
+  }
+
+  async function handleParticipantDecision(seed: number, decision: "approve" | "decline") {
+    setDecidingParticipant(seed);
+    try {
+      const res = await apiFetch(`/tournaments/${tournament!.id}/participants/${seed}/${decision}`, {
+        method: "PATCH",
+      });
+      if (res.ok) {
+        setTournament(await res.json());
+      }
+    } catch { /* silent */ }
+    finally { setDecidingParticipant(null); }
+  }
+
+  async function handlePreviewBracket() {
+    setPreviewing(true);
+    try {
+      const res = await apiFetch(`/tournaments/${tournament!.id}/preview-bracket`, {
+        method: "POST",
+      });
+      if (res.ok) {
+        setTournament(await res.json());
+      } else {
+        const body = await res.json().catch(() => ({}));
+        setError(body.error ?? "Failed to preview bracket");
+      }
+    } catch {
+      setError("Network error");
+    } finally {
+      setPreviewing(false);
+    }
+  }
+
+  async function handleStartTournament() {
+    setStarting(true);
+    try {
+      const res = await apiFetch(`/tournaments/${tournament!.id}/start`, {
+        method: "POST",
+      });
+      if (res.ok) {
+        setTournament(await res.json());
+      } else {
+        const body = await res.json().catch(() => ({}));
+        setError(body.error ?? "Failed to start tournament");
+      }
+    } catch {
+      setError("Network error");
+    } finally {
+      setStarting(false);
+    }
+  }
+
+  // Sync localTeams from server data (only when not dirty)
+  useEffect(() => {
+    if (!tournament?.teamMode) return;
+    if (assignmentDirty) return;
+    const serverAssignments = tournament.teamAssignments;
+    if (serverAssignments && serverAssignments.length > 0) {
+      setLocalTeams(
+        serverAssignments.map((t) => ({
+          tempId: `server-${t.name}`,
+          name: t.name,
+          memberSeeds: t.memberSeeds,
+        }))
+      );
+    } else {
+      setLocalTeams([]);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tournament?.teamAssignments, tournament?.teamMode]);
+
+  function addTeam() {
+    const newTeam: LocalTeam = { tempId: `local-${Date.now()}`, name: "", memberSeeds: [] };
+    setLocalTeams((prev) => [...prev, newTeam]);
+    setAssignmentDirty(true);
+  }
+
+  function removeTeam(tempId: string) {
+    setLocalTeams((prev) => prev.filter((t) => t.tempId !== tempId));
+    setAssignmentDirty(true);
+  }
+
+  function renameTeam(tempId: string, name: string) {
+    setLocalTeams((prev) => prev.map((t) => t.tempId === tempId ? { ...t, name } : t));
+    setAssignmentDirty(true);
+  }
+
+  function assignToTeam(seed: number, teamTempId: string) {
+    setLocalTeams((prev) =>
+      prev.map((t) => {
+        if (t.tempId === teamTempId) return { ...t, memberSeeds: [...t.memberSeeds.filter((s) => s !== seed), seed] };
+        return { ...t, memberSeeds: t.memberSeeds.filter((s) => s !== seed) };
+      })
+    );
+    setAssignmentDirty(true);
+    setExpandedAssign(null);
+  }
+
+  function unassignFromTeam(seed: number) {
+    setLocalTeams((prev) =>
+      prev.map((t) => ({ ...t, memberSeeds: t.memberSeeds.filter((s) => s !== seed) }))
+    );
+    setAssignmentDirty(true);
+  }
+
+  async function handleSaveAssignments() {
+    setSavingAssignments(true);
+    setAssignmentError(null);
+    try {
+      const res = await apiFetch(`/tournaments/${tournament!.id}/team-assignments`, {
+        method: "PUT",
+        body: JSON.stringify({
+          teams: localTeams.map((t) => ({ name: t.name.trim(), memberSeeds: t.memberSeeds })),
+        }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setTournament(updated);
+        setAssignmentDirty(false);
+      } else {
+        const body = await res.json().catch(() => ({}));
+        setAssignmentError(body.error ?? "Failed to save team assignments");
+      }
+    } catch {
+      setAssignmentError("Network error");
+    } finally {
+      setSavingAssignments(false);
     }
   }
 
@@ -307,8 +533,8 @@ export default function TournamentPage() {
           </div>
         )}
 
-        {/* Invitation banner */}
-        {isUnconfirmedParticipant && (
+        {/* Invitation banner (quick) */}
+        {isUnconfirmedParticipant && !isScheduled && (
           <div className="bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-3 mb-6 flex items-center justify-between gap-4">
             <p className="text-sm text-indigo-800">You&apos;ve been invited to this tournament.</p>
             <div className="flex items-center gap-2 shrink-0">
@@ -327,6 +553,81 @@ export default function TournamentPage() {
                 Accept
               </button>
             </div>
+          </div>
+        )}
+
+        {/* Invitation banner (scheduled) */}
+        {hasScheduledInvite && (
+          <div className="bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-3 mb-6 flex items-center justify-between gap-4">
+            <p className="text-sm text-indigo-800">You&apos;ve been invited to this scheduled tournament.</p>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => handleRespondInvite(false)}
+                disabled={confirming}
+                className="text-sm px-3 py-1.5 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40"
+              >
+                Decline
+              </button>
+              <button
+                onClick={() => handleRespondInvite(true)}
+                disabled={confirming}
+                className="text-sm px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-40"
+              >
+                Accept
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Registration banner */}
+        {isScheduled && !isCreator && currentUser && (
+          <div className="mb-6">
+            {canRegister && !isRegistered && (
+              <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm text-blue-800">
+                    Registration is open{tournament.registrationMode === "approval" ? " (requires organizer approval)" : ""}.
+                  </p>
+                  {tournament.registrationClosesAt && (
+                    <p className="text-xs text-blue-500 mt-0.5">
+                      Closes {formatDate(tournament.registrationClosesAt, { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                    </p>
+                  )}
+                </div>
+                <button
+                  onClick={handleRegister}
+                  disabled={registering}
+                  className="shrink-0 text-sm px-4 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-40"
+                >
+                  {registering ? "Registering…" : "Register"}
+                </button>
+              </div>
+            )}
+            {isRegistered && (
+              <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm text-green-800">
+                    You are registered.
+                    {myParticipant?.registrationStatus === "pending" && (
+                      <span className="text-yellow-700"> Awaiting organizer approval.</span>
+                    )}
+                    {myParticipant?.registrationStatus === "approved" && (
+                      <span className="text-green-700"> You&apos;re approved!</span>
+                    )}
+                  </p>
+                </div>
+                <button
+                  onClick={handleUnregister}
+                  disabled={registering}
+                  className="shrink-0 text-sm px-3 py-1.5 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40"
+                >
+                  {registering ? "Withdrawing…" : "Withdraw"}
+                </button>
+              </div>
+            )}
+            {registerError && (
+              <p className="text-xs text-red-500 mt-2">{registerError}</p>
+            )}
           </div>
         )}
 
@@ -399,6 +700,27 @@ export default function TournamentPage() {
                 <p className="text-gray-800 font-medium">Private</p>
               </div>
             )}
+            {isScheduled && tournament.registrationMode && (
+              <div>
+                <p className="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Registration</p>
+                <p className="text-gray-800 font-medium capitalize">{tournament.registrationMode.replace("_", " ")}</p>
+              </div>
+            )}
+            {isScheduled && tournament.registrationClosesAt && (
+              <div>
+                <p className="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Registration closes</p>
+                <p className="text-gray-800 font-medium">
+                  {formatDate(tournament.registrationClosesAt, { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                  {registrationClosed && <span className="text-red-500 text-xs ml-1">(closed)</span>}
+                </p>
+              </div>
+            )}
+            {isScheduled && tournament.teamMode && (
+              <div>
+                <p className="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Mode</p>
+                <p className="text-gray-800 font-medium">Team mode</p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -437,11 +759,22 @@ export default function TournamentPage() {
                     <span className={`text-[10px] uppercase px-1.5 py-0.5 rounded font-medium shrink-0 ${participantTypeColors[p.type]}`}>
                       {p.type}
                     </span>
-                    {p.type === "account" && !p.confirmed && (
+                    {p.type === "account" && !p.confirmed && !isScheduled && (
                       <span className={`text-[10px] uppercase px-1.5 py-0.5 rounded font-medium shrink-0 ${
                         p.declined ? "bg-red-100 text-red-600" : "bg-orange-100 text-orange-600"
                       }`}>
                         {p.declined ? "Declined" : "Unconfirmed"}
+                      </span>
+                    )}
+                    {isScheduled && p.registrationStatus && (
+                      <span className={`text-[10px] uppercase px-1.5 py-0.5 rounded font-medium shrink-0 ${
+                        p.registrationStatus === "approved" ? "bg-green-100 text-green-600" :
+                        p.registrationStatus === "pending" ? "bg-yellow-100 text-yellow-600" :
+                        p.registrationStatus === "invited" ? "bg-blue-100 text-blue-600" :
+                        p.registrationStatus === "declined" ? "bg-red-100 text-red-600" :
+                        "bg-gray-100 text-gray-500"
+                      }`}>
+                        {p.registrationStatus}
                       </span>
                     )}
                   </div>
@@ -460,6 +793,25 @@ export default function TournamentPage() {
                     </div>
                   )}
                 </div>
+                {/* Approve / Decline buttons for organizer in registration phase */}
+                {isCreator && isRegistrationPhase && (p.registrationStatus === "pending" || p.registrationStatus === "invited") && (
+                  <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+                    <button
+                      onClick={() => handleParticipantDecision(p.seed, "approve")}
+                      disabled={decidingParticipant === p.seed}
+                      className="text-[11px] px-2 py-1 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-40"
+                    >
+                      Approve
+                    </button>
+                    <button
+                      onClick={() => handleParticipantDecision(p.seed, "decline")}
+                      disabled={decidingParticipant === p.seed}
+                      className="text-[11px] px-2 py-1 rounded border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-40"
+                    >
+                      Decline
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
             {spotsLeft > 0 && Array.from({ length: Math.min(spotsLeft, 4) }).map((_, i) => (
@@ -478,6 +830,200 @@ export default function TournamentPage() {
             )}
           </div>
         </div>
+
+        {/* Team Assignment (team mode + creator + registration phase) */}
+        {tournament.teamMode && isCreator && isRegistrationPhase && (() => {
+          const assignedSeeds = new Set(localTeams.flatMap((t) => t.memberSeeds));
+          const unassigned = approvedParticipants.filter((p) => !assignedSeeds.has(p.seed));
+          const participantBySeed = new Map(tournament.participants.map((p) => [p.seed, p]));
+
+          return (
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+              <div className="flex items-start justify-between mb-1">
+                <h2 className="text-base font-semibold text-gray-800">Team Assignment</h2>
+                <span className="text-xs px-2 py-1 rounded-full bg-purple-100 text-purple-700 font-medium">Team Mode</span>
+              </div>
+              <p className="text-xs text-gray-400 mb-5">
+                Group approved players into competing teams. All approved players must be assigned before starting.
+              </p>
+
+              {/* Teams */}
+              <div className="flex flex-col gap-4 mb-4">
+                {localTeams.map((team) => (
+                  <div key={team.tempId} className="border border-gray-200 rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <input
+                        value={team.name}
+                        onChange={(e) => renameTeam(team.tempId, e.target.value)}
+                        placeholder="Team name…"
+                        className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeTeam(team.tempId)}
+                        className="text-xs text-gray-400 hover:text-red-500 px-2 py-1.5 rounded border border-gray-200 hover:border-red-200 transition-colors"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {team.memberSeeds.length === 0 ? (
+                        <span className="text-xs text-gray-300 italic">No players assigned yet</span>
+                      ) : (
+                        team.memberSeeds.map((seed) => {
+                          const p = participantBySeed.get(seed);
+                          if (!p) return null;
+                          return (
+                            <span
+                              key={seed}
+                              className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-md bg-purple-50 text-purple-700"
+                            >
+                              {p.displayName}
+                              <button
+                                type="button"
+                                onClick={() => unassignFromTeam(seed)}
+                                className="leading-none opacity-50 hover:opacity-100"
+                              >
+                                ×
+                              </button>
+                            </span>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Unassigned pool */}
+              {unassigned.length > 0 && (
+                <div className="mb-4">
+                  <p className="text-[10px] uppercase text-gray-400 tracking-wide mb-2">
+                    Unassigned ({unassigned.length})
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {unassigned.map((p) => (
+                      <div key={p.seed} className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setExpandedAssign(expandedAssign === p.seed ? null : p.seed)}
+                          className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-md bg-gray-100 text-gray-600 hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
+                        >
+                          {p.displayName}
+                          <span className="opacity-50">＋</span>
+                        </button>
+                        {expandedAssign === p.seed && localTeams.length > 0 && (
+                          <div className="absolute z-20 top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[140px]">
+                            {localTeams.filter((t) => t.name.trim()).map((t) => (
+                              <button
+                                key={t.tempId}
+                                type="button"
+                                onClick={() => assignToTeam(p.seed, t.tempId)}
+                                className="w-full text-left px-3 py-1.5 text-xs hover:bg-purple-50 text-gray-700 hover:text-purple-700"
+                              >
+                                {t.name}
+                              </button>
+                            ))}
+                            {localTeams.filter((t) => t.name.trim()).length === 0 && (
+                              <div className="px-3 py-2 text-xs text-gray-400">Name your teams first</div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {unassigned.length === 0 && approvedParticipants.length > 0 && (
+                <p className="text-xs text-green-600 mb-4">✓ All approved players are assigned to teams.</p>
+              )}
+
+              {assignmentError && <p className="text-xs text-red-500 mb-3">{assignmentError}</p>}
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={addTeam}
+                  className="text-sm px-3 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+                >
+                  + Add Team
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveAssignments}
+                  disabled={savingAssignments || !assignmentDirty}
+                  className="text-sm px-4 py-2 rounded-lg font-medium bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  {savingAssignments ? "Saving…" : assignmentDirty ? "Save Assignments" : "Assignments Saved"}
+                </button>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Preview bracket & Start tournament (scheduled, registration phase) */}
+        {isCreator && isRegistrationPhase && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+            <h2 className="text-base font-semibold text-gray-800 mb-4">Tournament Actions</h2>
+            <div className="flex flex-col gap-4">
+              {/* Preview bracket */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-700 font-medium">Preview Bracket</p>
+                  <p className="text-xs text-gray-400">
+                    {tournament.teamMode
+                      ? `Generate a bracket preview based on current team assignments (${localTeams.filter((t) => t.name.trim()).length} team${localTeams.filter((t) => t.name.trim()).length !== 1 ? "s" : ""}).`
+                      : `Generate a bracket preview based on current approved participants (${approvedCount}).`}
+                  </p>
+                </div>
+                <button
+                  onClick={handlePreviewBracket}
+                  disabled={previewing || (tournament.teamMode ? localTeams.filter((t) => t.name.trim()).length < 2 : approvedCount < 2)}
+                  title={tournament.teamMode
+                    ? (localTeams.filter((t) => t.name.trim()).length < 2 ? "Need at least 2 named teams" : undefined)
+                    : (approvedCount < 2 ? "Need at least 2 approved participants" : undefined)}
+                  className="shrink-0 text-sm px-4 py-2 rounded-lg font-medium bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  {previewing ? "Generating…" : "Preview Bracket"}
+                </button>
+              </div>
+
+              {/* Show preview bracket if available */}
+              {tournament.previewBracketData && (
+                <div className="border border-dashed border-indigo-200 rounded-xl p-4 bg-indigo-50/30">
+                  <p className="text-xs text-indigo-500 font-medium uppercase tracking-wide mb-3">Bracket Preview</p>
+                  <BracketView
+                    bracket={tournament.previewBracketData}
+                    tournamentId={tournament.id}
+                  />
+                </div>
+              )}
+
+              {/* Start tournament */}
+              <div className="flex items-center justify-between border-t border-gray-100 pt-4">
+                <div>
+                  <p className="text-sm text-gray-700 font-medium">Start Tournament</p>
+                  <p className="text-xs text-gray-400">
+                    {tournament.teamMode
+                      ? `Lock registration and start the bracket with ${localTeams.filter((t) => t.name.trim()).length} team${localTeams.filter((t) => t.name.trim()).length !== 1 ? "s" : ""}.`
+                      : `Lock registration and start the bracket with ${approvedCount} approved participant${approvedCount !== 1 ? "s" : ""}.`}
+                  </p>
+                </div>
+                <button
+                  onClick={handleStartTournament}
+                  disabled={starting || (tournament.teamMode ? localTeams.filter((t) => t.name.trim()).length < 2 : approvedCount < 2)}
+                  title={tournament.teamMode
+                    ? (localTeams.filter((t) => t.name.trim()).length < 2 ? "Need at least 2 named teams" : undefined)
+                    : (approvedCount < 2 ? "Need at least 2 approved participants" : undefined)}
+                  className="shrink-0 text-sm px-4 py-2 rounded-lg font-medium bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  {starting ? "Starting…" : "Start Tournament"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Bracket */}
         {tournament.bracketData && (

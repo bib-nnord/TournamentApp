@@ -3,7 +3,6 @@ import {
   LABEL_BACK_TO_TOURNAMENTS,
   LABEL_QUICK_TOURNAMENT,
   LABEL_SCHEDULED_TOURNAMENT,
-  LABEL_COMING_SOON,
 } from "@/constants/labels";
 
 export default function CreateTournamentPage() {
@@ -33,18 +32,18 @@ export default function CreateTournamentPage() {
           </Link>
 
           {/* Scheduled Tournament */}
-          <div className="relative bg-white rounded-2xl border border-gray-200 p-6 opacity-50 cursor-not-allowed">
-            <span className="absolute top-4 right-4 text-[10px] uppercase tracking-wide font-semibold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
-              {LABEL_COMING_SOON}
-            </span>
+          <Link
+            href="/tournaments/create/scheduled"
+            className="group bg-white rounded-2xl border border-gray-200 p-6 hover:border-indigo-300 hover:shadow-md transition-all"
+          >
             <div className="text-2xl mb-3">📅</div>
-            <h2 className="text-lg font-bold text-gray-900 mb-1">
+            <h2 className="text-lg font-bold text-gray-900 mb-1 group-hover:text-indigo-600 transition-colors">
               {LABEL_SCHEDULED_TOURNAMENT}
             </h2>
             <p className="text-sm text-gray-500">
               Set a future date and open registration. Participants sign up on their own.
             </p>
-          </div>
+          </Link>
         </div>
       </div>
     </div>

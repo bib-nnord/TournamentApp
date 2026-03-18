@@ -14,6 +14,12 @@ export interface TournamentParticipantData {
   registrationStatus?: TournamentRegistrationStatus;
 }
 
+export interface TeamAssignment {
+  name: string;
+  memberSeeds: number[];
+  members: { seed: number; displayName: string; userId: number | null }[];
+}
+
 export interface TournamentData {
   id: number;
   name: string;
@@ -30,6 +36,8 @@ export interface TournamentData {
   startDate: string | null;
   registrationClosesAt?: string | null;
   autoStart?: boolean;
+  teamMode?: boolean;
+  teamAssignments?: TeamAssignment[] | null;
   startedAt?: string | null;
   creator: { id: number; username: string };
   participants: TournamentParticipantData[];

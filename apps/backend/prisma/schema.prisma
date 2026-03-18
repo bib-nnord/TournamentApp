@@ -181,6 +181,8 @@ model Tournament {
   max_participants Int?
   start_date     DateTime?         @db.Timestamp(6)
   registration_closes_at DateTime? @db.Timestamp(6)
+  team_mode      Boolean           @default(false)
+  team_assignments Json?
   bracket_data   Json?
   preview_bracket_data Json?
   started_at     DateTime?         @db.Timestamp(6)

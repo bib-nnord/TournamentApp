@@ -3,192 +3,82 @@ import type { Request, Response } from 'express';
 import prisma from '../lib/prisma';
 import { notifyUsers, collectAllUserIds } from '../lib/notify';
 import { publishTeamNewsToTeams } from '../lib/teamNews';
-import Tournament from '../models/Tournament';
-import * as tournamentService from '../services/tournamentService';
 
-export async function create(req: Request, res: Response) {
-  const { name, game, description, format, isPrivate, participants, bracketData, maxParticipants, startDate, status } =
-    req.body as {
-      name?: string;
-      game?: string;
-      description?: string;
-      format?: string;
-      isPrivate?: boolean;
-      participants?: any[];
-      bracketData?: any;
-      maxParticipants?: number;
-      startDate?: string;
-      status?: string;
-    };
+// ─── Shared formatter (used by quick & scheduled controllers too) ────────────
 
-  if (!name || !game || !format) {
-    return res.status(400).json({ error: 'name, game, and format are required' });
-  }
-
-  const validFormats = [
-    'single_elimination',
-    'double_elimination',
-    'round_robin',
-    'double_round_robin',
-    'combination',
-    'swiss',
-  ];
-
-  if (!validFormats.includes(format)) {
-    return res.status(400).json({ error: `Invalid format. Must be one of: ${validFormats.join(', ')}` });
-  }
-
-  if (!Array.isArray(participants) || participants.length < 2) {
-    return res.status(400).json({ error: 'At least 2 participants are required' });
-  }
-
-  const participantNames = participants.map((participant) => String(participant.name).trim().toLowerCase());
-  const seen = new Set<string>();
-  for (const participantName of participantNames) {
-    if (seen.has(participantName)) {
-      return res.status(400).json({ error: `Duplicate participant name: "${participantName}"` });
-    }
-    seen.add(participantName);
-  }
-
-  try {
-    const accountNames: string[] = [];
-    for (const participant of participants) {
-      if (participant.type === 'account') accountNames.push(participant.accountName || participant.name);
-      if (participant.type === 'team' && Array.isArray(participant.members)) {
-        for (const member of participant.members) {
-          if (member.type === 'account') accountNames.push(member.accountName || member.name);
-        }
-      }
-    }
-
-    const seenAccounts = new Set<string>();
-    for (const accountName of accountNames) {
-      const lower = accountName.toLowerCase();
-      if (seenAccounts.has(lower)) {
-        return res.status(400).json({ error: `Duplicate account: "${accountName}"` });
-      }
-      seenAccounts.add(lower);
-    }
-
-    const userMap: Record<string, any> = {};
-    if (accountNames.length > 0) {
-      const unique = [...new Set(accountNames)];
-      const users = await prisma.user.findMany({
-        where: { username: { in: unique, mode: 'insensitive' } },
-        select: { user_id: true, username: true, display_name: true },
-      });
-      for (const user of users) {
-        userMap[user.username.toLowerCase()] = user;
-      }
-
-      for (const accountName of unique) {
-        if (!userMap[accountName.toLowerCase()]) {
-          return res.status(400).json({ error: `Account not found: "${accountName}"` });
-        }
-      }
-    }
-
-    const participantRecords: any[] = participants.map((participant, index) => {
-      const base = { seed: index + 1, display_name: participant.name };
-
-      if (participant.type === 'team') {
-        const membersSnapshot = (participant.members || []).map((member: any) => {
-          const resolved = member.type === 'account' ? userMap[(member.accountName || member.name).toLowerCase()] : null;
+export function formatTournament(tournament: any) {
+  return {
+    id: tournament.tournament_id,
+    name: tournament.name,
+    game: tournament.game,
+    description: tournament.description,
+    format: tournament.format,
+    creationMode: tournament.creation_mode,
+    status: tournament.status,
+    isPrivate: tournament.is_private,
+    registrationMode: tournament.registration_mode,
+    autoStart: tournament.auto_start,
+    teamMode: tournament.team_mode,
+    teamAssignments: tournament.team_assignments,
+    max: tournament.max_participants,
+    startDate: tournament.start_date,
+    bracketData: tournament.bracket_data,
+    previewBracketData: tournament.preview_bracket_data,
+    registrationClosesAt: tournament.registration_closes_at,
+    startedAt: tournament.started_at,
+    creator: tournament.creator
+      ? { id: tournament.creator.user_id, username: tournament.creator.username }
+      : undefined,
+    participants: tournament.participants
+      ? tournament.participants.map((participant: any) => ({
+          seed: participant.seed,
+          displayName: participant.display_name,
+          guestName: participant.guest_name,
+          userId: participant.user_id,
+          teamId: participant.team_id,
+          type: participant.participant_type || (participant.guest_name ? 'guest' : 'account'),
+          membersSnapshot: participant.members_snapshot || null,
+          confirmed: participant.confirmed,
+          declined: participant.declined,
+          registrationStatus: participant.registration_status,
+        }))
+      : undefined,
+    matches: tournament.matches
+      ? tournament.matches.map((match: any) => {
+          const sideA = (match.participants || []).filter((participant: any) => participant.side === 'a');
+          const sideB = (match.participants || []).filter((participant: any) => participant.side === 'b');
           return {
-            name: resolved ? resolved.display_name || resolved.username : member.name,
-            type: member.type,
-            userId: resolved?.user_id || null,
+            id: match.match_id,
+            round: match.round,
+            position: match.position,
+            status: match.status,
+            scoreA: match.score_a,
+            scoreB: match.score_b,
+            sideA: {
+              teamName: sideA[0]?.team_name || null,
+              players: sideA.map((participant: any) => ({
+                displayName: participant.display_name,
+                userId: participant.user_id,
+                teamId: participant.team_id,
+              })),
+            },
+            sideB: {
+              teamName: sideB[0]?.team_name || null,
+              players: sideB.map((participant: any) => ({
+                displayName: participant.display_name,
+                userId: participant.user_id,
+                teamId: participant.team_id,
+              })),
+            },
           };
-        });
-        const creatorIsMember = membersSnapshot.some((member: any) => member.userId === req.user.id);
-        return {
-          ...base,
-          participant_type: 'team',
-          team_id: participant.existingTeamId || null,
-          members_snapshot: membersSnapshot,
-          confirmed: creatorIsMember,
-          registration_status: creatorIsMember ? 'approved' : 'invited',
-        };
-      }
-
-      if (participant.type === 'account') {
-        const resolved = userMap[(participant.accountName || participant.name).toLowerCase()];
-        return {
-          ...base,
-          participant_type: 'account',
-          user_id: resolved?.user_id || null,
-          display_name: resolved ? resolved.display_name || resolved.username : participant.name,
-          confirmed: resolved?.user_id === req.user.id,
-          registration_status: resolved?.user_id === req.user.id ? 'approved' : 'invited',
-        };
-      }
-
-      return {
-        ...base,
-        participant_type: 'guest',
-        guest_name: participant.name,
-        registration_status: 'approved',
-      };
-    });
-
-    const tournament: any = await prisma.tournament.create({
-      data: {
-        name,
-        game,
-        description: description || null,
-        format: format as any,
-        creation_mode: 'quick',
-        status: (status || 'active') as any,
-        is_private: isPrivate ?? false,
-        registration_mode: 'invite_only',
-        auto_start: false,
-        max_participants: maxParticipants ?? participants.length,
-        start_date: startDate ? new Date(startDate) : null,
-        bracket_data: bracketData ?? null,
-        preview_bracket_data: bracketData ?? null,
-        created_by: req.user.id,
-        participants: {
-          create: participantRecords as any,
-        },
-      },
-      include: {
-        participants: { orderBy: { seed: 'asc' } },
-        creator: { select: { user_id: true, username: true } },
-      },
-    });
-
-    const recipientIds = collectAllUserIds(tournament.participants).filter((uid: number) => uid !== req.user.id);
-    notifyUsers(
-      recipientIds,
-      `You've been added to ${name}`,
-      `You have been added as a participant in the tournament "${name}" (${game}). Visit the tournament page to review and accept or decline.`,
-      tournament.tournament_id
-    );
-
-    const participatingTeamIds = tournament.participants
-      .map((participant: { team_id?: number | null }) => participant.team_id ?? null)
-      .filter((teamId: number | null): teamId is number => teamId != null);
-
-    if (tournament.start_date && new Date(tournament.start_date).getTime() > Date.now() && participatingTeamIds.length > 0) {
-      const startText = new Date(tournament.start_date).toLocaleString();
-      try {
-        await publishTeamNewsToTeams(
-          participatingTeamIds,
-          `Upcoming tournament: ${name}`,
-          `${name} (${game}) is scheduled for ${startText}.`
-        );
-      } catch (newsErr) {
-        console.error('[tournament.create.teamNews]', newsErr);
-      }
-    }
-
-    return res.status(201).json(formatTournament(tournament));
-  } catch (err) {
-    console.error('[tournament.create]', err);
-    return res.status(500).json({ error: 'Internal server error' });
-  }
+        })
+      : undefined,
+    createdAt: tournament.created_at,
+    updatedAt: tournament.updated_at,
+  };
 }
+
+// ─── Shared CRUD handlers ────────────────────────────────────────────────────
 
 export async function list(req: Request, res: Response) {
   const status = typeof req.query.status === 'string' ? req.query.status : undefined;
@@ -371,166 +261,25 @@ export async function remove(req: Request, res: Response) {
   }
 }
 
-export async function confirmParticipation(req: Request, res: Response) {
-  const id = parseInt(String(req.params.id), 10);
-  if (isNaN(id)) return res.status(400).json({ error: 'Invalid tournament ID' });
+// ─── My Matches ──────────────────────────────────────────────────────────────
 
-  const { accept } = req.body as { accept?: boolean };
-  if (typeof accept !== 'boolean') {
-    return res.status(400).json({ error: '"accept" must be a boolean' });
+function extractAllMatches(bracket: any) {
+  const matches: any[] = [];
+  if (bracket.rounds) {
+    for (const round of bracket.rounds) matches.push(...round.matches);
   }
-
-  try {
-    const tournament = await prisma.tournament.findUnique({
-      where: { tournament_id: id },
-      include: { participants: true },
-    });
-
-    if (!tournament) return res.status(404).json({ error: 'Tournament not found' });
-
-    const participant = tournament.participants.find((candidate: any) => {
-      if (candidate.user_id === req.user.id) return true;
-      if (Array.isArray(candidate.members_snapshot)) {
-        return candidate.members_snapshot.some((member: any) => member.userId === req.user.id);
-      }
-      return false;
-    });
-
-    if (!participant) {
-      return res.status(404).json({ error: 'You are not a participant in this tournament' });
-    }
-
-    if (participant.confirmed) {
-      return res.status(400).json({ error: 'Already confirmed' });
-    }
-
-    if (participant.declined) {
-      return res.status(400).json({ error: 'Already declined' });
-    }
-
-    if (accept) {
-      await prisma.tournamentParticipant.update({
-        where: {
-          tournament_id_seed: { tournament_id: id, seed: participant.seed },
-        },
-        data: { confirmed: true, registration_status: 'approved' },
-      });
-    } else {
-      await prisma.tournamentParticipant.update({
-        where: {
-          tournament_id_seed: { tournament_id: id, seed: participant.seed },
-        },
-        data: { declined: true, registration_status: 'declined' },
-      });
-
-      if (tournament.bracket_data) {
-        const tournamentModel = new Tournament({
-          tournament_id: tournament.tournament_id,
-          name: tournament.name,
-          game: tournament.game,
-          format: tournament.format as any,
-          status: tournament.status as any,
-          created_by: tournament.created_by,
-          is_private: tournament.is_private,
-          bracket_data: tournament.bracket_data as any,
-        });
-        const name = participant.display_name;
-        tournamentService.clearParticipant(tournamentModel, name);
-        await prisma.tournament.update({
-          where: { tournament_id: id },
-          data: { bracket_data: tournamentModel.bracket_data as any },
-        });
-      }
-    }
-
-    const updated = await prisma.tournament.findUnique({
-      where: { tournament_id: id },
-      include: {
-        participants: { orderBy: { seed: 'asc' } },
-        creator: { select: { user_id: true, username: true } },
-        matches: {
-          orderBy: [{ round: 'asc' }, { position: 'asc' }],
-          include: { participants: true },
-        },
-      },
-    });
-
-    return res.json(formatTournament(updated));
-  } catch (err) {
-    console.error('[tournament.confirmParticipation]', err);
-    return res.status(500).json({ error: 'Internal server error' });
+  if (bracket.losersRounds) {
+    for (const round of bracket.losersRounds) matches.push(...round.matches);
   }
-}
-
-
-function formatTournament(tournament: any) {
-  return {
-    id: tournament.tournament_id,
-    name: tournament.name,
-    game: tournament.game,
-    description: tournament.description,
-    format: tournament.format,
-    creationMode: tournament.creation_mode,
-    status: tournament.status,
-    isPrivate: tournament.is_private,
-    registrationMode: tournament.registration_mode,
-    autoStart: tournament.auto_start,
-    max: tournament.max_participants,
-    startDate: tournament.start_date,
-    bracketData: tournament.bracket_data,
-    previewBracketData: tournament.preview_bracket_data,
-    registrationClosesAt: tournament.registration_closes_at,
-    startedAt: tournament.started_at,
-    creator: tournament.creator
-      ? { id: tournament.creator.user_id, username: tournament.creator.username }
-      : undefined,
-    participants: tournament.participants
-      ? tournament.participants.map((participant: any) => ({
-          seed: participant.seed,
-          displayName: participant.display_name,
-          guestName: participant.guest_name,
-          userId: participant.user_id,
-          teamId: participant.team_id,
-          type: participant.participant_type || (participant.guest_name ? 'guest' : 'account'),
-          membersSnapshot: participant.members_snapshot || null,
-          confirmed: participant.confirmed,
-          declined: participant.declined,
-          registrationStatus: participant.registration_status,
-        }))
-      : undefined,
-    matches: tournament.matches
-      ? tournament.matches.map((match: any) => {
-          const sideA = (match.participants || []).filter((participant: any) => participant.side === 'a');
-          const sideB = (match.participants || []).filter((participant: any) => participant.side === 'b');
-          return {
-            id: match.match_id,
-            round: match.round,
-            position: match.position,
-            status: match.status,
-            scoreA: match.score_a,
-            scoreB: match.score_b,
-            sideA: {
-              teamName: sideA[0]?.team_name || null,
-              players: sideA.map((participant: any) => ({
-                displayName: participant.display_name,
-                userId: participant.user_id,
-                teamId: participant.team_id,
-              })),
-            },
-            sideB: {
-              teamName: sideB[0]?.team_name || null,
-              players: sideB.map((participant: any) => ({
-                displayName: participant.display_name,
-                userId: participant.user_id,
-                teamId: participant.team_id,
-              })),
-            },
-          };
-        })
-      : undefined,
-    createdAt: tournament.created_at,
-    updatedAt: tournament.updated_at,
-  };
+  if (bracket.groups) {
+    for (const group of bracket.groups) {
+      for (const round of group.rounds) matches.push(...round.matches);
+    }
+  }
+  if (bracket.knockoutRounds) {
+    for (const round of bracket.knockoutRounds) matches.push(...round.matches);
+  }
+  return matches;
 }
 
 export async function myMatches(req: Request, res: Response) {
@@ -592,23 +341,4 @@ export async function myMatches(req: Request, res: Response) {
     console.error('[tournament.myMatches]', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
-}
-
-function extractAllMatches(bracket: any) {
-  const matches: any[] = [];
-  if (bracket.rounds) {
-    for (const round of bracket.rounds) matches.push(...round.matches);
-  }
-  if (bracket.losersRounds) {
-    for (const round of bracket.losersRounds) matches.push(...round.matches);
-  }
-  if (bracket.groups) {
-    for (const group of bracket.groups) {
-      for (const round of group.rounds) matches.push(...round.matches);
-    }
-  }
-  if (bracket.knockoutRounds) {
-    for (const round of bracket.knockoutRounds) matches.push(...round.matches);
-  }
-  return matches;
 }
