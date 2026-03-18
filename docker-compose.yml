@@ -12,8 +12,8 @@ services:
   api:
     container_name: tournament-app
     build:
-      context: ./apps/backend
-      # Remove 'target' unless you have a multi-stage Dockerfile
+      context: .
+      dockerfile: apps/backend/Dockerfile
     image: tournament-app
     depends_on:
       - db

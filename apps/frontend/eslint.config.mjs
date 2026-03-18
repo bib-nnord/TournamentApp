@@ -1,22 +1,37 @@
-import { FlatCompat } from '@eslint/eslintrc';
-import { dirname } from 'path';
-import { fileURLToPath } from 'url';
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const compat = new FlatCompat({
-  baseDirectory: __dirname
-});
+import nextCoreWebVitals from 'eslint-config-next/core-web-vitals';
+import nextTypescript from 'eslint-config-next/typescript';
+import prettier from 'eslint-config-prettier';
+import unusedImports from 'eslint-plugin-unused-imports';
+import importHelpers from 'eslint-plugin-import-helpers';
+
 const eslintConfig = [
-  ...compat.config({
-    extends: [
-      'next/core-web-vitals',
-      'next/typescript',
-      'plugin:@typescript-eslint/recommended',
-      'plugin:react/jsx-runtime',
-      'prettier'
-    ],
-    plugins: ['unused-imports', 'eslint-plugin-import-helpers'],
-    ignorePatterns: ['.spec.*', '.storybook', 'build', 'node_modules'],
+  // Ignores
+  {
+    ignores: ['**/*.spec.*', '.storybook/**', 'build/**', 'node_modules/**']
+  },
+
+  // Next.js core-web-vitals + typescript (native flat config)
+  ...nextCoreWebVitals,
+  ...nextTypescript,
+
+  // Prettier (must come after other configs to override formatting rules)
+  prettier,
+
+  // Main rules
+  {
+    plugins: {
+      'unused-imports': unusedImports,
+      'import-helpers': importHelpers
+    },
+    settings: {
+      react: { version: 'detect' },
+      'import/parsers': {
+        '@typescript-eslint/parser': ['.ts', '.tsx']
+      },
+      'import/resolver': {
+        typescript: {}
+      }
+    },
     rules: {
       '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/explicit-member-accessibility': 'off',
@@ -74,40 +89,21 @@ const eslintConfig = [
           allowArrowFunction: false,
           allowAnonymousClass: false,
           allowAnonymousFunction: false,
-          allowCallExpression: true, // The true value here is for backward compatibility
+          allowCallExpression: true,
           allowNew: false,
           allowLiteral: false,
           allowObject: true
         }
       ],
       'jsx-a11y/aria-role': [2, { ignoreNonDOM: true }]
-    },
-    overrides: [
-      {
-        files: [
-          './src/packages/ui/assets/icons/*.tsx',
-          './src/packages/ui/assets/illustrations/*.tsx',
-          './src/packages/ui/components/*/*/stories.tsx',
-          './src/packages/ui/components/*/*/index.spec.tsx'
-        ],
-        rules: { 'max-len': ['off'] }
-      },
-      {
-        files: ['**/*.tsx', '**/*.ts'],
-        rules: { 'react-hooks/exhaustive-deps': 'off' }
-      }
-    ],
-    settings: {
-      react: {
-        version: 'detect'
-      },
-      'import/parsers': {
-        '@typescript-eslint/parser': ['.ts', '.tsx']
-      },
-      'import/resolver': {
-        typescript: {}
-      }
     }
-  })
+  },
+
+  // Override: disable exhaustive-deps for all TS/TSX files
+  {
+    files: ['**/*.tsx', '**/*.ts'],
+    rules: { 'react-hooks/exhaustive-deps': 'off' }
+  }
 ];
+
 export default eslintConfig;
