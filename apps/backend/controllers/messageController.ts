@@ -3,31 +3,12 @@ import type { Request, Response } from 'express';
 import prisma from '../lib/prisma';
 import * as messageService from '../services/messageService';
 import { publishTeamNews } from '../lib/teamNews';
-
-type MessageCategory = 'users' | 'teams' | 'tournaments' | 'website';
-
-interface DomainUser {
-  label?: string | null;
-}
-
-interface DomainMessage {
-  id: number;
-  category: MessageCategory;
-  folder: 'inbox' | 'sent';
-  senderId: number | null;
-  recipientId: number | null;
-  sender?: DomainUser | null;
-  recipient?: DomainUser | null;
-  subject: string;
-  body: string;
-  isRead: boolean;
-  referenceId: number | null;
-  createdAt: Date;
-}
+import type Message from '../models/Message';
+import type { MessageCategory } from '../models/Message';
 
 const VALID_CATEGORIES: MessageCategory[] = ['users', 'teams', 'tournaments', 'website'];
 
-function mapMessage(message: DomainMessage) {
+function mapMessage(message: Message) {
   const fromName = message.sender?.label ?? 'Tournament App';
   const toName = message.recipient?.label ?? null;
 

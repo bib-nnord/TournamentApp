@@ -56,20 +56,7 @@ export async function search(req: Request, res: Response) {
       },
     });
 
-    const result = teams.map((team: any) => ({
-      id: team.team_id,
-      name: team.name,
-      description: team.description,
-      imageUrl: team.image_url,
-      isOpen: team.is_open,
-      createdBy: team.creator,
-      members: team.members.map((member: any) => ({
-        userId: member.user.user_id,
-        username: member.user.username,
-        displayName: member.user.display_name,
-        role: member.role,
-      })),
-    }));
+    const result = teams.map((row: any) => teamService.mapTeamSearchResult(teamService.teamFromRow(row)));
 
     res.json(result);
   } catch (err) {
@@ -92,7 +79,7 @@ export async function myTeams(req: Request, res: Response) {
       orderBy: { joined_at: 'desc' },
     });
 
-    const teams = memberships.map(teamService.mapTeamSummaryFromMembership);
+    const teams = memberships.map((m) => teamService.mapTeamSummary(teamService.teamSummaryFromMembershipRow(m)));
 
     res.json({ teams });
   } catch (err) {
@@ -125,7 +112,7 @@ export async function userTeams(req: Request, res: Response) {
       orderBy: { joined_at: 'desc' },
     });
 
-    const teams = memberships.map(teamService.mapTeamSummaryFromMembership);
+    const teams = memberships.map((m) => teamService.mapTeamSummary(teamService.teamSummaryFromMembershipRow(m)));
 
     res.json({ teams });
   } catch (err) {
@@ -141,7 +128,7 @@ export async function getById(req: Request, res: Response) {
       return res.status(400).json({ error: 'Invalid team ID' });
     }
 
-    const team = await prisma.team.findUnique({
+    const row = await prisma.team.findUnique({
       where: { team_id: teamId },
       include: {
         creator: { select: { user_id: true, username: true, display_name: true } },
@@ -154,12 +141,13 @@ export async function getById(req: Request, res: Response) {
       },
     });
 
-    if (!team) {
+    if (!row) {
       return res.status(404).json({ error: 'Team not found' });
     }
 
     const currentUserId = req.user?.id ?? null;
-    return res.json({ team: teamService.mapTeamDetail(team, currentUserId) });
+    const team = teamService.teamFromRow(row, currentUserId);
+    return res.json({ team: teamService.mapTeamDetail(team) });
   } catch (err) {
     console.error('[teams/getById]', err);
     res.status(500).json({ error: 'Failed to fetch team' });
@@ -317,7 +305,7 @@ export async function create(req: Request, res: Response) {
       });
     });
 
-    return res.status(201).json({ team: teamService.mapTeamSummaryFromMembership(created) });
+    return res.status(201).json({ team: teamService.mapTeamSummary(teamService.teamSummaryFromMembershipRow(created)) });
   } catch (err) {
     console.error('[teams/create]', err);
     res.status(500).json({ error: 'Failed to create team' });
@@ -354,7 +342,7 @@ export async function update(req: Request, res: Response) {
     if (open !== undefined) data.is_open = !!open;
     if (disciplines !== undefined) data.disciplines = Array.isArray(disciplines) ? disciplines : [];
 
-    const team = await prisma.team.update({
+    const updated = await prisma.team.update({
       where: { team_id: teamId },
       data,
       include: {
@@ -368,7 +356,7 @@ export async function update(req: Request, res: Response) {
       },
     });
 
-    return res.json({ team: teamService.mapTeamDetail(team, req.user.id) });
+    return res.json({ team: teamService.mapTeamDetail(teamService.teamFromRow(updated, req.user.id)) });
   } catch (err) {
     console.error('[teams/update]', err);
     res.status(500).json({ error: 'Failed to update team' });
@@ -402,7 +390,7 @@ export async function join(req: Request, res: Response) {
       console.error('[teams/join.news]', newsErr);
     }
 
-    const updated = await prisma.team.findUnique({
+    const refreshed = await prisma.team.findUnique({
       where: { team_id: teamId },
       include: {
         creator: { select: { user_id: true, username: true, display_name: true } },
@@ -413,7 +401,7 @@ export async function join(req: Request, res: Response) {
       },
     });
 
-    return res.json({ team: teamService.mapTeamDetail(updated, req.user.id) });
+    return res.json({ team: teamService.mapTeamDetail(teamService.teamFromRow(refreshed!, req.user.id)) });
   } catch (err) {
     console.error('[teams/join]', err);
     res.status(500).json({ error: 'Failed to join team' });

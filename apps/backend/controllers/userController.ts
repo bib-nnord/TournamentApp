@@ -3,8 +3,7 @@ import type { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import prisma from '../lib/prisma';
 import * as userService from '../services/userService';
-
-type MessagePrivacy = 'everyone' | 'friends_only';
+import type { MessagePrivacy } from '../models/User';
 
 export async function list(req: Request, res: Response) {
   try {
@@ -14,7 +13,12 @@ export async function list(req: Request, res: Response) {
 
     const result = await userService.listUsers(page, limit, q || undefined);
 
-    res.json({ ...result, page });
+    res.json({
+      users: result.users.map(userService.mapUserListItem),
+      total: result.total,
+      totalPages: result.totalPages,
+      page,
+    });
   } catch (err) {
     console.error('[users/list]', err);
     res.status(500).json({ error: 'Failed to fetch users' });
@@ -30,8 +34,8 @@ export async function search(req: Request, res: Response) {
       return res.json([]);
     }
 
-    const result = await userService.searchUsers(q, limit);
-    res.json(result);
+    const users = await userService.searchUsers(q, limit);
+    res.json(users.map(userService.mapUserSearchResult));
   } catch (err) {
     console.error('[users/search]', err);
     res.status(500).json({ error: 'Failed to search users' });

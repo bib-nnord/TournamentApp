@@ -7,7 +7,7 @@ function mapUserFromMessage({
   fallbackName,
   fallbackId,
 }: {
-  relationUser: any;
+  relationUser: Record<string, any> | null | undefined;
   fallbackName: string | null;
   fallbackId: number | null;
 }): User | null {

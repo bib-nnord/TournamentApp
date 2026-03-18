@@ -9,13 +9,12 @@ const userSelect = {
   avatar_url: true,
 };
 
-function toDomainUser(userRow: any): User | null {
-  if (!userRow) return null;
-
+function toDomainUser(row: Record<string, any> | null | undefined): User | null {
+  if (!row) return null;
   return new User({
-    id: userRow.user_id,
-    username: userRow.username ?? null,
-    displayName: userRow.display_name ?? null,
+    id: row.user_id ?? null,
+    username: row.username ?? null,
+    displayName: row.display_name ?? null,
     deleted: false,
   });
 }
