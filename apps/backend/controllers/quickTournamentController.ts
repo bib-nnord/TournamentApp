@@ -139,7 +139,7 @@ export async function create(req: Request, res: Response) {
         game,
         description: description || null,
         format: format as any,
-        creation_mode: 'quick',
+        creation_mode: 'quick' as any,
         status: (status || 'active') as any,
         is_private: isPrivate ?? false,
         registration_mode: 'invite_only',
@@ -233,14 +233,14 @@ export async function confirmParticipation(req: Request, res: Response) {
         where: {
           tournament_id_seed: { tournament_id: id, seed: participant.seed },
         },
-        data: { confirmed: true, registration_status: 'approved' },
+        data: { confirmed: true, registration_status: 'approved' as any },
       });
     } else {
       await prisma.tournamentParticipant.update({
         where: {
           tournament_id_seed: { tournament_id: id, seed: participant.seed },
         },
-        data: { declined: true, registration_status: 'declined' },
+        data: { declined: true, registration_status: 'declined' as any },
       });
 
       if (tournament.bracket_data) {

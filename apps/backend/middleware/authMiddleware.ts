@@ -2,7 +2,15 @@ import type { NextFunction, Request, Response } from 'express';
 
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET ?? '';
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error('JWT_SECRET is required');
+  }
+  return secret;
+}
+
+const JWT_SECRET = getJwtSecret();
 
 function attachUserFromToken(token: string, req: Request): void {
   const payload = jwt.verify(token, JWT_SECRET) as {

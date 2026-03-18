@@ -272,8 +272,8 @@ export async function createScheduled(req: Request, res: Response) {
         game,
         description: description || null,
         format: format as any,
-        creation_mode: 'scheduled',
-        status: 'registration',
+        creation_mode: 'scheduled' as any,
+        status: 'registration' as any,
         is_private: isPrivateTournament,
         registration_mode: resolvedRegistrationMode as any,
         auto_start: autoStart ?? false,
@@ -548,7 +548,7 @@ export async function unregisterScheduled(req: Request, res: Response) {
         data: {
           confirmed: false,
           declined: false,
-          registration_status: 'withdrawn',
+          registration_status: 'withdrawn' as any,
         },
       }),
       prisma.tournament.update({
@@ -609,8 +609,8 @@ export async function respondInviteScheduled(req: Request, res: Response) {
     await prisma.tournamentParticipant.update({
       where: { tournament_id_seed: { tournament_id: tournamentId, seed: participant.seed } },
       data: accept
-        ? { confirmed: true, declined: false, registration_status: 'approved' }
-        : { confirmed: false, declined: true, registration_status: 'declined' },
+        ? { confirmed: true, declined: false, registration_status: 'approved' as any }
+        : { confirmed: false, declined: true, registration_status: 'declined' as any },
     });
 
     const updated = await prisma.tournament.findUnique({
@@ -703,8 +703,8 @@ async function updateParticipantDecision(
         where: { tournament_id_seed: { tournament_id: tournamentId, seed } },
         data:
           decision === 'approved'
-            ? { confirmed: true, declined: false, registration_status: 'approved' }
-            : { confirmed: false, declined: true, registration_status: 'declined' },
+            ? { confirmed: true, declined: false, registration_status: 'approved' as any }
+            : { confirmed: false, declined: true, registration_status: 'declined' as any },
       }),
       prisma.tournament.update({
         where: { tournament_id: tournamentId },
