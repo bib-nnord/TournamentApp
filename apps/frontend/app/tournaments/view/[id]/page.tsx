@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useSelector } from "react-redux";
@@ -22,13 +22,35 @@ import type { TournamentStatus, TournamentFormat } from "@/types";
 import { tournamentStatusLabel, tournamentFormatInfo } from "@/types";
 import { apiFetch } from "@/lib/api";
 import { usePolling } from "@/hooks/usePolling";
-import type { Bracket } from "@/lib/generateBracket";
+import { generateBracket, type Bracket } from "@/lib/generateBracket";
 import BracketView from "@/components/BracketView";
 import StatusBadge from "@/components/StatusBadge";
 import { tournamentStatusColors, participantTypeColors } from "@/lib/colors";
 import { formatDate, getTournamentWinner } from "@/lib/helpers";
 import type { RootState } from "@/store/store";
 import type { TournamentParticipantData, TournamentData, TeamAssignment } from "./types";
+import UserSearchInput from "@/components/UserSearchInput";
+
+interface TeamSearchResult {
+  id: number;
+  name: string;
+  description: string | null;
+  members: { userId: number; username: string; displayName: string | null; role: string }[];
+}
+
+function getScheduledCompetitorNames(tournament: TournamentData): string[] {
+  if (tournament.teamMode) {
+    return (tournament.teamAssignments ?? []).map((team) => team.name);
+  }
+
+  return tournament.participants
+    .filter((participant) => participant.registrationStatus === "approved" && !participant.declined)
+    .map((participant) => participant.displayName);
+}
+
+function getPreviewAutoAdvanceGroups(bracket: Bracket | null | undefined): string[][] {
+  return bracket?.groups?.filter((group) => group.autoAdvance).map((group) => group.participants) ?? [];
+}
 
 
 
@@ -55,6 +77,19 @@ export default function TournamentPage() {
   const [previewing, setPreviewing] = useState(false);
   const [starting, setStarting] = useState(false);
   const [decidingParticipant, setDecidingParticipant] = useState<number | null>(null);
+  const [inviting, setInviting] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [inviteNotice, setInviteNotice] = useState<string | null>(null);
+  const [savingPreview, setSavingPreview] = useState(false);
+  const [previewDirty, setPreviewDirty] = useState(false);
+  const [previewSeedNames, setPreviewSeedNames] = useState<string[]>([]);
+  const [previewAdvancersPerGroup, setPreviewAdvancersPerGroup] = useState(2);
+  const [previewAutoAdvanceGroups, setPreviewAutoAdvanceGroups] = useState<string[][]>([]);
+  const [teamSearch, setTeamSearch] = useState("");
+  const [teamResults, setTeamResults] = useState<TeamSearchResult[]>([]);
+  const [teamSearching, setTeamSearching] = useState(false);
+  const [showTeamDropdown, setShowTeamDropdown] = useState(false);
+  const teamSearchRef = useRef<HTMLDivElement>(null);
 
   // ─── Team assignment local state ────────────────────────────────────────────
   type LocalTeam = { tempId: string; name: string; memberSeeds: number[] };
@@ -125,6 +160,79 @@ export default function TournamentPage() {
 
   usePolling(pollTournament, 5000, (tournament?.status === "active" || tournament?.status === "registration") && !editingSettings);
 
+  useEffect(() => {
+    const creatorViewing = currentUser?.id === tournament?.creator.id;
+    const registrationPhase = tournament?.creationMode === "scheduled" && tournament?.status === "registration";
+    if (!tournament?.teamMode || !creatorViewing || !registrationPhase) return;
+    if (!teamSearch.trim()) {
+      setTeamResults([]);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setTeamSearching(true);
+      try {
+        const res = await apiFetch(`/teams/search?q=${encodeURIComponent(teamSearch.trim())}&limit=8`);
+        if (res.ok) {
+          const data: TeamSearchResult[] = await res.json();
+          const existingIds = new Set(tournament.participants.filter((p) => p.teamId).map((p) => p.teamId));
+          setTeamResults(data.filter((team) => !existingIds.has(team.id)));
+        }
+      } catch {
+        /* ignore */
+      } finally {
+        setTeamSearching(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [teamSearch, tournament?.participants, tournament?.teamMode, tournament?.creator.id, tournament?.creationMode, tournament?.status, currentUser?.id]);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (teamSearchRef.current && !teamSearchRef.current.contains(e.target as Node)) {
+        setShowTeamDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  useEffect(() => {
+    if (!tournament?.previewBracketData) {
+      if (!previewDirty) {
+        setPreviewSeedNames([]);
+        setPreviewAutoAdvanceGroups([]);
+        setPreviewAdvancersPerGroup(2);
+      }
+      return;
+    }
+    if (previewDirty) return;
+
+    setPreviewSeedNames(getScheduledCompetitorNames(tournament));
+    setPreviewAdvancersPerGroup(tournament.previewBracketData.advancersPerGroup ?? 2);
+    setPreviewAutoAdvanceGroups(getPreviewAutoAdvanceGroups(tournament.previewBracketData));
+  }, [tournament?.previewBracketData, tournament?.participants, tournament?.teamAssignments, previewDirty]);
+
+  // Sync localTeams from server data (only when not dirty)
+  useEffect(() => {
+    if (!tournament?.teamMode) return;
+    if (assignmentDirty) return;
+    const serverAssignments = tournament.teamAssignments;
+    if (serverAssignments && serverAssignments.length > 0) {
+      setLocalTeams(
+        serverAssignments.map((t) => ({
+          tempId: `server-${t.name}`,
+          name: t.name,
+          memberSeeds: t.memberSeeds,
+        }))
+      );
+    } else {
+      setLocalTeams([]);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tournament?.teamAssignments, tournament?.teamMode]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -148,7 +256,14 @@ export default function TournamentPage() {
     );
   }
 
-  const spotsLeft = tournament.max - tournament.participants.length;
+  const activeParticipants = tournament.participants.filter(
+    (p) => p.registrationStatus !== "declined" && p.registrationStatus !== "withdrawn"
+  );
+  const activeTeamParticipants = activeParticipants.filter((p) => p.type === "team");
+  const competitorCount = tournament.teamMode
+    ? (tournament.teamAssignments?.length ?? activeTeamParticipants.length)
+    : activeParticipants.length;
+  const spotsLeft = tournament.max - competitorCount;
   const isCreator = currentUser?.id === tournament.creator.id;
 
   // Check if current user is an unconfirmed participant
@@ -187,11 +302,12 @@ export default function TournamentPage() {
     isRegistrationPhase &&
     !registrationClosed &&
     tournament.registrationMode !== "invite_only" &&
-    !isCreator;
+    !isCreator &&
+    (!myParticipant || ["declined", "withdrawn"].includes(myParticipant.registrationStatus ?? ""));
 
   // Does current user have an invite to respond to? (scheduled only)
   const hasScheduledInvite =
-    isScheduled && myParticipant?.registrationStatus === "invited";
+    isScheduled && !isCreator && myParticipant?.registrationStatus === "invited";
 
   // Is user already registered / approved?
   const isRegistered =
@@ -205,6 +321,157 @@ export default function TournamentPage() {
   const approvedParticipants = tournament.participants.filter(
     (p) => p.registrationStatus === "approved" && !p.declined
   );
+
+  const pendingParticipants = isScheduled
+    ? tournament.participants.filter((p) => p.registrationStatus === "pending")
+    : [];
+
+  const invitedParticipants = isScheduled
+    ? tournament.participants.filter((p) => p.registrationStatus === "invited")
+    : [];
+
+  const visibleParticipants = isScheduled
+    ? tournament.participants.filter((p) => p.registrationStatus !== "pending" && (!isCreator || p.registrationStatus !== "invited"))
+    : tournament.participants;
+
+  const editablePreviewBracket = !tournament.previewBracketData
+    ? null
+    : (() => {
+        const baseNames = previewSeedNames.length > 0 ? previewSeedNames : getScheduledCompetitorNames(tournament);
+        const generated = generateBracket(
+          baseNames,
+          tournament.previewBracketData.format,
+          tournament.previewBracketData.format === "combination"
+            ? { advancersPerGroup: previewAdvancersPerGroup, autoAdvanceGroups: previewAutoAdvanceGroups }
+            : undefined,
+        );
+
+        return {
+          ...generated,
+          allowTies: tournament.previewBracketData.allowTies,
+        } satisfies Bracket;
+      })();
+
+  const previewTeamCount = tournament.teamMode
+    ? localTeams.filter((team) => team.name.trim()).length
+    : approvedCount;
+
+  function swapPreviewParticipants(nameA: string, nameB: string) {
+    if (!tournament) return;
+
+    setPreviewSeedNames((prev) => {
+      const next = prev.length > 0 ? [...prev] : [...getScheduledCompetitorNames(tournament)];
+      const indexA = next.indexOf(nameA);
+      const indexB = next.indexOf(nameB);
+      if (indexA === -1 || indexB === -1 || indexA === indexB) return prev;
+      [next[indexA], next[indexB]] = [next[indexB], next[indexA]];
+      return next;
+    });
+    setPreviewDirty(true);
+  }
+
+  function movePreviewParticipant(name: string, fromGroupIndex: number, toGroupIndex: number) {
+    if (!editablePreviewBracket?.groups) return;
+
+    const allRegularGroups = editablePreviewBracket.groups.filter((group) => !group.autoAdvance);
+    if (toGroupIndex >= allRegularGroups.length + previewAutoAdvanceGroups.length) {
+      return;
+    }
+
+    const regularGroupCount = allRegularGroups.length;
+    const isFromAuto = fromGroupIndex >= regularGroupCount;
+    const isToAuto = toGroupIndex >= regularGroupCount;
+
+    if (isFromAuto && isToAuto) return;
+
+    if (isFromAuto) {
+      const autoIndex = fromGroupIndex - regularGroupCount;
+      setPreviewAutoAdvanceGroups((prev) => prev.map((group, index) => index === autoIndex ? group.filter((participant) => participant !== name) : group).filter((group) => group.length > 0));
+      setPreviewDirty(true);
+      return;
+    }
+
+    if (isToAuto) {
+      const autoIndex = toGroupIndex - regularGroupCount;
+      setPreviewAutoAdvanceGroups((prev) => {
+        if (autoIndex < prev.length) {
+          return prev.map((group, index) => index === autoIndex ? [...group, name] : group);
+        }
+        return [...prev, [name]];
+      });
+      setPreviewDirty(true);
+      return;
+    }
+
+    const targetGroup = allRegularGroups[toGroupIndex];
+    if (!targetGroup || targetGroup.participants.length === 0) return;
+    const targetName = targetGroup.participants[0];
+    if (targetName === name) return;
+    swapPreviewParticipants(name, targetName);
+  }
+
+  async function savePreviewEdits(previewToSave?: Bracket) {
+    const bracket = previewToSave ?? editablePreviewBracket;
+    if (!bracket) return true;
+
+    setSavingPreview(true);
+    setError(null);
+    try {
+      const res = await apiFetch(`/tournaments/${tournament!.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          previewBracketData: bracket,
+          clientUpdatedAt: tournament!.updatedAt,
+        }),
+      });
+
+      if (res.status === 409) {
+        setConflictError(true);
+        return false;
+      }
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError(body.error ?? "Failed to save preview changes");
+        return false;
+      }
+
+      const updated = await res.json();
+      setTournament(updated);
+      setPreviewDirty(false);
+      return true;
+    } catch {
+      setError("Network error");
+      return false;
+    } finally {
+      setSavingPreview(false);
+    }
+  }
+
+  async function inviteParticipants(invites: Array<{ type: "account" | "team"; username?: string; teamId?: number; displayName?: string }>) {
+    setInviting(true);
+    setInviteError(null);
+    setInviteNotice(null);
+    try {
+      const res = await apiFetch(`/tournaments/${tournament!.id}/invites`, {
+        method: "POST",
+        body: JSON.stringify({ invites }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setInviteError(body.error ?? "Failed to send invite");
+        return;
+      }
+      const updated = await res.json();
+      setTournament(updated);
+      setInviteNotice(invites.length === 1 ? "Invite sent." : "Invites sent.");
+      setTeamSearch("");
+      setShowTeamDropdown(false);
+    } catch {
+      setInviteError("Network error");
+    } finally {
+      setInviting(false);
+    }
+  }
 
   async function handleRegister() {
     setRegistering(true);
@@ -282,6 +549,7 @@ export default function TournamentPage() {
       });
       if (res.ok) {
         setTournament(await res.json());
+        setPreviewDirty(false);
       } else {
         const body = await res.json().catch(() => ({}));
         setError(body.error ?? "Failed to preview bracket");
@@ -296,6 +564,11 @@ export default function TournamentPage() {
   async function handleStartTournament() {
     setStarting(true);
     try {
+      if (previewDirty && editablePreviewBracket) {
+        const saved = await savePreviewEdits(editablePreviewBracket);
+        if (!saved) return;
+      }
+
       const res = await apiFetch(`/tournaments/${tournament!.id}/start`, {
         method: "POST",
       });
@@ -311,25 +584,6 @@ export default function TournamentPage() {
       setStarting(false);
     }
   }
-
-  // Sync localTeams from server data (only when not dirty)
-  useEffect(() => {
-    if (!tournament?.teamMode) return;
-    if (assignmentDirty) return;
-    const serverAssignments = tournament.teamAssignments;
-    if (serverAssignments && serverAssignments.length > 0) {
-      setLocalTeams(
-        serverAssignments.map((t) => ({
-          tempId: `server-${t.name}`,
-          name: t.name,
-          memberSeeds: t.memberSeeds,
-        }))
-      );
-    } else {
-      setLocalTeams([]);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tournament?.teamAssignments, tournament?.teamMode]);
 
   function addTeam() {
     const newTeam: LocalTeam = { tempId: `local-${Date.now()}`, name: "", memberSeeds: [] };
@@ -586,7 +840,9 @@ export default function TournamentPage() {
               <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 flex items-center justify-between gap-4">
                 <div>
                   <p className="text-sm text-blue-800">
-                    Registration is open{tournament.registrationMode === "approval" ? " (requires organizer approval)" : ""}.
+                    {tournament.registrationMode === "approval"
+                      ? "Applications are open and require organizer approval."
+                      : "Registration is open."}
                   </p>
                   {tournament.registrationClosesAt && (
                     <p className="text-xs text-blue-500 mt-0.5">
@@ -599,7 +855,7 @@ export default function TournamentPage() {
                   disabled={registering}
                   className="shrink-0 text-sm px-4 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-40"
                 >
-                  {registering ? "Registering…" : "Register"}
+                  {registering ? (tournament.registrationMode === "approval" ? "Applying…" : "Registering…") : (tournament.registrationMode === "approval" ? "Apply" : "Register")}
                 </button>
               </div>
             )}
@@ -628,6 +884,75 @@ export default function TournamentPage() {
             {registerError && (
               <p className="text-xs text-red-500 mt-2">{registerError}</p>
             )}
+          </div>
+        )}
+
+        {isScheduled && isCreator && isRegistrationPhase && !registrationClosed && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+            <h2 className="text-base font-semibold text-gray-800 mb-1">Invite Participants</h2>
+            <p className="text-xs text-gray-400 mb-4">
+              Invite people during registration. Invitees accept for themselves; applicants appear in the pending list.
+            </p>
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] uppercase text-gray-400 w-14 shrink-0">Account</span>
+                <UserSearchInput
+                  onSelect={(username) => void inviteParticipants([{ type: "account", username, displayName: username }])}
+                  placeholder="Search username…"
+                  className="flex-1"
+                  size="sm"
+                />
+              </div>
+
+              {tournament.teamMode && (
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] uppercase text-gray-400 w-14 shrink-0">Team</span>
+                  <div ref={teamSearchRef} className="relative flex-1">
+                    <input
+                      value={teamSearch}
+                      onChange={(e) => {
+                        setTeamSearch(e.target.value);
+                        setShowTeamDropdown(true);
+                      }}
+                      onFocus={() => setShowTeamDropdown(true)}
+                      placeholder="Search existing teams…"
+                      className="w-full border border-gray-200 rounded-lg text-xs px-2 py-1 text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    />
+                    {showTeamDropdown && teamSearch.trim() && (
+                      <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-56 overflow-y-auto">
+                        {teamSearching ? (
+                          <div className="px-3 py-2 text-xs text-gray-400">Searching…</div>
+                        ) : teamResults.length === 0 ? (
+                          <div className="px-3 py-2 text-xs text-gray-400">No teams found</div>
+                        ) : (
+                          teamResults.map((team) => (
+                            <button
+                              key={team.id}
+                              type="button"
+                              onClick={() => void inviteParticipants([{ type: "team", teamId: team.id, displayName: team.name }])}
+                              className="w-full text-left px-3 py-2 hover:bg-indigo-50 transition-colors border-b border-gray-50 last:border-0"
+                            >
+                              <span className="text-sm font-medium text-gray-800">{team.name}</span>
+                              {team.members.length > 0 && (
+                                <span className="block text-[11px] text-gray-400 truncate">
+                                  {team.members.map((member) => member.displayName || member.username).join(", ")}
+                                </span>
+                              )}
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+            {(inviteError || inviteNotice) && (
+              <p className={`text-xs mt-3 ${inviteError ? "text-red-500" : "text-green-600"}`}>
+                {inviteError ?? inviteNotice}
+              </p>
+            )}
+            {inviting && <p className="text-xs text-gray-400 mt-2">Sending invite…</p>}
           </div>
         )}
 
@@ -672,9 +997,11 @@ export default function TournamentPage() {
               </Link>
             </div>
             <div>
-              <p className="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Participants</p>
+              <p className="text-gray-400 text-xs uppercase tracking-wide mb-0.5">
+                {tournament.teamMode ? "Teams" : "Participants"}
+              </p>
               <p className="text-gray-800 font-medium">
-                {tournament.participants.length} / {tournament.max}
+                {competitorCount} / {tournament.max}
                 {spotsLeft > 0 && (
                   <span className="text-gray-400 font-normal"> ({spotsLeft} left)</span>
                 )}
@@ -727,10 +1054,10 @@ export default function TournamentPage() {
         {/* Participants */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
           <h2 className="text-base font-semibold text-gray-800 mb-4">
-            Participants ({tournament.participants.length})
+            Participants ({visibleParticipants.length})
           </h2>
           <div className="flex flex-col gap-2">
-            {tournament.participants.map((p) => (
+            {visibleParticipants.map((p) => (
               <div
                 key={p.seed}
                 className="flex items-start gap-3 px-4 py-3 rounded-lg bg-gray-50"
@@ -794,24 +1121,6 @@ export default function TournamentPage() {
                   )}
                 </div>
                 {/* Approve / Decline buttons for organizer in registration phase */}
-                {isCreator && isRegistrationPhase && (p.registrationStatus === "pending" || p.registrationStatus === "invited") && (
-                  <div className="flex items-center gap-1.5 shrink-0 ml-auto">
-                    <button
-                      onClick={() => handleParticipantDecision(p.seed, "approve")}
-                      disabled={decidingParticipant === p.seed}
-                      className="text-[11px] px-2 py-1 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-40"
-                    >
-                      Approve
-                    </button>
-                    <button
-                      onClick={() => handleParticipantDecision(p.seed, "decline")}
-                      disabled={decidingParticipant === p.seed}
-                      className="text-[11px] px-2 py-1 rounded border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-40"
-                    >
-                      Decline
-                    </button>
-                  </div>
-                )}
               </div>
             ))}
             {spotsLeft > 0 && Array.from({ length: Math.min(spotsLeft, 4) }).map((_, i) => (
@@ -830,6 +1139,104 @@ export default function TournamentPage() {
             )}
           </div>
         </div>
+
+        {/* Invited participants (owner only) */}
+        {isScheduled && isCreator && invitedParticipants.length > 0 && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+            <h2 className="text-base font-semibold text-gray-800 mb-1">
+              Invited (Awaiting Response) ({invitedParticipants.length})
+            </h2>
+            <p className="text-xs text-gray-400 mb-4">
+              These participants were invited directly and can accept or decline themselves.
+            </p>
+            <div className="flex flex-col gap-2">
+              {invitedParticipants.map((p) => (
+                <div key={`invited-${p.seed}`} className="flex items-start gap-3 px-4 py-3 rounded-lg bg-blue-50 border border-blue-100">
+                  <span className="text-xs text-gray-400 font-mono w-6 shrink-0 text-right mt-0.5">
+                    {p.seed}.
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                        p.type === "account" ? "bg-indigo-100 text-indigo-600" : p.type === "team" ? "bg-purple-100 text-purple-600" : "bg-amber-100 text-amber-600"
+                      }`}>
+                        {p.displayName[0]?.toUpperCase()}
+                      </div>
+                      <span className={`text-sm font-medium truncate ${
+                        p.type === "team" ? "text-purple-800" : p.type === "account" ? "text-gray-800" : "text-amber-700"
+                      }`}>
+                        {p.displayName}
+                      </span>
+                      <span className={`text-[10px] uppercase px-1.5 py-0.5 rounded font-medium shrink-0 ${participantTypeColors[p.type]}`}>
+                        {p.type}
+                      </span>
+                      <span className="text-[10px] uppercase px-1.5 py-0.5 rounded font-medium shrink-0 bg-blue-100 text-blue-700">
+                        invited
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Pending applications (owner only) */}
+        {isScheduled && isCreator && pendingParticipants.length > 0 && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+            <h2 className="text-base font-semibold text-gray-800 mb-1">
+              Pending Applications ({pendingParticipants.length})
+            </h2>
+            <p className="text-xs text-gray-400 mb-4">
+              Only applications appear here. Invited participants accept or decline on their own.
+            </p>
+            <div className="flex flex-col gap-2">
+              {pendingParticipants.map((p) => (
+                <div key={`pending-${p.seed}`} className="flex items-start gap-3 px-4 py-3 rounded-lg bg-yellow-50 border border-yellow-100">
+                  <span className="text-xs text-gray-400 font-mono w-6 shrink-0 text-right mt-0.5">
+                    {p.seed}.
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                        p.type === "account" ? "bg-indigo-100 text-indigo-600" : p.type === "team" ? "bg-purple-100 text-purple-600" : "bg-amber-100 text-amber-600"
+                      }`}>
+                        {p.displayName[0]?.toUpperCase()}
+                      </div>
+                      <span className={`text-sm font-medium truncate ${
+                        p.type === "team" ? "text-purple-800" : p.type === "account" ? "text-gray-800" : "text-amber-700"
+                      }`}>
+                        {p.displayName}
+                      </span>
+                      <span className={`text-[10px] uppercase px-1.5 py-0.5 rounded font-medium shrink-0 ${participantTypeColors[p.type]}`}>
+                        {p.type}
+                      </span>
+                      <span className="text-[10px] uppercase px-1.5 py-0.5 rounded font-medium shrink-0 bg-yellow-100 text-yellow-700">
+                        pending
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+                    <button
+                      onClick={() => handleParticipantDecision(p.seed, "approve")}
+                      disabled={decidingParticipant === p.seed}
+                      className="text-[11px] px-2 py-1 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-40"
+                    >
+                      Approve
+                    </button>
+                    <button
+                      onClick={() => handleParticipantDecision(p.seed, "decline")}
+                      disabled={decidingParticipant === p.seed}
+                      className="text-[11px] px-2 py-1 rounded border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-40"
+                    >
+                      Decline
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Team Assignment (team mode + creator + registration phase) */}
         {tournament.teamMode && isCreator && isRegistrationPhase && (() => {
@@ -992,10 +1399,38 @@ export default function TournamentPage() {
               {/* Show preview bracket if available */}
               {tournament.previewBracketData && (
                 <div className="border border-dashed border-indigo-200 rounded-xl p-4 bg-indigo-50/30">
-                  <p className="text-xs text-indigo-500 font-medium uppercase tracking-wide mb-3">Bracket Preview</p>
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <div>
+                      <p className="text-xs text-indigo-500 font-medium uppercase tracking-wide">Bracket Preview</p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        Drag and drop to reseed before the tournament starts.
+                        {previewDirty && <span className="text-amber-600"> Unsaved changes.</span>}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void savePreviewEdits()}
+                      disabled={!previewDirty || savingPreview}
+                      className="shrink-0 text-sm px-3 py-2 rounded-lg font-medium bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      {savingPreview ? "Saving…" : "Save Preview Changes"}
+                    </button>
+                  </div>
                   <BracketView
-                    bracket={tournament.previewBracketData}
+                    bracket={editablePreviewBracket ?? tournament.previewBracketData}
                     tournamentId={tournament.id}
+                    onSwapParticipants={swapPreviewParticipants}
+                    advancersPerGroup={previewAdvancersPerGroup}
+                    onAdvancersChange={(value) => {
+                      setPreviewAdvancersPerGroup(value);
+                      setPreviewDirty(true);
+                    }}
+                    autoAdvanceGroups={previewAutoAdvanceGroups}
+                    onAutoAdvanceGroupsChange={(groups) => {
+                      setPreviewAutoAdvanceGroups(groups);
+                      setPreviewDirty(true);
+                    }}
+                    onMoveParticipant={(name, fromGroupIndex, toGroupIndex) => movePreviewParticipant(name, fromGroupIndex, toGroupIndex)}
                   />
                 </div>
               )}
@@ -1012,7 +1447,7 @@ export default function TournamentPage() {
                 </div>
                 <button
                   onClick={handleStartTournament}
-                  disabled={starting || (tournament.teamMode ? localTeams.filter((t) => t.name.trim()).length < 2 : approvedCount < 2)}
+                  disabled={starting || savingPreview || (tournament.teamMode ? localTeams.filter((t) => t.name.trim()).length < 2 : approvedCount < 2)}
                   title={tournament.teamMode
                     ? (localTeams.filter((t) => t.name.trim()).length < 2 ? "Need at least 2 named teams" : undefined)
                     : (approvedCount < 2 ? "Need at least 2 approved participants" : undefined)}

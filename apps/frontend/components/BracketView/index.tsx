@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, createContext, useContext } from "react";
+import { useEffect, useRef, useState, createContext, useContext } from "react";
 import Link from "next/link";
 import type { Bracket, BracketRound, BracketMatch, TiebreakerMatch } from "@/lib/generateBracket";
 import {
@@ -12,6 +12,65 @@ import {
 } from "@/constants/labels";
 
 const TournamentIdContext = createContext<number | null>(null);
+
+type Size = {
+  width: number;
+  height: number;
+};
+
+const DEFAULT_PRINT_PAGE = {
+  width: 1040,
+  height: 690,
+};
+
+const PREVIEW_PRINT_PAGE = {
+  width: 810,
+  height: 670,
+};
+
+function readElementSize(element: HTMLElement | null): Size {
+  if (!element) {
+    return { width: 0, height: 0 };
+  }
+
+  return {
+    width: Math.ceil(element.scrollWidth),
+    height: Math.ceil(element.scrollHeight),
+  };
+}
+
+function getFitScale(content: Size, viewport: Size): number {
+  if (!content.width || !content.height || !viewport.width || !viewport.height) {
+    return 1;
+  }
+
+  return Math.min(1, viewport.width / content.width, viewport.height / content.height);
+}
+
+function BracketChrome({
+  children,
+  isExpanded,
+  onToggleExpanded,
+}: {
+  children: React.ReactNode;
+  isExpanded: boolean;
+  onToggleExpanded: () => void;
+}) {
+  return (
+    <div className="min-w-0">
+      <div className="flex justify-end mb-3 no-print">
+        <button
+          type="button"
+          onClick={onToggleExpanded}
+          className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-600 transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+        >
+          {isExpanded ? "Close expanded view" : "Expand bracket"}
+        </button>
+      </div>
+      {children}
+    </div>
+  );
+}
 
 // ─── Main entry point ─────────────────────────────────────────────────────────
 
@@ -29,6 +88,113 @@ export default function BracketView({ bracket, tournamentId, onSwapParticipants,
   onUndoTiebreaker?: () => Promise<void>;
 }) {
   const allowTies = bracket.allowTies !== false;
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const [fitToScreen, setFitToScreen] = useState(false);
+  const [printMetrics, setPrintMetrics] = useState({ scale: 1, height: 0 });
+  const [expandedContentSize, setExpandedContentSize] = useState<Size>({ width: 0, height: 0 });
+  const [expandedViewportSize, setExpandedViewportSize] = useState<Size>({ width: 0, height: 0 });
+  const inlineShellRef = useRef<HTMLDivElement | null>(null);
+  const inlineContentRef = useRef<HTMLDivElement | null>(null);
+  const expandedViewportRef = useRef<HTMLDivElement | null>(null);
+  const expandedContentRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!isExpanded) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsExpanded(false);
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isExpanded]);
+
+  useEffect(() => {
+    function updatePrintMetrics() {
+      const shell = inlineShellRef.current;
+      const contentElement = inlineContentRef.current;
+      if (!shell || !contentElement) return;
+
+      const contentSize = readElementSize(contentElement);
+      const maxPage = shell.closest(".print-bracket") ? PREVIEW_PRINT_PAGE : DEFAULT_PRINT_PAGE;
+      const scale = getFitScale(contentSize, maxPage);
+
+      setPrintMetrics({
+        scale,
+        height: Math.ceil(contentSize.height * scale),
+      });
+    }
+
+    updatePrintMetrics();
+
+    const resizeObserver = new ResizeObserver(() => {
+      updatePrintMetrics();
+    });
+
+    if (inlineShellRef.current) {
+      resizeObserver.observe(inlineShellRef.current);
+    }
+    if (inlineContentRef.current) {
+      resizeObserver.observe(inlineContentRef.current);
+    }
+
+    window.addEventListener("resize", updatePrintMetrics);
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", updatePrintMetrics);
+    };
+  }, [bracket]);
+
+  useEffect(() => {
+    if (!isExpanded) return;
+
+    function updateExpandedMetrics() {
+      const viewport = expandedViewportRef.current;
+      const contentElement = expandedContentRef.current;
+      if (!viewport || !contentElement) return;
+
+      setExpandedViewportSize({
+        width: Math.max(viewport.clientWidth - 24, 0),
+        height: Math.max(viewport.clientHeight - 24, 0),
+      });
+      setExpandedContentSize(readElementSize(contentElement));
+    }
+
+    updateExpandedMetrics();
+
+    const resizeObserver = new ResizeObserver(() => {
+      updateExpandedMetrics();
+    });
+
+    if (expandedViewportRef.current) {
+      resizeObserver.observe(expandedViewportRef.current);
+    }
+    if (expandedContentRef.current) {
+      resizeObserver.observe(expandedContentRef.current);
+    }
+
+    window.addEventListener("resize", updateExpandedMetrics);
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", updateExpandedMetrics);
+    };
+  }, [isExpanded, bracket]);
+
+  useEffect(() => {
+    if (!isExpanded) return;
+
+    setZoom(1);
+    setFitToScreen(false);
+  }, [isExpanded, bracket]);
 
   const mainContent = (() => {
     switch (bracket.format) {
@@ -90,13 +256,124 @@ export default function BracketView({ bracket, tournamentId, onSwapParticipants,
     }
   })();
 
-  return (
+  const content = (
     <TournamentIdContext.Provider value={tournamentId ?? null}>
       {mainContent}
       {bracket.tiebreaker && (
         <TiebreakerPanel tiebreaker={bracket.tiebreaker} onReport={onReportTiebreaker} onUndo={onUndoTiebreaker} />
       )}
     </TournamentIdContext.Provider>
+  );
+
+  const fitScale = getFitScale(expandedContentSize, expandedViewportSize);
+  const expandedScale = fitToScreen ? fitScale : zoom;
+  const expandedScaledWidth = expandedContentSize.width > 0 ? Math.ceil(expandedContentSize.width * expandedScale) : undefined;
+  const expandedScaledHeight = expandedContentSize.height > 0 ? Math.ceil(expandedContentSize.height * expandedScale) : undefined;
+
+  return (
+    <>
+      <BracketChrome isExpanded={false} onToggleExpanded={() => setIsExpanded(true)}>
+        <div
+          ref={inlineShellRef}
+          className="bracket-print-shell"
+          style={{
+            ["--bracket-print-scale" as string]: String(printMetrics.scale),
+            ["--bracket-print-height" as string]: printMetrics.height ? `${printMetrics.height}px` : "auto",
+          }}
+        >
+          <div ref={inlineContentRef} className="bracket-print-content">
+            {content}
+          </div>
+        </div>
+      </BracketChrome>
+      {isExpanded && (
+        <div className="fixed inset-0 z-[70] bg-slate-950/55 backdrop-blur-sm no-print">
+          <div className="h-full w-full p-3 sm:p-5 lg:p-8">
+            <div className="flex h-full flex-col rounded-[28px] border border-white/15 bg-white shadow-2xl">
+              <div className="flex items-center justify-between gap-3 border-b border-gray-100 px-4 py-3 sm:px-6">
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">Expanded bracket</p>
+                  <p className="text-xs text-gray-500">Use fit mode or zoom controls to inspect the full bracket. Press Escape to close.</p>
+                </div>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setFitToScreen((value) => !value)}
+                    className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
+                      fitToScreen
+                        ? "border-indigo-200 bg-indigo-50 text-indigo-700"
+                        : "border-gray-200 bg-white text-gray-600 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+                    }`}
+                  >
+                    {fitToScreen ? "Fitted" : "Fit to screen"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFitToScreen(false);
+                      setZoom((value) => Math.max(0.4, Number((value - 0.1).toFixed(2))));
+                    }}
+                    className="inline-flex items-center rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-600 transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+                  >
+                    Zoom out
+                  </button>
+                  <span className="min-w-14 text-center text-xs font-medium text-gray-500">
+                    {Math.round(expandedScale * 100)}%
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFitToScreen(false);
+                      setZoom((value) => Math.min(2.5, Number((value + 0.1).toFixed(2))));
+                    }}
+                    className="inline-flex items-center rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-600 transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+                  >
+                    Zoom in
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFitToScreen(false);
+                      setZoom(1);
+                    }}
+                    className="inline-flex items-center rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-600 transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+                  >
+                    Reset
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsExpanded(false)}
+                    className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-600 transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+              <div ref={expandedViewportRef} className="min-h-0 flex-1 overflow-auto px-4 py-4 sm:px-6 sm:py-5">
+                <div
+                  className="inline-block min-w-full align-top"
+                  style={{
+                    width: expandedScaledWidth ? `${expandedScaledWidth}px` : undefined,
+                    height: expandedScaledHeight ? `${expandedScaledHeight}px` : undefined,
+                  }}
+                >
+                  <div
+                    ref={expandedContentRef}
+                    style={{
+                      width: expandedContentSize.width ? `${expandedContentSize.width}px` : undefined,
+                      transform: `scale(${expandedScale})`,
+                      transformOrigin: "top left",
+                    }}
+                  >
+                    {content}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

@@ -8,7 +8,6 @@ import { useTagInput } from "@/hooks/useTagInput";
 import {
   LABEL_ADD_TEAM,
   LABEL_GENERATE_BRACKET,
-  LABEL_TEAM_MODE,
 } from "@/constants/labels";
 import { inputClass, labelClass, ToggleSwitch, FormSection } from "../FormPrimitives";
 import UserSearchInput from "../UserSearchInput";
@@ -201,14 +200,6 @@ export default function QuickTournamentForm({ initial, onSubmit, onChange }: Pro
       </FormSection>
 
       <ToggleSwitch
-        checked={teamMode}
-        onChange={setTeamMode}
-        label={LABEL_TEAM_MODE}
-        hint="teams compete instead of individuals"
-        activeColor="bg-purple-600"
-      />
-
-      <ToggleSwitch
         checked={allowTies}
         onChange={setAllowTies}
         label="Allow ties"
@@ -221,6 +212,14 @@ export default function QuickTournamentForm({ initial, onSubmit, onChange }: Pro
         label="Private tournament"
         hint="only visible to you and participants"
         activeColor="bg-gray-700"
+      />
+
+      <ToggleSwitch
+        checked={teamMode}
+        onChange={setTeamMode}
+        label="Team mode"
+        hint="teams are the main competitors in the bracket"
+        activeColor="bg-purple-600"
       />
 
       {/* Participants */}

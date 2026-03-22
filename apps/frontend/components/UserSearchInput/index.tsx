@@ -70,14 +70,12 @@ export default function UserSearchInput({
       if (highlightIndex >= 0 && highlightIndex < results.length) {
         selectUser(results[highlightIndex].username);
       } else if (input.trim()) {
-        // No matching user — add as guest if callback provided, otherwise as account
+        // No matching user — only allow free text when the caller explicitly supports guest entries.
         if (onSelectAsGuest) {
           onSelectAsGuest(input.trim());
           setInput("");
           setShowDropdown(false);
           setHighlightIndex(-1);
-        } else {
-          selectUser(input.trim());
         }
       }
     } else if (e.key === "Escape") {

@@ -41,7 +41,7 @@ export default function ScheduledTournamentForm({ initial, onSubmit, onChange, s
   const [teamMode, setTeamMode] = useState(initial?.teamMode ?? false);
   const [registrationMode, setRegistrationMode] = useState<TournamentRegistrationMode>(initial?.registrationMode ?? "open");
   const [maxParticipants, setMaxParticipants] = useState<string>(
-    initial?.maxParticipants != null ? String(initial.maxParticipants) : ""
+    initial?.maxParticipants != null ? String(initial.maxParticipants) : "16"
   );
   const [startDate, setStartDate] = useState(initial?.startDate ?? "");
   const [registrationClosesAt, setRegistrationClosesAt] = useState(initial?.registrationClosesAt ?? "");
@@ -59,9 +59,9 @@ export default function ScheduledTournamentForm({ initial, onSubmit, onChange, s
     if (isPrivate) setRegistrationMode("invite_only");
   }, [isPrivate]);
 
-  // When team mode is toggled on, remove any existing team invites
+  // In regular mode, keep invites account-only.
   useEffect(() => {
-    if (teamMode) {
+    if (!teamMode) {
       setInvites((prev) => prev.filter((i) => i.type !== "team"));
     }
   }, [teamMode]);
@@ -211,7 +211,7 @@ export default function ScheduledTournamentForm({ initial, onSubmit, onChange, s
         checked={teamMode}
         onChange={setTeamMode}
         label="Team mode"
-        hint="invite individual players, then group them into teams before the tournament starts"
+        hint="teams are the main competitors; invite teams and users, then finalize team assignments"
         activeColor="bg-purple-600"
       />
 
@@ -234,16 +234,20 @@ export default function ScheduledTournamentForm({ initial, onSubmit, onChange, s
         </FormSection>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-        <FormSection label="Start date" optional>
-          <input
-            type="datetime-local"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            className={inputClass}
-          />
-        </FormSection>
+      <FormSection label={teamMode ? "Max teams" : "Max participants"}>
+        <input
+          type="number"
+          min={2}
+          value={maxParticipants}
+          onChange={(e) => setMaxParticipants(e.target.value)}
+          className={inputClass}
+        />
+        <p className="mt-1 text-xs text-gray-400">
+          {teamMode ? "Limits the bracket to 16 teams by default." : "Limits the bracket to 16 participants by default."}
+        </p>
+      </FormSection>
 
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
         <FormSection label="Registration closes" optional>
           <input
             type="datetime-local"
@@ -252,18 +256,16 @@ export default function ScheduledTournamentForm({ initial, onSubmit, onChange, s
             className={inputClass}
           />
         </FormSection>
-      </div>
 
-      <FormSection label="Max participants" optional>
-        <input
-          type="number"
-          min={2}
-          value={maxParticipants}
-          onChange={(e) => setMaxParticipants(e.target.value)}
-          placeholder="No limit"
-          className={inputClass}
-        />
-      </FormSection>
+        <FormSection label="Start date" optional>
+          <input
+            type="datetime-local"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            className={inputClass}
+          />
+        </FormSection>
+      </div>
 
       {/* Invites */}
       <div>
@@ -271,7 +273,7 @@ export default function ScheduledTournamentForm({ initial, onSubmit, onChange, s
           Invite participants{" "}
           <span className="normal-case text-gray-300">
             {teamMode
-              ? "(optional — you'll group them into teams later)"
+              ? "(optional — invite teams and users, then refine assignments before start)"
               : "(optional — you can invite more later)"}
           </span>
         </label>
@@ -310,8 +312,8 @@ export default function ScheduledTournamentForm({ initial, onSubmit, onChange, s
             />
           </div>
 
-          {/* Team invite search – hidden in team mode (players only) */}
-          {!teamMode && (
+          {/* Team invite search – available only in team mode */}
+          {teamMode && (
             <div className="flex items-center gap-2">
               <span className="text-[10px] uppercase text-gray-400 w-14 shrink-0">Team</span>
               <div ref={teamSearchRef} className="relative flex-1">

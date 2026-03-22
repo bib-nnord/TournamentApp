@@ -4,6 +4,7 @@ import { list, getById, update, remove, myMatches } from '../controllers/tournam
 import { create, confirmParticipation } from '../controllers/quickTournamentController';
 import {
 	createScheduled,
+	inviteScheduled,
 	registerScheduled,
 	unregisterScheduled,
 	respondInviteScheduled,
@@ -24,6 +25,7 @@ router.get('/:id/matches/:matchId', getMatch);
 
 router.post('/', authenticate, create);
 router.post('/scheduled', authenticate, createScheduled);
+router.post('/:id/invites', authenticate, inviteScheduled);
 router.post('/:id/register', authenticate, registerScheduled);
 router.delete('/:id/register', authenticate, unregisterScheduled);
 router.patch('/:id/respond-invite', authenticate, respondInviteScheduled);

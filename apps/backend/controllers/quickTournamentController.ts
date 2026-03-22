@@ -8,7 +8,7 @@ import * as tournamentService from '../services/tournamentService';
 import { formatTournament } from './tournamentController';
 
 export async function create(req: Request, res: Response) {
-  const { name, game, description, format, isPrivate, participants, bracketData, maxParticipants, startDate, status } =
+  const { name, game, description, format, isPrivate, participants, bracketData, maxParticipants, startDate, status, teamMode } =
     req.body as {
       name?: string;
       game?: string;
@@ -20,7 +20,10 @@ export async function create(req: Request, res: Response) {
       maxParticipants?: number;
       startDate?: string;
       status?: string;
+      teamMode?: boolean;
     };
+
+  const isTeamMode = teamMode ?? false;
 
   if (!name || !game || !format) {
     return res.status(400).json({ error: 'name, game, and format are required' });
@@ -41,6 +44,10 @@ export async function create(req: Request, res: Response) {
 
   if (!Array.isArray(participants) || participants.length < 2) {
     return res.status(400).json({ error: 'At least 2 participants are required' });
+  }
+
+  if (!isTeamMode && participants.some((participant) => participant?.type === 'team')) {
+    return res.status(400).json({ error: 'Regular mode tournaments only allow individual participants (accounts or guests)' });
   }
 
   const participantNames = participants.map((participant) => String(participant.name).trim().toLowerCase());
@@ -142,6 +149,7 @@ export async function create(req: Request, res: Response) {
         creation_mode: 'quick' as any,
         status: (status || 'active') as any,
         is_private: isPrivate ?? false,
+        team_mode: isTeamMode,
         registration_mode: 'invite_only',
         auto_start: false,
         max_participants: maxParticipants ?? participants.length,

@@ -34,3 +34,5 @@ Excessive bcrypt rounds — 16 rounds (~1-2s per hash) can be a DoS vector, espe
 No generic API error handling — Every frontend caller must individually parse errors from apiFetch.
 useRequireAuth doesn't check token expiry — User sees protected page briefly before first 401 kicks them out.
 Dockerfile double-copies prisma/ — Minor image build inefficiency.
+
+Tailwind Shadcn AI Library for Assistant

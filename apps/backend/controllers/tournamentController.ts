@@ -185,7 +185,7 @@ export async function update(req: Request, res: Response) {
       return res.status(403).json({ error: 'Only the tournament creator can update it' });
     }
 
-    const { name, game, description, status, bracketData, startDate, isPrivate, clientUpdatedAt } = req.body as any;
+    const { name, game, description, status, bracketData, previewBracketData, startDate, isPrivate, clientUpdatedAt } = req.body as any;
 
     if (clientUpdatedAt !== undefined) {
       const clientTime = new Date(clientUpdatedAt).getTime();
@@ -201,6 +201,7 @@ export async function update(req: Request, res: Response) {
     if (description !== undefined) data.description = description;
     if (status !== undefined) data.status = status;
     if (bracketData !== undefined) data.bracket_data = bracketData;
+    if (previewBracketData !== undefined) data.preview_bracket_data = previewBracketData;
     if (startDate !== undefined) data.start_date = startDate ? new Date(startDate) : null;
     if (isPrivate !== undefined) data.is_private = isPrivate;
 

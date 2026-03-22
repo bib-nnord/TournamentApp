@@ -153,6 +153,7 @@ export default function QuickTournamentPage() {
           description: data.description || undefined,
           format: data.format,
           isPrivate: data.isPrivate,
+          teamMode: data.teamMode,
           status: data.status || "active",
           participants: data.participants,
           bracketData: bracket,

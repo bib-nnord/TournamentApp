@@ -6,7 +6,7 @@ export interface UserResult {
 }
 
 export interface UserSearchInputProps {
-  /** Called when a user is selected from the dropdown or entered manually */
+  /** Called when a user is selected from the dropdown */
   onSelect: (username: string) => void;
   /** Called when free-text is entered (no matching user) — adds as guest */
   onSelectAsGuest?: (name: string) => void;
