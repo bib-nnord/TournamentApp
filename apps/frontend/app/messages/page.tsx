@@ -1,12 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
-import { apiFetch } from "@/lib/api";
-import { useRequireAuth } from "@/hooks/useRequireAuth";
-import { usePolling } from "@/hooks/usePolling";
-import { messageCategoryColors } from "@/lib/colors";
-import { messageCategoryLabel } from "@/constants/labels";
+/* eslint-disable max-len */
+
+import { useState, useEffect, useCallback, useRef } from "react";
 import UserSearchInput from "@/components/UserSearchInput";
 import {
   LABEL_BACK_TO_MESSAGES,
@@ -21,8 +17,14 @@ import {
   LABEL_FILTER_TOURNAMENTS,
   LABEL_FILTER_WEBSITE,
   LABEL_FILTER_SENT,
+  messageCategoryLabel,
 } from "@/constants/labels";
-import type { MessageCategory, Filter, Message } from "./types";
+import { usePolling } from "@/hooks/usePolling";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
+import { apiFetch } from "@/lib/api";
+import { messageCategoryColors } from "@/lib/colors";
+import { useRouter } from "next/navigation";
+import type { Filter, Message } from "./types";
 
 const filters: { label: string; value: Filter }[] = [
   { label: LABEL_FILTER_ALL, value: "all" },
@@ -32,6 +34,8 @@ const filters: { label: string; value: Filter }[] = [
   { label: LABEL_FILTER_WEBSITE, value: "website" },
   { label: LABEL_FILTER_SENT, value: "sent" },
 ];
+
+const PULL_REFRESH_THRESHOLD = 72;
 
 function relativeTime(iso: string): string {
   const now = Date.now();
@@ -51,6 +55,13 @@ function relativeTime(iso: string): string {
 export default function MessagesPage() {
   const user = useRequireAuth();
   const router = useRouter();
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const dragStateRef = useRef({
+    pointerId: -1,
+    startY: 0,
+    startScrollTop: 0,
+    dragged: false,
+  });
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeFilters, setActiveFilters] = useState<Set<Filter>>(new Set(["all"]));
@@ -87,6 +98,8 @@ export default function MessagesPage() {
   const [composeSending, setComposeSending] = useState(false);
   const [composeError, setComposeError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [isDraggingList, setIsDraggingList] = useState(false);
+  const [pullDistance, setPullDistance] = useState(0);
 
   const fetchMessages = useCallback(async () => {
     try {
@@ -141,6 +154,64 @@ export default function MessagesPage() {
 
   usePolling(pollForChanges, 30_000, !!user);
 
+  const releaseListDrag = useCallback(() => {
+    const shouldRefresh = pullDistance >= PULL_REFRESH_THRESHOLD;
+    dragStateRef.current.pointerId = -1;
+    dragStateRef.current.dragged = false;
+    setIsDraggingList(false);
+    setPullDistance(0);
+    if (shouldRefresh && !refreshing) {
+      void handleRefresh();
+    }
+  }, [handleRefresh, pullDistance, refreshing]);
+
+  function handleListPointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    const target = e.target as HTMLElement;
+    const blockedTarget = target.closest(
+      "input, textarea, select, label, a, button:not([data-drag-scroll='allow'])"
+    );
+    if (blockedTarget || !listRef.current) return;
+
+    dragStateRef.current.pointerId = e.pointerId;
+    dragStateRef.current.startY = e.clientY;
+    dragStateRef.current.startScrollTop = listRef.current.scrollTop;
+    dragStateRef.current.dragged = false;
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+
+  function handleListPointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    if (dragStateRef.current.pointerId !== e.pointerId || !listRef.current) return;
+
+    const deltaY = e.clientY - dragStateRef.current.startY;
+    if (!dragStateRef.current.dragged && Math.abs(deltaY) > 4) {
+      dragStateRef.current.dragged = true;
+      setIsDraggingList(true);
+    }
+
+    if (!dragStateRef.current.dragged) return;
+
+    const container = listRef.current;
+    if (container.scrollTop <= 0 && deltaY > 0) {
+      e.preventDefault();
+      setPullDistance(Math.min(deltaY * 0.55, 96));
+      container.scrollTop = 0;
+      return;
+    }
+
+    if (pullDistance !== 0) {
+      setPullDistance(0);
+    }
+    container.scrollTop = dragStateRef.current.startScrollTop - deltaY;
+  }
+
+  function handleListPointerUp(e: React.PointerEvent<HTMLDivElement>) {
+    if (dragStateRef.current.pointerId !== e.pointerId) return;
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+    releaseListDrag();
+  }
+
   // Clear selection and close detail when switching folders
   useEffect(() => {
     setSelected(new Set());
@@ -158,6 +229,7 @@ export default function MessagesPage() {
   const openMessage = messages.find((m) => m.id === openId) ?? null;
 
   async function openAndRead(id: number) {
+    if (dragStateRef.current.dragged) return;
     const msg = messages.find((m) => m.id === id);
     if (msg && !msg.read) {
       setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, read: true } : m)));
@@ -172,7 +244,11 @@ export default function MessagesPage() {
   function toggleSelect(id: number) {
     setSelected((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
       return next;
     });
   }
@@ -597,100 +673,137 @@ export default function MessagesPage() {
           })}
         </div>
 
-        {/* Selection toolbar */}
-        <div className="flex items-center justify-between h-9 mb-1 px-1">
-          <label className="flex items-center gap-2 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={allFilteredSelected}
-              onChange={toggleSelectAll}
-              className="w-4 h-4 accent-indigo-600"
-            />
-            <span className="text-xs text-gray-500">
-              {selectedCount > 0 ? `${selectedCount} selected` : "Select all"}
-            </span>
-          </label>
+        <div className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white/90 shadow-[0_18px_48px_-24px_rgba(15,23,42,0.35)] backdrop-blur-sm">
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-12 bg-gradient-to-b from-white via-white/80 to-transparent" />
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex justify-center">
+            <div
+              className="mt-3 flex items-center gap-2 rounded-full border border-indigo-200 bg-white/95 px-3 py-1 text-xs font-medium text-indigo-600 shadow-sm transition-all duration-300"
+              style={{
+                opacity: refreshing || pullDistance > 0 ? 1 : 0,
+                transform: `translateY(${refreshing ? 0 : Math.max(pullDistance - 18, -20)}px) scale(${refreshing || pullDistance > 0 ? 1 : 0.96})`,
+              }}
+            >
+              <span className={refreshing ? "inline-block animate-spin" : "inline-block transition-transform duration-200"}>
+                ↻
+              </span>
+              <span>
+                {refreshing
+                  ? "Refreshing messages..."
+                  : pullDistance >= PULL_REFRESH_THRESHOLD
+                    ? "Release to refresh"
+                    : "Pull down to refresh"}
+              </span>
+            </div>
+          </div>
 
-          {selectedCount > 0 && (
-            <div className="flex items-center gap-2">
-              {!isSentView && (
-                <>
+          <div className="sticky top-0 z-10 border-b border-gray-100 bg-white/90 px-4 py-3 backdrop-blur-sm">
+            <div className="flex items-center justify-between min-h-9 gap-3">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={allFilteredSelected}
+                  onChange={toggleSelectAll}
+                  className="w-4 h-4 accent-indigo-600"
+                />
+                <span className="text-xs text-gray-500">
+                  {selectedCount > 0 ? `${selectedCount} selected` : "Select all"}
+                </span>
+              </label>
+
+              {selectedCount > 0 && (
+                <div className="flex items-center gap-2">
+                  {!isSentView && (
+                    <>
+                      <button
+                        onClick={() => markSelected(true)}
+                        className="text-xs px-3 py-1 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50"
+                      >
+                        {LABEL_MARK_READ}
+                      </button>
+                      <button
+                        onClick={() => markSelected(false)}
+                        className="text-xs px-3 py-1 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50"
+                      >
+                        {LABEL_MARK_UNREAD}
+                      </button>
+                    </>
+                  )}
                   <button
-                    onClick={() => markSelected(true)}
-                    className="text-xs px-3 py-1 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50"
+                    onClick={deleteSelected}
+                    className="text-xs px-3 py-1 border border-red-300 rounded-lg text-red-600 hover:bg-red-50"
                   >
-                    {LABEL_MARK_READ}
+                    Delete
                   </button>
-                  <button
-                    onClick={() => markSelected(false)}
-                    className="text-xs px-3 py-1 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50"
-                  >
-                    {LABEL_MARK_UNREAD}
-                  </button>
-                </>
+                </div>
               )}
-              <button
-                onClick={deleteSelected}
-                className="text-xs px-3 py-1 border border-red-300 rounded-lg text-red-600 hover:bg-red-50"
+            </div>
+          </div>
+
+          {filtered.length === 0 ? (
+            <p className="px-4 py-8 text-sm text-gray-500">No messages.</p>
+          ) : (
+            <div
+              ref={listRef}
+              onPointerDown={handleListPointerDown}
+              onPointerMove={handleListPointerMove}
+              onPointerUp={handleListPointerUp}
+              onPointerCancel={handleListPointerUp}
+              onPointerLeave={(e) => {
+                if (dragStateRef.current.pointerId === e.pointerId) {
+                  handleListPointerUp(e);
+                }
+              }}
+              className={`min-h-[26rem] max-h-[calc(100vh-14rem)] overflow-y-auto overscroll-none pb-2 touch-pan-y ${
+                isDraggingList ? "cursor-grabbing select-none" : "cursor-grab"
+              }`}
+            >
+              <div
+                className="divide-y divide-gray-100 transition-transform duration-300 ease-out will-change-transform"
+                style={{ transform: `translateY(${refreshing ? 18 : pullDistance}px)` }}
               >
-                Delete
-              </button>
+                {filtered.map((m) => (
+                  <div
+                    key={m.id}
+                    className={`flex items-center gap-3 px-4 py-2.5 transition-colors duration-200 ${
+                      selected.has(m.id) ? "bg-indigo-50" : "hover:bg-gray-50"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selected.has(m.id)}
+                      onChange={() => toggleSelect(m.id)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-4 h-4 accent-indigo-600 flex-shrink-0 cursor-pointer"
+                    />
+
+                    <button
+                      data-drag-scroll="allow"
+                      onClick={() => openAndRead(m.id)}
+                      className="flex items-center gap-3 flex-1 min-w-0 text-left"
+                    >
+                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${!m.read ? "bg-indigo-500" : "bg-transparent"}`} />
+
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${messageCategoryColors[m.category]}`}>
+                        {messageCategoryLabel[m.category]}
+                      </span>
+
+                      <span className={`text-sm w-28 flex-shrink-0 truncate ${!m.read ? "font-semibold text-gray-900" : "text-gray-500"}`}>
+                        {m.folder === "sent" ? m.to : m.from}
+                      </span>
+
+                      <span className="text-sm flex-1 truncate min-w-0">
+                        <span className={!m.read ? "font-semibold text-gray-900" : "text-gray-700"}>{m.subject}</span>
+                        <span className="text-gray-400"> — {m.preview}</span>
+                      </span>
+
+                      <span className="text-xs text-gray-400 flex-shrink-0 w-16 text-right">{relativeTime(m.time)}</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
-
-        {/* Message list */}
-        {filtered.length === 0 ? (
-          <p className="text-sm text-gray-500 px-1">No messages.</p>
-        ) : (
-          <div className="bg-white rounded-xl border border-gray-100 divide-y divide-gray-100 overflow-hidden">
-            {filtered.map((m) => (
-              <div
-                key={m.id}
-                className={`flex items-center gap-3 px-4 py-2.5 transition-colors ${
-                  selected.has(m.id) ? "bg-indigo-50" : "hover:bg-gray-50"
-                }`}
-              >
-                {/* Checkbox — stops row click */}
-                <input
-                  type="checkbox"
-                  checked={selected.has(m.id)}
-                  onChange={() => toggleSelect(m.id)}
-                  onClick={(e) => e.stopPropagation()}
-                  className="w-4 h-4 accent-indigo-600 flex-shrink-0 cursor-pointer"
-                />
-
-                {/* Clickable row content */}
-                <button
-                  onClick={() => openAndRead(m.id)}
-                  className="flex items-center gap-3 flex-1 min-w-0 text-left"
-                >
-                  {/* Unread dot */}
-                  <span className={`w-2 h-2 rounded-full flex-shrink-0 ${!m.read ? "bg-indigo-500" : "bg-transparent"}`} />
-
-                  {/* Category badge */}
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${messageCategoryColors[m.category]}`}>
-                    {messageCategoryLabel[m.category]}
-                  </span>
-
-                  {/* From / To */}
-                  <span className={`text-sm w-28 flex-shrink-0 truncate ${!m.read ? "font-semibold text-gray-900" : "text-gray-500"}`}>
-                    {m.folder === "sent" ? m.to : m.from}
-                  </span>
-
-                  {/* Subject + preview */}
-                  <span className="text-sm flex-1 truncate min-w-0">
-                    <span className={!m.read ? "font-semibold text-gray-900" : "text-gray-700"}>{m.subject}</span>
-                    <span className="text-gray-400"> — {m.preview}</span>
-                  </span>
-
-                  {/* Time */}
-                  <span className="text-xs text-gray-400 flex-shrink-0 w-16 text-right">{relativeTime(m.time)}</span>
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
 
       </div>
     </div>
