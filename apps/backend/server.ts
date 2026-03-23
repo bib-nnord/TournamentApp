@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
 import swaggerUi from 'swagger-ui-express';
 import yaml from 'js-yaml';
@@ -22,6 +23,7 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json());
+app.use(cookieParser());
 
 const globalLimiter = rateLimit({
   windowMs: 60 * 1000,

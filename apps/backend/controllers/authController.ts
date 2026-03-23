@@ -1,4 +1,5 @@
 import type { Request, Response } from 'express';
+import type { CookieOptions } from 'express';
 
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
@@ -14,6 +15,31 @@ function getJwtSecret(): string {
 }
 
 const JWT_SECRET = getJwtSecret();
+const isProduction = process.env.NODE_ENV === 'production';
+const ACCESS_TOKEN_COOKIE = 'accessToken';
+const REFRESH_TOKEN_COOKIE = 'refreshToken';
+
+function authCookieOptions(maxAge: number): CookieOptions {
+  return {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: 'lax',
+    path: '/',
+    maxAge,
+  };
+}
+
+function clearAuthCookies(res: Response): void {
+  const clearOptions: CookieOptions = {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: 'lax',
+    path: '/',
+  };
+
+  res.clearCookie(ACCESS_TOKEN_COOKIE, clearOptions);
+  res.clearCookie(REFRESH_TOKEN_COOKIE, clearOptions);
+}
 
 function hashToken(token: string) {
   return crypto.createHash('sha256').update(token).digest('hex');
@@ -136,9 +162,10 @@ export async function login(req: Request, res: Response) {
       },
     });
 
+    res.cookie(ACCESS_TOKEN_COOKIE, accessToken, authCookieOptions(15 * 60 * 1000));
+    res.cookie(REFRESH_TOKEN_COOKIE, refreshToken, authCookieOptions(7 * 24 * 60 * 60 * 1000));
+
     return res.status(200).json({
-      accessToken,
-      refreshToken,
       user: {
         id: user.user_id,
         username: user.username,
@@ -152,7 +179,8 @@ export async function login(req: Request, res: Response) {
 }
 
 export async function refresh(req: Request, res: Response) {
-  const { refreshToken } = req.body as { refreshToken?: string };
+  const body = req.body as { refreshToken?: string };
+  const refreshToken = req.cookies?.[REFRESH_TOKEN_COOKIE] ?? body.refreshToken;
 
   if (!refreshToken) {
     return res.status(400).json({ error: 'refreshToken is required' });
@@ -184,7 +212,9 @@ export async function refresh(req: Request, res: Response) {
       { expiresIn: '15m' }
     );
 
-    return res.status(200).json({ accessToken });
+    res.cookie(ACCESS_TOKEN_COOKIE, accessToken, authCookieOptions(15 * 60 * 1000));
+
+    return res.status(200).json({ ok: true });
   } catch (err) {
     console.error('[refresh]', err);
     return res.status(500).json({ error: 'Internal server error' });
@@ -192,16 +222,17 @@ export async function refresh(req: Request, res: Response) {
 }
 
 export async function logout(req: Request, res: Response) {
-  const { refreshToken } = req.body as { refreshToken?: string };
-
-  if (!refreshToken) {
-    return res.status(400).json({ error: 'refreshToken is required' });
-  }
+  const body = req.body as { refreshToken?: string };
+  const refreshToken = req.cookies?.[REFRESH_TOKEN_COOKIE] ?? body.refreshToken;
 
   try {
-    await prisma.refreshToken.deleteMany({
-      where: { token: hashToken(refreshToken) },
-    });
+    if (refreshToken) {
+      await prisma.refreshToken.deleteMany({
+        where: { token: hashToken(refreshToken) },
+      });
+    }
+
+    clearAuthCookies(res);
 
     return res.status(200).json({ message: 'Logged out successfully' });
   } catch (err) {

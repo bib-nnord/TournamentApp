@@ -10,22 +10,17 @@ interface User {
 
 interface AuthState {
   user: User | null;
-  accessToken: string | null;
-  refreshToken: string | null;
   loading: boolean;
+  checked: boolean;
   error: string | null;
 }
 
 const initialState: AuthState = {
-  user: typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('user') ?? 'null') : null,
-  accessToken: typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null,
-  refreshToken: typeof window !== 'undefined' ? localStorage.getItem('refreshToken') : null,
+  user: null,
   loading: false,
+  checked: false,
   error: null,
 };
-
-// Clean up old localStorage key from previous auth system
-if (typeof window !== 'undefined') localStorage.removeItem('token');
 
 export const login = createAsyncThunk(
   'auth/login',
@@ -37,11 +32,12 @@ export const login = createAsyncThunk(
     const res = await fetch(`${API_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify(body),
     });
     const data = await res.json();
     if (!res.ok) return rejectWithValue(data.error ?? 'Login failed');
-    return data as { accessToken: string; refreshToken: string; user: User };
+    return data as { user: User };
   }
 );
 
@@ -72,34 +68,38 @@ export const register = createAsyncThunk(
 
 export const refreshAccessToken = createAsyncThunk(
   'auth/refreshAccessToken',
-  async (_, { getState, rejectWithValue }) => {
-    const state = getState() as { auth: AuthState };
-    const refreshToken = state.auth.refreshToken;
-    if (!refreshToken) return rejectWithValue('No refresh token');
-
+  async (_, { rejectWithValue }) => {
     const res = await fetch(`${API_URL}/auth/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken }),
+      credentials: 'include',
     });
-    const data = await res.json();
+    const data = await res.json().catch(() => ({} as { error?: string }));
     if (!res.ok) return rejectWithValue(data.error ?? 'Refresh failed');
-    return data as { accessToken: string };
+    return data as { ok: true };
   }
 );
 
 export const logoutAsync = createAsyncThunk(
   'auth/logoutAsync',
-  async (_, { getState }) => {
-    const state = getState() as { auth: AuthState };
-    const refreshToken = state.auth.refreshToken;
-    if (refreshToken) {
-      await fetch(`${API_URL}/auth/logout`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshToken }),
-      }).catch(() => {});
-    }
+  async () => {
+    await fetch(`${API_URL}/auth/logout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+    }).catch(() => {});
+  }
+);
+
+export const fetchCurrentUser = createAsyncThunk(
+  'auth/fetchCurrentUser',
+  async (_, { rejectWithValue }) => {
+    const res = await fetch(`${API_URL}/users/me`, {
+      credentials: 'include',
+    });
+    const data = await res.json().catch(() => ({} as { error?: string }));
+    if (!res.ok) return rejectWithValue(data.error ?? 'Not authenticated');
+    return data as User;
   }
 );
 
@@ -109,11 +109,7 @@ const authSlice = createSlice({
   reducers: {
     clearAuth(state) {
       state.user = null;
-      state.accessToken = null;
-      state.refreshToken = null;
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-      localStorage.removeItem('user');
+      state.checked = true;
     },
     clearError(state) {
       state.error = null;
@@ -127,16 +123,13 @@ const authSlice = createSlice({
       })
       .addCase(login.fulfilled, (state, action) => {
         state.loading = false;
-        state.accessToken = action.payload.accessToken;
-        state.refreshToken = action.payload.refreshToken;
         state.user = action.payload.user;
-        localStorage.setItem('accessToken', action.payload.accessToken);
-        localStorage.setItem('refreshToken', action.payload.refreshToken);
-        localStorage.setItem('user', JSON.stringify(action.payload.user));
+        state.checked = true;
       })
       .addCase(login.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
+        state.checked = true;
       })
       .addCase(register.pending, (state) => {
         state.loading = true;
@@ -149,25 +142,24 @@ const authSlice = createSlice({
         state.loading = false;
         state.error = action.payload as string;
       })
-      .addCase(refreshAccessToken.fulfilled, (state, action) => {
-        state.accessToken = action.payload.accessToken;
-        localStorage.setItem('accessToken', action.payload.accessToken);
+      .addCase(refreshAccessToken.fulfilled, (state) => {
+        state.checked = true;
       })
       .addCase(refreshAccessToken.rejected, (state) => {
         state.user = null;
-        state.accessToken = null;
-        state.refreshToken = null;
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-        localStorage.removeItem('user');
+        state.checked = true;
+      })
+      .addCase(fetchCurrentUser.fulfilled, (state, action) => {
+        state.user = action.payload;
+        state.checked = true;
+      })
+      .addCase(fetchCurrentUser.rejected, (state) => {
+        state.user = null;
+        state.checked = true;
       })
       .addCase(logoutAsync.fulfilled, (state) => {
         state.user = null;
-        state.accessToken = null;
-        state.refreshToken = null;
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-        localStorage.removeItem('user');
+        state.checked = true;
       });
   },
 });
