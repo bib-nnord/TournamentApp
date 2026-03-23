@@ -566,7 +566,7 @@ export default function MessagesPage() {
               title="Refresh messages"
               className="text-sm px-3 py-1.5 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40"
             >
-              <span className={refreshing ? "inline-block animate-spin" : "">↻</span>
+              <span className={refreshing ? "inline-block animate-spin" : ""}>↻</span>
             </button>
             <button
               onClick={handleNewMessage}

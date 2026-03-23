@@ -15,11 +15,8 @@ Project Analysis — Issues Found
 CRITICAL
 Hardcoded API URL in two places — api.ts:4 and authSlice.ts:4 both hardcode http://localhost:2000. This will break in any non-local environment. Should use process.env.NEXT_PUBLIC_API_URL.
 
-Logout route is unprotected — authRoutes.ts:18: router.post('/logout', logout) has no authenticate middleware. Anyone can hit this endpoint.
-
 ForgotPasswordForm is a non-functional stub — components/ForgotPasswordForm/index.tsx renders a form with no state, no submission handler, and no API call. Users clicking "Send reset link" get nothing.
 
-Placeholder metadata in layout — layout.tsx:19: title is still "Create Next App" with a TODO comment.
 
 HIGH
 Fire-and-forget notification promises — notify.ts:17: notifyUser() and notifyUsers() use .then().catch() chains that are never awaited or returned. Errors are silently logged to console only — callers have no way to know notifications failed.
