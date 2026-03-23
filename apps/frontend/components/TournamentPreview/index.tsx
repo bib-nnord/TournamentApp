@@ -19,7 +19,7 @@ import {
 import type { TournamentPreviewProps } from "./types";
 
 export default function TournamentPreview({ data, onBack, onConfirm, submitting, submitError }: TournamentPreviewProps) {
-  const currentUser = useSelector((state: RootState) => state.auth.user);
+  const currentUser = useSelector((state: RootState) => state.user.current);
   const [name, setName] = useState(data.name);
   const [game, setGame] = useState(data.game);
   const [description, setDescription] = useState(data.description);

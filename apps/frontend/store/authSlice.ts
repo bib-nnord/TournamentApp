@@ -1,22 +1,16 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 
+import type { User } from './userTypes';
+
 const API_URL = 'http://localhost:2000';
 
-interface User {
-  id: number;
-  username: string;
-  email: string;
-}
-
 interface AuthState {
-  user: User | null;
   loading: boolean;
   checked: boolean;
   error: string | null;
 }
 
 const initialState: AuthState = {
-  user: null,
   loading: false,
   checked: false,
   error: null,
@@ -108,7 +102,6 @@ const authSlice = createSlice({
   initialState,
   reducers: {
     clearAuth(state) {
-      state.user = null;
       state.checked = true;
     },
     clearError(state) {
@@ -123,7 +116,6 @@ const authSlice = createSlice({
       })
       .addCase(login.fulfilled, (state, action) => {
         state.loading = false;
-        state.user = action.payload.user;
         state.checked = true;
       })
       .addCase(login.rejected, (state, action) => {
@@ -146,19 +138,15 @@ const authSlice = createSlice({
         state.checked = true;
       })
       .addCase(refreshAccessToken.rejected, (state) => {
-        state.user = null;
         state.checked = true;
       })
-      .addCase(fetchCurrentUser.fulfilled, (state, action) => {
-        state.user = action.payload;
+      .addCase(fetchCurrentUser.fulfilled, (state) => {
         state.checked = true;
       })
       .addCase(fetchCurrentUser.rejected, (state) => {
-        state.user = null;
         state.checked = true;
       })
       .addCase(logoutAsync.fulfilled, (state) => {
-        state.user = null;
         state.checked = true;
       });
   },

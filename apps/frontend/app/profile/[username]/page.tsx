@@ -33,7 +33,7 @@ interface FriendStatusData {
 
 export default function ProfilePage() {
   const { username } = useParams<{ username: string }>();
-  const user = useSelector((state: RootState) => state.auth.user);
+  const user = useSelector((state: RootState) => state.user.current);
   const isOwnProfile = user?.username === username;
 
   const friendsUrl = isOwnProfile ? "/friends" : `/friends/user/${username}`;

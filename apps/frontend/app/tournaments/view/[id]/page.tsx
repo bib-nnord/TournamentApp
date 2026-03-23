@@ -57,7 +57,7 @@ function getPreviewAutoAdvanceGroups(bracket: Bracket | null | undefined): strin
 export default function TournamentPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
-  const currentUser = useSelector((state: RootState) => state.auth.user);
+  const currentUser = useSelector((state: RootState) => state.user.current);
   const [tournament, setTournament] = useState<TournamentData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

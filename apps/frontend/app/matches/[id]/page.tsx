@@ -39,7 +39,7 @@ export default function MatchPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const tournamentId = searchParams.get("t");
-  const currentUser = useSelector((state: RootState) => state.auth.user);
+  const currentUser = useSelector((state: RootState) => state.user.current);
 
   const [data, setData] = useState<BracketMatchDetail | null>(null);
   const [loading, setLoading] = useState(true);

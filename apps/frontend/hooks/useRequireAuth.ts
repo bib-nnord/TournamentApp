@@ -10,7 +10,8 @@ import { useRouter } from "next/navigation";
  * Returns the authenticated user (or null while redirecting).
  */
 export function useRequireAuth() {
-  const { user, checked } = useSelector((state: RootState) => state.auth);
+  const checked = useSelector((state: RootState) => state.auth.checked);
+  const user = useSelector((state: RootState) => state.user.current);
   const router = useRouter();
 
   useEffect(() => {

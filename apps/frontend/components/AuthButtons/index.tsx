@@ -8,7 +8,7 @@ import { LABEL_CREATE_AN_ACCOUNT, LABEL_LOG_IN } from "@/constants/labels";
 
 export default function AuthButtons() {
   const [mounted, setMounted] = useState(false);
-  const user = useSelector((state: RootState) => state.auth.user);
+  const user = useSelector((state: RootState) => state.user.current);
 
   useEffect(() => setMounted(true), []);
 

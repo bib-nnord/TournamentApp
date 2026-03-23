@@ -33,7 +33,7 @@ export default function Navbar() {
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
   const pathname = usePathname();
-  const user = useSelector((state: RootState) => state.auth.user);
+  const user = useSelector((state: RootState) => state.user.current);
   const isLoggedIn = !!user;
 
   useEffect(() => setMounted(true), []);
