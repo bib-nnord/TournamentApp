@@ -25,10 +25,16 @@ export const userProfileSelect = {
   username: true,
   email: true,
   display_name: true,
+  date_of_birth: true,
   bio: true,
   location: true,
+  games_sports: true,
   avatar_url: true,
   allow_messages_from: true,
+  bio_public: true,
+  location_public: true,
+  age_public: true,
+  games_sports_public: true,
 };
 
 // ─── Row → Model ─────────────────────────────────────────────────────────────
@@ -39,27 +45,60 @@ export function userFromRow(row: Record<string, any>): User {
     username: row.username ?? null,
     displayName: row.display_name ?? row.displayName ?? null,
     email: row.email ?? null,
+    dateOfBirth: row.date_of_birth ?? row.dateOfBirth ?? null,
     bio: row.bio ?? null,
     location: row.location ?? null,
+    gamesSports: row.games_sports ?? row.gamesSports ?? [],
     avatarUrl: row.avatar_url ?? row.avatarUrl ?? null,
     allowMessagesFrom: row.allow_messages_from ?? row.allowMessagesFrom ?? null,
+    bioPublic: row.bio_public ?? row.bioPublic ?? true,
+    locationPublic: row.location_public ?? row.locationPublic ?? true,
+    agePublic: row.age_public ?? row.agePublic ?? true,
+    gamesSportsPublic: row.games_sports_public ?? row.gamesSportsPublic ?? true,
     createdAt: row.created_at ?? row.createdAt ?? null,
     deleted: false,
   });
 }
 
+function calculateAge(dateOfBirth: Date | null): number | null {
+  if (!dateOfBirth) return null;
+
+  const now = new Date();
+  let age = now.getFullYear() - dateOfBirth.getFullYear();
+  const monthDiff = now.getMonth() - dateOfBirth.getMonth();
+  const beforeBirthday =
+    monthDiff < 0 ||
+    (monthDiff === 0 && now.getDate() < dateOfBirth.getDate());
+
+  if (beforeBirthday) age -= 1;
+  return age >= 0 ? age : null;
+}
+
 // ─── Model → Response ────────────────────────────────────────────────────────
 
-export function mapUserProfile(user: User) {
+export function mapUserProfile(user: User, isOwnProfile = false) {
+  const age = calculateAge(user.dateOfBirth);
+
   return {
     id: user.id,
     username: user.username,
-    email: user.email,
+    email: isOwnProfile ? user.email : null,
     displayName: user.displayName,
-    bio: user.bio,
-    location: user.location,
+    dateOfBirth: isOwnProfile && user.dateOfBirth
+      ? user.dateOfBirth.toISOString().slice(0, 10)
+      : null,
+    bio: isOwnProfile || user.bioPublic ? user.bio : null,
+    country: isOwnProfile || user.locationPublic ? user.location : null,
+    age: isOwnProfile || user.agePublic ? age : null,
+    gamesSports: isOwnProfile || user.gamesSportsPublic ? user.gamesSports : [],
     avatarUrl: user.avatarUrl,
-    allowMessagesFrom: user.allowMessagesFrom,
+    allowMessagesFrom: isOwnProfile ? user.allowMessagesFrom : null,
+    visibility: {
+      bio: user.bioPublic,
+      country: user.locationPublic,
+      age: user.agePublic,
+      gamesSports: user.gamesSportsPublic,
+    },
   };
 }
 
@@ -89,6 +128,15 @@ export function mapUserSearchResult(user: User) {
 export async function findUserById(userId: number): Promise<User | null> {
   const row = await prisma.user.findUnique({
     where: { user_id: userId },
+    select: userProfileSelect,
+  });
+  if (!row) return null;
+  return userFromRow(row);
+}
+
+export async function findUserByUsername(username: string): Promise<User | null> {
+  const row = await prisma.user.findUnique({
+    where: { username },
     select: userProfileSelect,
   });
   if (!row) return null;

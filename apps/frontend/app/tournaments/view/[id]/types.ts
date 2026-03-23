@@ -4,6 +4,7 @@ import type { Bracket } from "@/lib/generateBracket";
 export interface TournamentParticipantData {
   seed: number;
   displayName: string;
+  username: string | null;
   guestName: string | null;
   userId: number | null;
   teamId: number | null;
@@ -39,7 +40,7 @@ export interface TournamentData {
   teamMode?: boolean;
   teamAssignments?: TeamAssignment[] | null;
   startedAt?: string | null;
-  creator: { id: number; username: string };
+  creator: { id: number; username: string; displayName?: string | null };
   participants: TournamentParticipantData[];
   createdAt: string;
   updatedAt: string;

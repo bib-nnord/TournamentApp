@@ -19,10 +19,15 @@ model User {
   date_of_birth   DateTime? @db.Date
   bio             String?   @db.Text
   location        String?   @db.VarChar(200)
+  games_sports    String[]  @default([])
   avatar_url      String?   @db.VarChar(500)
   site_role       SiteRole  @default(user)
   email_confirmed     Boolean        @default(false)
   allow_messages_from MessagePrivacy @default(everyone)
+  bio_public          Boolean        @default(true)
+  location_public     Boolean        @default(true)
+  age_public          Boolean        @default(true)
+  games_sports_public Boolean        @default(true)
   created_at          DateTime       @default(now()) @db.Timestamp(6)
 
   team_memberships TeamMember[]

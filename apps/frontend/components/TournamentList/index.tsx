@@ -67,7 +67,12 @@ export default function TournamentList() {
                 {t.startDate && <span>{formatDate(t.startDate)}</span>}
                 <span>{t.participants} / {t.max} participants</span>
               </div>
-              <div className="text-[11px] text-gray-400">by {t.creator.username}</div>
+              <div className="text-[11px] text-gray-400 inline-flex items-center gap-1">
+                <span>by {t.creator.displayName || t.creator.username}</span>
+                {t.creator.displayName && t.creator.displayName.toLowerCase() !== t.creator.username.toLowerCase() && (
+                  <span className="text-gray-400">@{t.creator.username}</span>
+                )}
+              </div>
             </Link>
           ))}
         </div>

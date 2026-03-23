@@ -53,6 +53,26 @@ function getPreviewAutoAdvanceGroups(bracket: Bracket | null | undefined): strin
   return bracket?.groups?.filter((group) => group.autoAdvance).map((group) => group.participants) ?? [];
 }
 
+function hasDistinctDisplayName(displayName: string, username: string | null | undefined) {
+  if (!username) return false;
+  return displayName.trim().toLowerCase() !== username.trim().toLowerCase();
+}
+
+function renderParticipantLabel(participant: TournamentParticipantData, className: string) {
+  if (participant.type === "account" && participant.username) {
+    const showUsername = hasDistinctDisplayName(participant.displayName, participant.username);
+
+    return (
+      <Link href={`/profile/${participant.username}`} className={`${className} inline-flex items-center gap-1 min-w-0 hover:underline`}>
+        <span className="truncate">{participant.displayName}</span>
+        {showUsername && <span className="text-xs text-gray-400 shrink-0">@{participant.username}</span>}
+      </Link>
+    );
+  }
+
+  return <span className={className}>{participant.displayName}</span>;
+}
+
 
 
 export default function TournamentPage() {
@@ -1016,8 +1036,11 @@ export default function TournamentPage() {
             </div>
             <div>
               <p className="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Organizer</p>
-              <Link href={`/profile/${tournament.creator.username}`} className="text-gray-800 font-medium hover:text-indigo-600">
-                {tournament.creator.username}
+              <Link href={`/profile/${tournament.creator.username}`} className="text-gray-800 font-medium hover:text-indigo-600 inline-flex items-center gap-1">
+                <span>{tournament.creator.displayName || tournament.creator.username}</span>
+                {tournament.creator.displayName && hasDistinctDisplayName(tournament.creator.displayName, tournament.creator.username) && (
+                  <span className="text-xs text-gray-400 font-normal">@{tournament.creator.username}</span>
+                )}
               </Link>
             </div>
             <div>
@@ -1110,11 +1133,12 @@ export default function TournamentPage() {
                         {p.displayName[0]?.toUpperCase()}
                       </div>
                     )}
-                    <span className={`text-sm font-medium truncate ${
-                      p.type === "team" ? "text-purple-800" : p.type === "account" ? "text-gray-800" : "text-amber-700"
-                    }`}>
-                      {p.displayName}
-                    </span>
+                    {renderParticipantLabel(
+                      p,
+                      `text-sm font-medium truncate ${
+                        p.type === "team" ? "text-purple-800" : p.type === "account" ? "text-gray-800" : "text-amber-700"
+                      }`
+                    )}
                     <span className={`text-[10px] uppercase px-1.5 py-0.5 rounded font-medium shrink-0 ${participantTypeColors[p.type]}`}>
                       {p.type}
                     </span>
@@ -1194,11 +1218,12 @@ export default function TournamentPage() {
                       }`}>
                         {p.displayName[0]?.toUpperCase()}
                       </div>
-                      <span className={`text-sm font-medium truncate ${
-                        p.type === "team" ? "text-purple-800" : p.type === "account" ? "text-gray-800" : "text-amber-700"
-                      }`}>
-                        {p.displayName}
-                      </span>
+                      {renderParticipantLabel(
+                        p,
+                        `text-sm font-medium truncate ${
+                          p.type === "team" ? "text-purple-800" : p.type === "account" ? "text-gray-800" : "text-amber-700"
+                        }`
+                      )}
                       <span className={`text-[10px] uppercase px-1.5 py-0.5 rounded font-medium shrink-0 ${participantTypeColors[p.type]}`}>
                         {p.type}
                       </span>
@@ -1243,11 +1268,12 @@ export default function TournamentPage() {
                       }`}>
                         {p.displayName[0]?.toUpperCase()}
                       </div>
-                      <span className={`text-sm font-medium truncate ${
-                        p.type === "team" ? "text-purple-800" : p.type === "account" ? "text-gray-800" : "text-amber-700"
-                      }`}>
-                        {p.displayName}
-                      </span>
+                      {renderParticipantLabel(
+                        p,
+                        `text-sm font-medium truncate ${
+                          p.type === "team" ? "text-purple-800" : p.type === "account" ? "text-gray-800" : "text-amber-700"
+                        }`
+                      )}
                       <span className={`text-[10px] uppercase px-1.5 py-0.5 rounded font-medium shrink-0 ${participantTypeColors[p.type]}`}>
                         {p.type}
                       </span>

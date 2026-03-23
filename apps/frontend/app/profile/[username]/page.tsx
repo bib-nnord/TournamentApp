@@ -1,20 +1,22 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import Link from "next/link";
+/* eslint-disable max-len */
+
+import { useState, useCallback, useEffect } from "react";
 import { useSelector } from "react-redux";
-import { useParams } from "next/navigation";
-import type { RootState } from "@/store/store";
-import type { TeamRole } from "@/types";
-import { tournamentStatusLabel } from "@/types";
+import type { TournamentSummary } from "@/components/TournamentList/types";
+import UserListItem from "@/components/UserListItem";
 import { LABEL_EDIT_PROFILE, LABEL_VIEW_ALL } from "@/constants/labels";
-import { teamRoleColors, tournamentStatusColors } from "@/lib/colors";
-import { getUserInitial } from "@/lib/helpers";
 import { useFetch } from "@/hooks/useFetch";
 import { apiFetch } from "@/lib/api";
-import UserListItem from "@/components/UserListItem";
-import type { TournamentSummary } from "@/components/TournamentList/types";
+import { teamRoleColors, tournamentStatusColors } from "@/lib/colors";
+import { getUserInitial } from "@/lib/helpers";
+import type { RootState } from "@/store/store";
 import type { Friend } from "@/types";
+import type { TeamRole } from "@/types";
+import { tournamentStatusLabel } from "@/types";
+import Link from "next/link";
+import { useParams } from "next/navigation";
 
 interface MyTeam {
   id: number;
@@ -31,15 +33,79 @@ interface FriendStatusData {
   friendshipId?: number;
 }
 
+interface ProfileData {
+  id: number;
+  username: string;
+  email: string | null;
+  displayName: string | null;
+  bio: string | null;
+  country: string | null;
+  age: number | null;
+  gamesSports: string[];
+  dateOfBirth?: string | null;
+  visibility?: {
+    bio: boolean;
+    country: boolean;
+    age: boolean;
+    gamesSports: boolean;
+  };
+}
+
+interface ProfileFormState {
+  displayName: string;
+  bio: string;
+  country: string;
+  dateOfBirth: string;
+  gamesSports: string;
+  visibility: {
+    bio: boolean;
+    country: boolean;
+    age: boolean;
+    gamesSports: boolean;
+  };
+}
+
+const emptyProfileForm: ProfileFormState = {
+  displayName: "",
+  bio: "",
+  country: "",
+  dateOfBirth: "",
+  gamesSports: "",
+  visibility: {
+    bio: true,
+    country: true,
+    age: true,
+    gamesSports: true,
+  },
+};
+
 export default function ProfilePage() {
   const { username } = useParams<{ username: string }>();
   const user = useSelector((state: RootState) => state.user.current);
   const isOwnProfile = user?.username === username;
+  const {
+    data: profileData,
+    loading: profileLoading,
+    error: profileError,
+    setData: setProfileData,
+  } = useFetch<{
+    profile: ProfileData;
+  }>(`/users/profile/${username}`);
+  const profile = profileData?.profile;
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileSaveError, setProfileSaveError] = useState<string | null>(null);
+  const [profileForm, setProfileForm] = useState<ProfileFormState>(emptyProfileForm);
 
   const friendsUrl = isOwnProfile ? "/friends" : `/friends/user/${username}`;
   const { data: friendsData, loading: friendsLoading } = useFetch<{ friends: Friend[] }>(friendsUrl);
   const [showAllFriends, setShowAllFriends] = useState(false);
-  const { data: teamsData, loading: teamsLoading } = useFetch<{ teams: MyTeam[] }>("/teams/my");
+  const teamsUrl = isOwnProfile
+    ? "/teams/my"
+    : profile?.id
+      ? `/teams/user/${profile.id}`
+      : null;
+  const { data: teamsData, loading: teamsLoading } = useFetch<{ teams: MyTeam[] }>(teamsUrl);
   const { data: tournamentsData, loading: tournamentsLoading } = useFetch<{ tournaments: TournamentSummary[] }>("/tournaments?limit=20");
   const { data: friendStatus, setData: setFriendStatus } = useFetch<FriendStatusData>(
     !isOwnProfile ? `/friends/status/${username}` : null
@@ -48,6 +114,23 @@ export default function ProfilePage() {
   const myTournaments = (tournamentsData?.tournaments ?? []).filter(
     (t) => t.creator.username === username
   );
+
+  useEffect(() => {
+    if (!profile) return;
+    setProfileForm({
+      displayName: profile.displayName ?? "",
+      bio: profile.bio ?? "",
+      country: profile.country ?? "",
+      dateOfBirth: profile.dateOfBirth ?? "",
+      gamesSports: profile.gamesSports.join(", "),
+      visibility: {
+        bio: profile.visibility?.bio ?? true,
+        country: profile.visibility?.country ?? true,
+        age: profile.visibility?.age ?? true,
+        gamesSports: profile.visibility?.gamesSports ?? true,
+      },
+    });
+  }, [profile]);
 
   const handleAddFriend = useCallback(async () => {
     setFriendLoading(true);
@@ -119,6 +202,102 @@ export default function ProfilePage() {
     }
   }, [friendStatus, setFriendStatus]);
 
+  function updateProfileForm(patch: Partial<ProfileFormState>) {
+    setProfileForm((prev) => ({ ...prev, ...patch }));
+  }
+
+  function updateProfileVisibility(
+    key: keyof ProfileFormState["visibility"],
+    value: boolean
+  ) {
+    setProfileForm((prev) => ({
+      ...prev,
+      visibility: {
+        ...prev.visibility,
+        [key]: value,
+      },
+    }));
+  }
+
+  async function handleSaveProfile() {
+    setProfileSaving(true);
+    setProfileSaveError(null);
+
+    try {
+      const res = await apiFetch("/users/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          displayName: profileForm.displayName,
+          bio: profileForm.bio,
+          country: profileForm.country,
+          dateOfBirth: profileForm.dateOfBirth,
+          gamesSports: profileForm.gamesSports
+            .split(",")
+            .map((item) => item.trim())
+            .filter(Boolean),
+          visibility: profileForm.visibility,
+        }),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setProfileSaveError(body.error ?? "Failed to save profile");
+        return;
+      }
+
+      const refreshed = await apiFetch(`/users/profile/${username}`);
+      if (refreshed.ok) {
+        const nextProfile = await refreshed.json();
+        setProfileData(nextProfile);
+      }
+      setEditingProfile(false);
+    } catch {
+      setProfileSaveError("Network error");
+    } finally {
+      setProfileSaving(false);
+    }
+  }
+
+  function handleCancelProfileEdit() {
+    if (!profile) return;
+    setProfileForm({
+      displayName: profile.displayName ?? "",
+      bio: profile.bio ?? "",
+      country: profile.country ?? "",
+      dateOfBirth: profile.dateOfBirth ?? "",
+      gamesSports: profile.gamesSports.join(", "),
+      visibility: {
+        bio: profile.visibility?.bio ?? true,
+        country: profile.visibility?.country ?? true,
+        age: profile.visibility?.age ?? true,
+        gamesSports: profile.visibility?.gamesSports ?? true,
+      },
+    });
+    setProfileSaveError(null);
+    setEditingProfile(false);
+  }
+
+  if (profileLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="max-w-3xl mx-auto px-4 py-10">
+          <p className="text-sm text-gray-400">Loading profile…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (profileError || !profile) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="max-w-3xl mx-auto px-4 py-10">
+          <p className="text-sm text-red-500">{profileError || "Profile not found"}</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-3xl mx-auto px-4 py-10">
@@ -129,13 +308,22 @@ export default function ProfilePage() {
             {getUserInitial(username)}
           </div>
           <div className="flex-1">
-            <h1 className="text-xl font-bold text-gray-900">{username}</h1>
-            {isOwnProfile && user && (
-              <p className="text-sm text-gray-500">{user.email}</p>
+            <h1 className="text-xl font-bold text-gray-900">
+              {profile.displayName || profile.username}
+            </h1>
+            <p className="text-sm text-gray-500">@{profile.username}</p>
+            {isOwnProfile && profile.email && (
+              <p className="text-sm text-gray-500">{profile.email}</p>
             )}
           </div>
           {isOwnProfile && (
-            <button className="text-sm px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+            <button
+              onClick={() => {
+                setProfileSaveError(null);
+                setEditingProfile((prev) => !prev);
+              }}
+              className="text-sm px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
               {LABEL_EDIT_PROFILE}
             </button>
           )}
@@ -184,6 +372,213 @@ export default function ProfilePage() {
               {friendLoading ? "Removing…" : "Remove Friend"}
             </button>
           )}
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+          <div className="flex items-center justify-between mb-4 gap-4">
+            <h2 className="text-base font-semibold text-gray-800">User info</h2>
+            {isOwnProfile && editingProfile && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleCancelProfileEdit}
+                  disabled={profileSaving}
+                  className="text-sm px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-600"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveProfile}
+                  disabled={profileSaving}
+                  className="text-sm px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                >
+                  {profileSaving ? "Saving..." : "Save changes"}
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-4">
+            {profileSaveError && (
+              <p className="text-sm text-red-500">{profileSaveError}</p>
+            )}
+
+            {editingProfile ? (
+              <>
+                <div>
+                  <label className="text-xs uppercase tracking-wide text-gray-400 mb-1 block">
+                    Display name
+                  </label>
+                  <input
+                    type="text"
+                    value={profileForm.displayName}
+                    onChange={(e) => updateProfileForm({ displayName: e.target.value })}
+                    className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  />
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-start">
+                  <div>
+                    <label className="text-xs uppercase tracking-wide text-gray-400 mb-1 block">
+                      Bio
+                    </label>
+                    <textarea
+                      rows={4}
+                      value={profileForm.bio}
+                      onChange={(e) => updateProfileForm({ bio: e.target.value })}
+                      className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs uppercase tracking-wide text-gray-400 mb-1 block">
+                      Visibility
+                    </label>
+                    <select
+                      value={profileForm.visibility.bio ? "public" : "private"}
+                      onChange={(e) => updateProfileVisibility("bio", e.target.value === "public")}
+                      className="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    >
+                      <option value="public">Public</option>
+                      <option value="private">Private</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="text-xs uppercase tracking-wide text-gray-400 mb-1 block">
+                      Country
+                    </label>
+                    <input
+                      type="text"
+                      value={profileForm.country}
+                      onChange={(e) => updateProfileForm({ country: e.target.value })}
+                      className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs uppercase tracking-wide text-gray-400 mb-1 block">
+                      Country visibility
+                    </label>
+                    <select
+                      value={profileForm.visibility.country ? "public" : "private"}
+                      onChange={(e) => updateProfileVisibility("country", e.target.value === "public")}
+                      className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    >
+                      <option value="public">Public</option>
+                      <option value="private">Private</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="text-xs uppercase tracking-wide text-gray-400 mb-1 block">
+                      Date of birth
+                    </label>
+                    <input
+                      type="date"
+                      value={profileForm.dateOfBirth}
+                      onChange={(e) => updateProfileForm({ dateOfBirth: e.target.value })}
+                      className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">
+                      Only your age is shown publicly.
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-xs uppercase tracking-wide text-gray-400 mb-1 block">
+                      Age visibility
+                    </label>
+                    <select
+                      value={profileForm.visibility.age ? "public" : "private"}
+                      onChange={(e) => updateProfileVisibility("age", e.target.value === "public")}
+                      className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    >
+                      <option value="public">Public</option>
+                      <option value="private">Private</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+                  <div>
+                    <label className="text-xs uppercase tracking-wide text-gray-400 mb-1 block">
+                      Games / sports
+                    </label>
+                    <input
+                      type="text"
+                      value={profileForm.gamesSports}
+                      onChange={(e) => updateProfileForm({ gamesSports: e.target.value })}
+                      className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                      placeholder="Football, Chess, Valorant"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs uppercase tracking-wide text-gray-400 mb-1 block">
+                      Visibility
+                    </label>
+                    <select
+                      value={profileForm.visibility.gamesSports ? "public" : "private"}
+                      onChange={(e) => updateProfileVisibility("gamesSports", e.target.value === "public")}
+                      className="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    >
+                      <option value="public">Public</option>
+                      <option value="private">Private</option>
+                    </select>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                {profile.bio && (
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-gray-400 mb-1">Bio</p>
+                    <p className="text-sm text-gray-700 leading-6">{profile.bio}</p>
+                  </div>
+                )}
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {profile.country && (
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-gray-400 mb-1">Country</p>
+                      <p className="text-sm font-medium text-gray-700">{profile.country}</p>
+                    </div>
+                  )}
+                  {profile.age !== null && (
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-gray-400 mb-1">Age</p>
+                      <p className="text-sm font-medium text-gray-700">{profile.age}</p>
+                    </div>
+                  )}
+                </div>
+
+                {profile.gamesSports.length > 0 && (
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-gray-400 mb-2">Games / sports</p>
+                    <div className="flex flex-wrap gap-2">
+                      {profile.gamesSports.map((item) => (
+                        <span
+                          key={item}
+                          className="text-xs px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 font-medium"
+                        >
+                          {item}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {!profile.bio && !profile.country && profile.age === null &&
+                  profile.gamesSports.length === 0 && (
+                    <p className="text-sm text-gray-400">
+                      {isOwnProfile
+                        ? "Add some profile info to show more about yourself."
+                        : "This user has not shared any public profile info yet."}
+                    </p>
+                  )}
+              </>
+            )}
+          </div>
         </div>
 
         {/* Friends */}

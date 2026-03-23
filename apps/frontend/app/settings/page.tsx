@@ -28,6 +28,35 @@ interface LocalUiSettings {
   showTournamentHistory: boolean;
 }
 
+interface ProfileFormState {
+  displayName: string;
+  bio: string;
+  country: string;
+  dateOfBirth: string;
+  gamesSports: string;
+  visibility: {
+    bio: boolean;
+    country: boolean;
+    age: boolean;
+    gamesSports: boolean;
+  };
+}
+
+interface MeResponse {
+  allowMessagesFrom: string;
+  displayName: string | null;
+  bio: string | null;
+  country: string | null;
+  dateOfBirth: string | null;
+  gamesSports: string[];
+  visibility: {
+    bio: boolean;
+    country: boolean;
+    age: boolean;
+    gamesSports: boolean;
+  };
+}
+
 const LOCAL_SETTINGS_KEY = "tournamentapp.user.settings.v1";
 
 const defaultLocalSettings: LocalUiSettings = {
@@ -41,12 +70,28 @@ const defaultLocalSettings: LocalUiSettings = {
   showTournamentHistory: true,
 };
 
+const defaultProfileForm: ProfileFormState = {
+  displayName: "",
+  bio: "",
+  country: "",
+  dateOfBirth: "",
+  gamesSports: "",
+  visibility: {
+    bio: true,
+    country: true,
+    age: true,
+    gamesSports: true,
+  },
+};
+
 export default function SettingsPage() {
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
   const user = useRequireAuth();
   const [allowMessagesFrom, setAllowMessagesFrom] = useState("everyone");
   const [allowMessagesFromDraft, setAllowMessagesFromDraft] = useState("everyone");
+  const [profileForm, setProfileForm] = useState<ProfileFormState>(defaultProfileForm);
+  const [savedProfileForm, setSavedProfileForm] = useState<ProfileFormState>(defaultProfileForm);
   const [localSettings, setLocalSettings] = useState<LocalUiSettings>(defaultLocalSettings);
   const [savedLocalSettings, setSavedLocalSettings] = useState<LocalUiSettings>(defaultLocalSettings);
   const [settingsSaving, setSettingsSaving] = useState(false);
@@ -58,9 +103,24 @@ export default function SettingsPage() {
   useEffect(() => {
     apiFetch("/users/me").then((res) => {
       if (res.ok) {
-        res.json().then((d: { allowMessagesFrom: string }) => {
+        res.json().then((d: MeResponse) => {
           setAllowMessagesFrom(d.allowMessagesFrom);
           setAllowMessagesFromDraft(d.allowMessagesFrom);
+          const nextProfileForm: ProfileFormState = {
+            displayName: d.displayName ?? "",
+            bio: d.bio ?? "",
+            country: d.country ?? "",
+            dateOfBirth: d.dateOfBirth ?? "",
+            gamesSports: (d.gamesSports ?? []).join(", "),
+            visibility: {
+              bio: d.visibility?.bio ?? true,
+              country: d.visibility?.country ?? true,
+              age: d.visibility?.age ?? true,
+              gamesSports: d.visibility?.gamesSports ?? true,
+            },
+          };
+          setProfileForm(nextProfileForm);
+          setSavedProfileForm(nextProfileForm);
         });
       }
     });
@@ -94,9 +154,28 @@ export default function SettingsPage() {
     setLocalSettings((prev) => ({ ...prev, ...patch }));
   }
 
+  function updateProfileForm(patch: Partial<ProfileFormState>) {
+    setProfileForm((prev) => ({ ...prev, ...patch }));
+  }
+
+  function updateProfileVisibility(
+    key: keyof ProfileFormState["visibility"],
+    value: boolean
+  ) {
+    setProfileForm((prev) => ({
+      ...prev,
+      visibility: {
+        ...prev.visibility,
+        [key]: value,
+      },
+    }));
+  }
+
   const hasUnsavedLocalSettings = JSON.stringify(localSettings) !== JSON.stringify(savedLocalSettings);
   const hasUnsavedPrivacy = allowMessagesFromDraft !== allowMessagesFrom;
-  const hasUnsavedSettings = hasUnsavedLocalSettings || hasUnsavedPrivacy;
+  const hasUnsavedProfile = JSON.stringify(profileForm) !== JSON.stringify(savedProfileForm);
+  const hasUnsavedSettings =
+    hasUnsavedLocalSettings || hasUnsavedPrivacy || hasUnsavedProfile;
 
   async function handleSaveSettings() {
     setSettingsSaving(true);
@@ -106,7 +185,39 @@ export default function SettingsPage() {
         const res = await apiFetch("/users/me", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ allowMessagesFrom: allowMessagesFromDraft }),
+          body: JSON.stringify({
+            allowMessagesFrom: allowMessagesFromDraft,
+            displayName: profileForm.displayName,
+            bio: profileForm.bio,
+            country: profileForm.country,
+            dateOfBirth: profileForm.dateOfBirth,
+            gamesSports: profileForm.gamesSports
+              .split(",")
+              .map((item) => item.trim())
+              .filter(Boolean),
+            visibility: profileForm.visibility,
+          }),
+        });
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          setSettingsError(body.error ?? "Failed to save settings");
+          return;
+        }
+      } else if (hasUnsavedProfile) {
+        const res = await apiFetch("/users/me", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            displayName: profileForm.displayName,
+            bio: profileForm.bio,
+            country: profileForm.country,
+            dateOfBirth: profileForm.dateOfBirth,
+            gamesSports: profileForm.gamesSports
+              .split(",")
+              .map((item) => item.trim())
+              .filter(Boolean),
+            visibility: profileForm.visibility,
+          }),
         });
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
@@ -118,6 +229,7 @@ export default function SettingsPage() {
       localStorage.setItem(LOCAL_SETTINGS_KEY, JSON.stringify(localSettings));
       setSavedLocalSettings(localSettings);
       setAllowMessagesFrom(allowMessagesFromDraft);
+      setSavedProfileForm(profileForm);
       setLocalSaveState("saved");
     } catch {
       setSettingsError("Network error");
@@ -256,6 +368,121 @@ export default function SettingsPage() {
                 />
               </div>
             ))}
+          </div>
+        </section>
+
+        <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6">
+          <h2 className="text-base font-semibold text-gray-800 mb-4">Profile info</h2>
+          <div className="flex flex-col gap-4">
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-1 block">
+                Display name
+              </label>
+              <input
+                type="text"
+                value={profileForm.displayName}
+                onChange={(e) => updateProfileForm({ displayName: e.target.value })}
+                className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                placeholder="How your name appears on your profile"
+              />
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-start">
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">Bio</label>
+                <textarea
+                  rows={4}
+                  value={profileForm.bio}
+                  onChange={(e) => updateProfileForm({ bio: e.target.value })}
+                  className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-none"
+                  placeholder="Tell people what you play, organize, or care about"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">Visibility</label>
+                <select
+                  value={profileForm.visibility.bio ? "public" : "private"}
+                  onChange={(e) => updateProfileVisibility("bio", e.target.value === "public")}
+                  className="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                >
+                  <option value="public">Public</option>
+                  <option value="private">Private</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">Country</label>
+                <input
+                  type="text"
+                  value={profileForm.country}
+                  onChange={(e) => updateProfileForm({ country: e.target.value })}
+                  className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  placeholder="Your country"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">Visibility</label>
+                <select
+                  value={profileForm.visibility.country ? "public" : "private"}
+                  onChange={(e) => updateProfileVisibility("country", e.target.value === "public")}
+                  className="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                >
+                  <option value="public">Public</option>
+                  <option value="private">Private</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">Date of birth</label>
+                <input
+                  type="date"
+                  value={profileForm.dateOfBirth}
+                  onChange={(e) => updateProfileForm({ dateOfBirth: e.target.value })}
+                  className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                />
+                <p className="text-xs text-gray-400 mt-1">Only your age is shown publicly, not the full birth date.</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">Visibility</label>
+                <select
+                  value={profileForm.visibility.age ? "public" : "private"}
+                  onChange={(e) => updateProfileVisibility("age", e.target.value === "public")}
+                  className="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                >
+                  <option value="public">Public</option>
+                  <option value="private">Private</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">Games / sports</label>
+                <input
+                  type="text"
+                  value={profileForm.gamesSports}
+                  onChange={(e) => updateProfileForm({ gamesSports: e.target.value })}
+                  className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  placeholder="Football, Chess, Valorant, Tennis"
+                />
+                <p className="text-xs text-gray-400 mt-1">Separate each item with a comma.</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">Visibility</label>
+                <select
+                  value={profileForm.visibility.gamesSports ? "public" : "private"}
+                  onChange={(e) => updateProfileVisibility("gamesSports", e.target.value === "public")}
+                  className="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                >
+                  <option value="public">Public</option>
+                  <option value="private">Private</option>
+                </select>
+              </div>
+            </div>
           </div>
         </section>
 

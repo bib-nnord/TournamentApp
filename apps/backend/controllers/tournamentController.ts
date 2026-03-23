@@ -6,6 +6,15 @@ import { publishTeamNewsToTeams } from '../lib/teamNews';
 
 // ─── Shared formatter (used by quick & scheduled controllers too) ────────────
 
+export const tournamentCreatorSelect = { user_id: true, username: true, display_name: true } as const;
+
+export const tournamentParticipantInclude = {
+  orderBy: { seed: 'asc' as const },
+  include: {
+    user: { select: { username: true } },
+  },
+} as const;
+
 export function formatTournament(tournament: any) {
   return {
     id: tournament.tournament_id,
@@ -27,12 +36,17 @@ export function formatTournament(tournament: any) {
     registrationClosesAt: tournament.registration_closes_at,
     startedAt: tournament.started_at,
     creator: tournament.creator
-      ? { id: tournament.creator.user_id, username: tournament.creator.username }
+      ? {
+          id: tournament.creator.user_id,
+          username: tournament.creator.username,
+          displayName: tournament.creator.display_name ?? null,
+        }
       : undefined,
     participants: tournament.participants
       ? tournament.participants.map((participant: any) => ({
           seed: participant.seed,
           displayName: participant.display_name,
+          username: participant.user?.username ?? null,
           guestName: participant.guest_name,
           userId: participant.user_id,
           teamId: participant.team_id,
@@ -109,7 +123,7 @@ export async function list(req: Request, res: Response) {
         skip,
         include: {
           _count: { select: { participants: true } },
-          creator: { select: { user_id: true, username: true } },
+          creator: { select: tournamentCreatorSelect },
         },
       }),
       prisma.tournament.count({ where }),
@@ -125,7 +139,11 @@ export async function list(req: Request, res: Response) {
         isPrivate: t.is_private,
         participants: t._count.participants,
         max: t.max_participants,
-        creator: { id: t.creator.user_id, username: t.creator.username },
+        creator: {
+          id: t.creator.user_id,
+          username: t.creator.username,
+          displayName: t.creator.display_name ?? null,
+        },
         createdAt: t.created_at,
       })),
       page: Math.floor(skip / take) + 1,
@@ -146,8 +164,8 @@ export async function getById(req: Request, res: Response) {
     const tournament = await prisma.tournament.findUnique({
       where: { tournament_id: id },
       include: {
-        participants: { orderBy: { seed: 'asc' } },
-        creator: { select: { user_id: true, username: true } },
+        participants: tournamentParticipantInclude,
+        creator: { select: tournamentCreatorSelect },
         matches: {
           orderBy: [{ round: 'asc' }, { position: 'asc' }],
           include: { participants: true },
@@ -209,8 +227,8 @@ export async function update(req: Request, res: Response) {
       where: { tournament_id: id },
       data,
       include: {
-        participants: { orderBy: { seed: 'asc' } },
-        creator: { select: { user_id: true, username: true } },
+        participants: tournamentParticipantInclude,
+        creator: { select: tournamentCreatorSelect },
       },
     });
 

@@ -5,6 +5,7 @@ import { notifyUsers, buildNameToUserIds, resolveNamesToUserIds } from '../lib/n
 import { publishTeamNewsToTeams } from '../lib/teamNews';
 import Tournament from '../models/Tournament';
 import * as tournamentService from '../services/tournamentService';
+import { tournamentCreatorSelect } from './tournamentController';
 
 export async function reportResult(req: Request, res: Response) {
   const tournamentId = parseInt(String(req.params.id), 10);
@@ -239,7 +240,7 @@ export async function getMatch(req: Request, res: Response) {
     const tournament = await prisma.tournament.findUnique({
       where: { tournament_id: tournamentId },
       include: {
-        creator: { select: { user_id: true, username: true } },
+        creator: { select: tournamentCreatorSelect },
         participants: { select: { user_id: true, members_snapshot: true } },
       },
     });
@@ -288,7 +289,11 @@ export async function getMatch(req: Request, res: Response) {
         format: (tournament.bracket_data as any).format,
         isPrivate: tournament.is_private,
         status: tournament.status,
-        creator: { id: tournament.creator.user_id, username: tournament.creator.username },
+        creator: {
+          id: tournament.creator.user_id,
+          username: tournament.creator.username,
+          displayName: tournament.creator.display_name ?? null,
+        },
         updatedAt: tournament.updated_at,
       },
     });

@@ -88,9 +88,24 @@ export const logoutAsync = createAsyncThunk(
 export const fetchCurrentUser = createAsyncThunk(
   'auth/fetchCurrentUser',
   async (_, { rejectWithValue }) => {
-    const res = await fetch(`${API_URL}/users/me`, {
+    let res = await fetch(`${API_URL}/users/me`, {
       credentials: 'include',
     });
+
+    if (res.status === 401) {
+      const refreshRes = await fetch(`${API_URL}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      });
+
+      if (refreshRes.ok) {
+        res = await fetch(`${API_URL}/users/me`, {
+          credentials: 'include',
+        });
+      }
+    }
+
     const data = await res.json().catch(() => ({} as { error?: string }));
     if (!res.ok) return rejectWithValue(data.error ?? 'Not authenticated');
     return data as User;

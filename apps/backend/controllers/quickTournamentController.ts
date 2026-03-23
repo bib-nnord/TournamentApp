@@ -5,7 +5,7 @@ import { notifyUsers, collectAllUserIds } from '../lib/notify';
 import { publishTeamNewsToTeams } from '../lib/teamNews';
 import Tournament from '../models/Tournament';
 import * as tournamentService from '../services/tournamentService';
-import { formatTournament } from './tournamentController';
+import { formatTournament, tournamentCreatorSelect, tournamentParticipantInclude } from './tournamentController';
 
 export async function create(req: Request, res: Response) {
   const { name, game, description, format, isPrivate, participants, bracketData, maxParticipants, startDate, status, teamMode } =
@@ -162,8 +162,8 @@ export async function create(req: Request, res: Response) {
         },
       },
       include: {
-        participants: { orderBy: { seed: 'asc' } },
-        creator: { select: { user_id: true, username: true } },
+        participants: tournamentParticipantInclude,
+        creator: { select: tournamentCreatorSelect },
       },
     });
 
@@ -274,8 +274,8 @@ export async function confirmParticipation(req: Request, res: Response) {
     const updated = await prisma.tournament.findUnique({
       where: { tournament_id: id },
       include: {
-        participants: { orderBy: { seed: 'asc' } },
-        creator: { select: { user_id: true, username: true } },
+        participants: tournamentParticipantInclude,
+        creator: { select: tournamentCreatorSelect },
         matches: {
           orderBy: [{ round: 'asc' }, { position: 'asc' }],
           include: { participants: true },

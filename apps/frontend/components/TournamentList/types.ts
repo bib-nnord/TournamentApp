@@ -11,7 +11,7 @@ export interface TournamentSummary {
   isPrivate: boolean;
   participants: number;
   max: number;
-  creator: { id: number; username: string };
+  creator: { id: number; username: string; displayName?: string | null };
   createdAt: string;
   startDate: string | null;
 }

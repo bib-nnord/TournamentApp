@@ -1,0 +1,7 @@
+-- AlterTable
+ALTER TABLE "user"
+ADD COLUMN "games_sports" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+ADD COLUMN "bio_public" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN "location_public" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN "age_public" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN "games_sports_public" BOOLEAN NOT NULL DEFAULT true;

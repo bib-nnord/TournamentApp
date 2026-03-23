@@ -5,7 +5,7 @@ import { notifyUsers, collectAllUserIds } from '../lib/notify';
 import { generateBracket } from '../lib/generateBracket';
 import Tournament from '../models/Tournament';
 import * as tournamentService from '../services/tournamentService';
-import { formatTournament } from './tournamentController';
+import { formatTournament, tournamentCreatorSelect, tournamentParticipantInclude } from './tournamentController';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -354,8 +354,8 @@ export async function createScheduled(req: Request, res: Response) {
         },
       },
       include: {
-        participants: { orderBy: { seed: 'asc' } },
-        creator: { select: { user_id: true, username: true } },
+        participants: tournamentParticipantInclude,
+        creator: { select: tournamentCreatorSelect },
       },
     });
 
@@ -391,8 +391,8 @@ export async function inviteScheduled(req: Request, res: Response) {
     const tournament = await prisma.tournament.findUnique({
       where: { tournament_id: tournamentId },
       include: {
-        participants: { orderBy: { seed: 'asc' } },
-        creator: { select: { user_id: true, username: true } },
+        participants: tournamentParticipantInclude,
+        creator: { select: tournamentCreatorSelect },
       },
     });
 
@@ -516,8 +516,8 @@ export async function inviteScheduled(req: Request, res: Response) {
     const updated = await prisma.tournament.findUnique({
       where: { tournament_id: tournamentId },
       include: {
-        participants: { orderBy: { seed: 'asc' } },
-        creator: { select: { user_id: true, username: true } },
+        participants: tournamentParticipantInclude,
+        creator: { select: tournamentCreatorSelect },
       },
     });
 
@@ -550,8 +550,8 @@ export async function registerScheduled(req: Request, res: Response) {
     const tournament = await prisma.tournament.findUnique({
       where: { tournament_id: tournamentId },
       include: {
-        participants: { orderBy: { seed: 'asc' } },
-        creator: { select: { user_id: true, username: true } },
+        participants: tournamentParticipantInclude,
+        creator: { select: tournamentCreatorSelect },
       },
     });
 
@@ -708,8 +708,8 @@ export async function registerScheduled(req: Request, res: Response) {
     const updated = await prisma.tournament.findUnique({
       where: { tournament_id: tournamentId },
       include: {
-        participants: { orderBy: { seed: 'asc' } },
-        creator: { select: { user_id: true, username: true } },
+        participants: tournamentParticipantInclude,
+        creator: { select: tournamentCreatorSelect },
       },
     });
 
@@ -728,8 +728,8 @@ export async function unregisterScheduled(req: Request, res: Response) {
     const tournament = await prisma.tournament.findUnique({
       where: { tournament_id: tournamentId },
       include: {
-        participants: { orderBy: { seed: 'asc' } },
-        creator: { select: { user_id: true, username: true } },
+        participants: tournamentParticipantInclude,
+        creator: { select: tournamentCreatorSelect },
       },
     });
 
@@ -801,8 +801,8 @@ export async function unregisterScheduled(req: Request, res: Response) {
     const updated = await prisma.tournament.findUnique({
       where: { tournament_id: tournamentId },
       include: {
-        participants: { orderBy: { seed: 'asc' } },
-        creator: { select: { user_id: true, username: true } },
+        participants: tournamentParticipantInclude,
+        creator: { select: tournamentCreatorSelect },
       },
     });
 
@@ -826,8 +826,8 @@ export async function respondInviteScheduled(req: Request, res: Response) {
     const tournament = await prisma.tournament.findUnique({
       where: { tournament_id: tournamentId },
       include: {
-        participants: { orderBy: { seed: 'asc' } },
-        creator: { select: { user_id: true, username: true } },
+        participants: tournamentParticipantInclude,
+        creator: { select: tournamentCreatorSelect },
       },
     });
     if (!tournament) return res.status(404).json({ error: 'Tournament not found' });
@@ -860,8 +860,8 @@ export async function respondInviteScheduled(req: Request, res: Response) {
     const updated = await prisma.tournament.findUnique({
       where: { tournament_id: tournamentId },
       include: {
-        participants: { orderBy: { seed: 'asc' } },
-        creator: { select: { user_id: true, username: true } },
+        participants: tournamentParticipantInclude,
+        creator: { select: tournamentCreatorSelect },
       },
     });
 
@@ -887,8 +887,8 @@ async function updateParticipantDecision(
     const tournament = await prisma.tournament.findUnique({
       where: { tournament_id: tournamentId },
       include: {
-        participants: { orderBy: { seed: 'asc' } },
-        creator: { select: { user_id: true, username: true } },
+        participants: tournamentParticipantInclude,
+        creator: { select: tournamentCreatorSelect },
       },
     });
     if (!tournament) return res.status(404).json({ error: 'Tournament not found' });
@@ -973,8 +973,8 @@ async function updateParticipantDecision(
     const updated = await prisma.tournament.findUnique({
       where: { tournament_id: tournamentId },
       include: {
-        participants: { orderBy: { seed: 'asc' } },
-        creator: { select: { user_id: true, username: true } },
+        participants: tournamentParticipantInclude,
+        creator: { select: tournamentCreatorSelect },
       },
     });
 
@@ -1004,8 +1004,8 @@ export async function rescindInvite(req: Request, res: Response) {
     const tournament = await prisma.tournament.findUnique({
       where: { tournament_id: tournamentId },
       include: {
-        participants: { orderBy: { seed: 'asc' } },
-        creator: { select: { user_id: true, username: true } },
+        participants: tournamentParticipantInclude,
+        creator: { select: tournamentCreatorSelect },
       },
     });
     if (!tournament) return res.status(404).json({ error: 'Tournament not found' });
@@ -1038,8 +1038,8 @@ export async function rescindInvite(req: Request, res: Response) {
     const updated = await prisma.tournament.findUnique({
       where: { tournament_id: tournamentId },
       include: {
-        participants: { orderBy: { seed: 'asc' } },
-        creator: { select: { user_id: true, username: true } },
+        participants: tournamentParticipantInclude,
+        creator: { select: tournamentCreatorSelect },
       },
     });
 
@@ -1066,8 +1066,8 @@ export async function saveTeamAssignments(req: Request, res: Response) {
     const tournament = await prisma.tournament.findUnique({
       where: { tournament_id: tournamentId },
       include: {
-        participants: { orderBy: { seed: 'asc' } },
-        creator: { select: { user_id: true, username: true } },
+        participants: tournamentParticipantInclude,
+        creator: { select: tournamentCreatorSelect },
       },
     });
     if (!tournament) return res.status(404).json({ error: 'Tournament not found' });
@@ -1092,8 +1092,8 @@ export async function saveTeamAssignments(req: Request, res: Response) {
         where: { tournament_id: tournamentId },
         data: { team_assignments: null as any, preview_bracket_data: null as any },
         include: {
-          participants: { orderBy: { seed: 'asc' } },
-          creator: { select: { user_id: true, username: true } },
+          participants: tournamentParticipantInclude,
+          creator: { select: tournamentCreatorSelect },
         },
       });
       return res.json(formatTournament(updated));
@@ -1163,8 +1163,8 @@ export async function saveTeamAssignments(req: Request, res: Response) {
       where: { tournament_id: tournamentId },
       data: { team_assignments: assignments as any, preview_bracket_data: null as any },
       include: {
-        participants: { orderBy: { seed: 'asc' } },
-        creator: { select: { user_id: true, username: true } },
+        participants: tournamentParticipantInclude,
+        creator: { select: tournamentCreatorSelect },
       },
     });
 
@@ -1183,8 +1183,8 @@ export async function previewScheduledBracket(req: Request, res: Response) {
     const tournament = await prisma.tournament.findUnique({
       where: { tournament_id: tournamentId },
       include: {
-        participants: { orderBy: { seed: 'asc' } },
-        creator: { select: { user_id: true, username: true } },
+        participants: tournamentParticipantInclude,
+        creator: { select: tournamentCreatorSelect },
       },
     });
     if (!tournament) return res.status(404).json({ error: 'Tournament not found' });
@@ -1227,8 +1227,8 @@ export async function previewScheduledBracket(req: Request, res: Response) {
       where: { tournament_id: tournamentId },
       data: { preview_bracket_data: bracket as any },
       include: {
-        participants: { orderBy: { seed: 'asc' } },
-        creator: { select: { user_id: true, username: true } },
+        participants: tournamentParticipantInclude,
+        creator: { select: tournamentCreatorSelect },
       },
     });
 
@@ -1247,8 +1247,8 @@ export async function startScheduled(req: Request, res: Response) {
     const tournament = await prisma.tournament.findUnique({
       where: { tournament_id: tournamentId },
       include: {
-        participants: { orderBy: { seed: 'asc' } },
-        creator: { select: { user_id: true, username: true } },
+        participants: tournamentParticipantInclude,
+        creator: { select: tournamentCreatorSelect },
       },
     });
     if (!tournament) return res.status(404).json({ error: 'Tournament not found' });
@@ -1311,8 +1311,8 @@ export async function startScheduled(req: Request, res: Response) {
         bracket_data: finalBracket,
       },
       include: {
-        participants: { orderBy: { seed: 'asc' } },
-        creator: { select: { user_id: true, username: true } },
+        participants: tournamentParticipantInclude,
+        creator: { select: tournamentCreatorSelect },
       },
     });
 

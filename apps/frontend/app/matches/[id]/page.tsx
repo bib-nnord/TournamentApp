@@ -29,7 +29,7 @@ interface BracketMatchDetail {
     format: string;
     isPrivate: boolean;
     status: string;
-    creator: { id: number; username: string };
+    creator: { id: number; username: string; displayName?: string | null };
     updatedAt: string;
   };
 }
@@ -279,8 +279,11 @@ export default function MatchPage() {
             </div>
             <div>
               <p className="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Organizer</p>
-              <Link href={`/profile/${tournament.creator.username}`} className="text-gray-800 font-medium hover:text-indigo-600">
-                {tournament.creator.username}
+              <Link href={`/profile/${tournament.creator.username}`} className="text-gray-800 font-medium hover:text-indigo-600 inline-flex items-center gap-1">
+                <span>{tournament.creator.displayName || tournament.creator.username}</span>
+                {tournament.creator.displayName && tournament.creator.displayName.toLowerCase() !== tournament.creator.username.toLowerCase() && (
+                  <span className="text-xs text-gray-400 font-normal">@{tournament.creator.username}</span>
+                )}
               </Link>
             </div>
             {tournament.isPrivate && (

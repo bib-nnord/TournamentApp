@@ -383,8 +383,11 @@ export default function TeamPage() {
                   <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-600">
                     {getUserInitial(member.username)}
                   </div>
-                  <Link href={`/profile/${member.username}`} className="text-sm text-gray-800 hover:underline">
-                    {member.displayName || member.username}
+                  <Link href={`/profile/${member.username}`} className="text-sm text-gray-800 hover:underline inline-flex items-center gap-1">
+                    <span>{member.displayName || member.username}</span>
+                    {member.displayName && member.displayName.toLowerCase() !== member.username.toLowerCase() && (
+                      <span className="text-xs text-gray-400">@{member.username}</span>
+                    )}
                   </Link>
                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${teamRoleColors[member.role]}`}>
                     {teamRoleLabel[member.role]}
