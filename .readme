@@ -18,19 +18,16 @@ Zero test infrastructure — No test files, no test framework installed (no jest
 Hardcoded API URL — http://localhost:2000 is hardcoded in lib/api.ts and store/authSlice.ts. Won't work outside local dev.
 
 Medium
-Open CORS — app.use(cors()) with no origin restriction.
-No rate limiting — Login/register endpoints are unprotected from brute-force.
+
 No refresh token rotation — Old refresh tokens stay valid after use.
 Missing DB indexes — FK columns like Message.sender_id, Tournament.status, Match.tournament_id, etc. are un-indexed.
 Missing cascade rules — Deleting a User who created teams or is a tournament participant will fail with FK violations.
-Token in localStorage — Vulnerable to XSS; httpOnly cookies would be safer.
-SSR hydration mismatch — authSlice initial state reads localStorage at module load, causing server/client divergence.
+
 Race condition on token refresh — Multiple concurrent 401s each independently call refreshAccessToken().
 req.user typed as always-present — express.d.ts doesn't mark user as optional, masking runtime null access on unauthenticated routes.
 No real build step — tsx runs TypeScript at runtime in production Docker; no compiled JS output, no multi-stage build.
-Useless Swagger YAML — 1,641 lines of placeholder content (example: any everywhere). Actively served at /api-docs but provides no value.
-Low
-Excessive bcrypt rounds — 16 rounds (~1-2s per hash) can be a DoS vector, especially without rate limiting. Standard is 10-12.
+ Actively served at /api-docs but provides no value.
+Low 
 No generic API error handling — Every frontend caller must individually parse errors from apiFetch.
 useRequireAuth doesn't check token expiry — User sees protected page briefly before first 401 kicks them out.
 Dockerfile double-copies prisma/ — Minor image build inefficiency.

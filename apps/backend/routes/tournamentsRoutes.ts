@@ -10,6 +10,7 @@ import {
 	respondInviteScheduled,
 	approveScheduledParticipant,
 	declineScheduledParticipant,
+	rescindInvite,
 	previewScheduledBracket,
 	startScheduled,
 	saveTeamAssignments,
@@ -31,6 +32,7 @@ router.delete('/:id/register', authenticate, unregisterScheduled);
 router.patch('/:id/respond-invite', authenticate, respondInviteScheduled);
 router.patch('/:id/participants/:seed/approve', authenticate, approveScheduledParticipant);
 router.patch('/:id/participants/:seed/decline', authenticate, declineScheduledParticipant);
+router.delete('/:id/participants/:seed/invite', authenticate, rescindInvite);
 router.post('/:id/preview-bracket', authenticate, previewScheduledBracket);
 router.put('/:id/team-assignments', authenticate, saveTeamAssignments);
 router.post('/:id/start', authenticate, startScheduled);

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
+import { usePolling } from "@/hooks/usePolling";
 import { messageCategoryColors } from "@/lib/colors";
 import { messageCategoryLabel } from "@/constants/labels";
 import UserSearchInput from "@/components/UserSearchInput";
@@ -85,6 +86,7 @@ export default function MessagesPage() {
   const [composeBody, setComposeBody] = useState("");
   const [composeSending, setComposeSending] = useState(false);
   const [composeError, setComposeError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const fetchMessages = useCallback(async () => {
     try {
@@ -103,6 +105,41 @@ export default function MessagesPage() {
   useEffect(() => {
     if (user) fetchMessages();
   }, [user, fetchMessages]);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const query = isSentView ? "folder=sent&limit=100" : "limit=100";
+      const res = await apiFetch(`/messages?${query}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setMessages(data.messages);
+    } catch {
+      // ignore
+    } finally {
+      setRefreshing(false);
+    }
+  }, [isSentView]);
+
+  const pollForChanges = useCallback(async () => {
+    try {
+      const query = isSentView ? "folder=sent&limit=100" : "limit=100";
+      const res = await apiFetch(`/messages?${query}`);
+      if (!res.ok) return;
+      const data: { messages: Message[] } = await res.json();
+      const incoming = data.messages;
+      setMessages((prev) => {
+        const changed =
+          incoming.length !== prev.length ||
+          incoming.some((m, i) => m.id !== prev[i]?.id || m.read !== prev[i]?.read);
+        return changed ? incoming : prev;
+      });
+    } catch {
+      // ignore
+    }
+  }, [isSentView]);
+
+  usePolling(pollForChanges, 30_000, !!user);
 
   // Clear selection and close detail when switching folders
   useEffect(() => {
@@ -523,6 +560,14 @@ export default function MessagesPage() {
                 {LABEL_MARK_ALL_AS_READ}
               </button>
             )}
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              title="Refresh messages"
+              className="text-sm px-3 py-1.5 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40"
+            >
+              <span className={refreshing ? "inline-block animate-spin" : "">↻</span>
+            </button>
             <button
               onClick={handleNewMessage}
               className="text-sm px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"

@@ -993,6 +993,63 @@ export async function declineScheduledParticipant(req: Request, res: Response) {
   return updateParticipantDecision(req, res, 'declined');
 }
 
+export async function rescindInvite(req: Request, res: Response) {
+  const tournamentId = validateTournamentId(req.params.id);
+  if (tournamentId == null) return res.status(400).json({ error: 'Invalid tournament ID' });
+
+  const seed = parseInt(String(req.params.seed), 10);
+  if (isNaN(seed)) return res.status(400).json({ error: 'Invalid participant seed' });
+
+  try {
+    const tournament = await prisma.tournament.findUnique({
+      where: { tournament_id: tournamentId },
+      include: {
+        participants: { orderBy: { seed: 'asc' } },
+        creator: { select: { user_id: true, username: true } },
+      },
+    });
+    if (!tournament) return res.status(404).json({ error: 'Tournament not found' });
+    if (tournament.creation_mode !== 'scheduled') {
+      return res.status(400).json({ error: 'Rescinding invites is only available for scheduled tournaments' });
+    }
+    if (tournament.created_by !== req.user.id) {
+      return res.status(403).json({ error: 'Only the tournament creator can rescind invitations' });
+    }
+    if (tournament.status !== 'registration') {
+      return res.status(400).json({ error: 'Invitations can only be rescinded during the registration phase' });
+    }
+
+    const participant = tournament.participants.find((candidate: any) => candidate.seed === seed);
+    if (!participant) return res.status(404).json({ error: 'Participant not found' });
+    if (participant.registration_status !== 'invited') {
+      return res.status(400).json({ error: 'Only pending invitations can be rescinded' });
+    }
+
+    await prisma.$transaction([
+      prisma.tournamentParticipant.delete({
+        where: { tournament_id_seed: { tournament_id: tournamentId, seed } },
+      }),
+      prisma.tournament.update({
+        where: { tournament_id: tournamentId },
+        data: { preview_bracket_data: null as any },
+      }),
+    ]);
+
+    const updated = await prisma.tournament.findUnique({
+      where: { tournament_id: tournamentId },
+      include: {
+        participants: { orderBy: { seed: 'asc' } },
+        creator: { select: { user_id: true, username: true } },
+      },
+    });
+
+    return res.json(formatTournament(updated));
+  } catch (err) {
+    console.error('[tournament.rescindInvite]', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
 export async function saveTeamAssignments(req: Request, res: Response) {
   const tournamentId = validateTournamentId(req.params.id);
   if (tournamentId == null) return res.status(400).json({ error: 'Invalid tournament ID' });
@@ -1257,6 +1314,11 @@ export async function startScheduled(req: Request, res: Response) {
         participants: { orderBy: { seed: 'asc' } },
         creator: { select: { user_id: true, username: true } },
       },
+    });
+
+    // Remove any participants who hadn't accepted their invitation yet
+    await prisma.tournamentParticipant.deleteMany({
+      where: { tournament_id: tournamentId, registration_status: 'invited' },
     });
 
     return res.json(formatTournament(updated));

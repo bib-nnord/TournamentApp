@@ -339,7 +339,10 @@ export default function TournamentPage() {
     : [];
 
   const visibleParticipants = isScheduled
-    ? tournament.participants.filter((p) => p.registrationStatus !== "pending" && (!isCreator || p.registrationStatus !== "invited"))
+    ? tournament.participants.filter((p) =>
+        p.registrationStatus !== "pending" &&
+        p.registrationStatus !== "invited"
+      )
     : tournament.participants;
 
   const editablePreviewBracket = !tournament.previewBracketData
@@ -541,6 +544,19 @@ export default function TournamentPage() {
     try {
       const res = await apiFetch(`/tournaments/${tournament!.id}/participants/${seed}/${decision}`, {
         method: "PATCH",
+      });
+      if (res.ok) {
+        setTournament(await res.json());
+      }
+    } catch { /* silent */ }
+    finally { setDecidingParticipant(null); }
+  }
+
+  async function handleRescindInvite(seed: number) {
+    setDecidingParticipant(seed);
+    try {
+      const res = await apiFetch(`/tournaments/${tournament!.id}/participants/${seed}/invite`, {
+        method: "DELETE",
       });
       if (res.ok) {
         setTournament(await res.json());
@@ -1061,9 +1077,17 @@ export default function TournamentPage() {
 
         {/* Participants */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
-          <h2 className="text-base font-semibold text-gray-800 mb-4">
+          <h2 className="text-base font-semibold text-gray-800 mb-1">
             Participants ({visibleParticipants.length})
           </h2>
+          {!isCreator && isScheduled && (pendingParticipants.length + invitedParticipants.length) > 0 ? (
+            <p className="text-xs text-gray-400 mb-4">
+              {pendingParticipants.length + invitedParticipants.length}{" "}
+              {pendingParticipants.length + invitedParticipants.length === 1 ? "invitation" : "invitations"} pending.
+            </p>
+          ) : (
+            <div className="mb-4" />
+          )}
           <div className="flex flex-col gap-2">
             {visibleParticipants.map((p) => (
               <div
@@ -1183,6 +1207,14 @@ export default function TournamentPage() {
                       </span>
                     </div>
                   </div>
+                  <button
+                    type="button"
+                    disabled={decidingParticipant === p.seed}
+                    onClick={() => handleRescindInvite(p.seed)}
+                    className="shrink-0 text-xs px-2.5 py-1 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 disabled:opacity-40 transition-colors"
+                  >
+                    {decidingParticipant === p.seed ? "…" : "Rescind"}
+                  </button>
                 </div>
               ))}
             </div>
