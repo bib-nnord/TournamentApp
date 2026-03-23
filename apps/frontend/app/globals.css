@@ -231,3 +231,9 @@
     break-inside: avoid;
   }
 }
+
+/* ─── Toast notifications ─────────────────────────────────────────────────── */
+@keyframes toast-shrink {
+  from { width: 100%; }
+  to   { width: 0%; }
+}

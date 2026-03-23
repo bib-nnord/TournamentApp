@@ -12,6 +12,7 @@ import {
 } from "@/constants/labels";
 
 const TournamentIdContext = createContext<number | null>(null);
+const HighlightContext = createContext<string | null>(null);
 
 type Size = {
   width: number;
@@ -74,9 +75,10 @@ function BracketChrome({
 
 // ─── Main entry point ─────────────────────────────────────────────────────────
 
-export default function BracketView({ bracket, tournamentId, onSwapParticipants, advancersPerGroup, onAdvancersChange, autoAdvanceGroups, onAutoAdvanceGroupsChange, onMoveParticipant, onReportResult, onReportTiebreaker, onUndoTiebreaker }: {
+export default function BracketView({ bracket, tournamentId, highlightName, onSwapParticipants, advancersPerGroup, onAdvancersChange, autoAdvanceGroups, onAutoAdvanceGroupsChange, onMoveParticipant, onReportResult, onReportTiebreaker, onUndoTiebreaker }: {
   bracket: Bracket;
   tournamentId?: number;
+  highlightName?: string;
   onSwapParticipants?: (a: string, b: string) => void;
   advancersPerGroup?: number;
   onAdvancersChange?: (n: number) => void;
@@ -257,12 +259,14 @@ export default function BracketView({ bracket, tournamentId, onSwapParticipants,
   })();
 
   const content = (
-    <TournamentIdContext.Provider value={tournamentId ?? null}>
-      {mainContent}
-      {bracket.tiebreaker && (
-        <TiebreakerPanel tiebreaker={bracket.tiebreaker} onReport={onReportTiebreaker} onUndo={onUndoTiebreaker} />
-      )}
-    </TournamentIdContext.Provider>
+    <HighlightContext.Provider value={highlightName ?? null}>
+      <TournamentIdContext.Provider value={tournamentId ?? null}>
+        {mainContent}
+        {bracket.tiebreaker && (
+          <TiebreakerPanel tiebreaker={bracket.tiebreaker} onReport={onReportTiebreaker} onUndo={onUndoTiebreaker} />
+        )}
+      </TournamentIdContext.Provider>
+    </HighlightContext.Provider>
   );
 
   const fitScale = getFitScale(expandedContentSize, expandedViewportSize);
@@ -710,6 +714,7 @@ function MatchCard({
   allowTies?: boolean;
 }) {
   const tournamentId = useContext(TournamentIdContext);
+  const highlightName = useContext(HighlightContext);
   const [dropTarget, setDropTarget] = useState<"a" | "b" | null>(null);
   const [reporting, setReporting] = useState(false);
   const [selectedWinner, setSelectedWinner] = useState<"a" | "b" | "tie" | null>(null);
@@ -784,6 +789,8 @@ function MatchCard({
   const isWinnerA = match.completed && !match.tie && match.winner === match.participantA;
   const isWinnerB = match.completed && !match.tie && match.winner === match.participantB;
   const isTie = match.completed && match.tie;
+  const isMyA = !!highlightName && match.participantA === highlightName;
+  const isMyB = !!highlightName && match.participantB === highlightName;
 
   function openReporting() {
     if (match.completed) {
@@ -820,18 +827,21 @@ function MatchCard({
           className={`flex items-center gap-2 px-3 py-1.5 border-b border-gray-100 transition-colors ${
             isWinnerA
               ? "bg-emerald-50"
-              : dropTarget === "a"
-                ? "bg-indigo-50"
-                : wbA
-                  ? "bg-amber-50/60"
-                  : "bg-gray-50"
+              : isMyA
+                ? "bg-violet-50"
+                : dropTarget === "a"
+                  ? "bg-indigo-50"
+                  : wbA
+                    ? "bg-amber-50/60"
+                    : "bg-gray-50"
           } ${match.participantA && canDrag ? "cursor-grab active:cursor-grabbing" : ""} ${!match.participantA || match.participantA === "TBD" ? "print-tbd-row" : ""}`}
         >
           {wbA && <span className="text-[9px] text-amber-500 font-semibold shrink-0" title="From Winners Bracket">WB</span>}
           {isWinnerA && !isFinal && <span className="text-[9px] text-emerald-600 font-bold shrink-0">W</span>}
           {isWinnerA && isFinal && <span className="text-sm shrink-0">👑</span>}
           {isTie && <span className="text-[9px] text-gray-400 font-bold shrink-0">TIE</span>}
-          <span className={`flex-1 truncate ${isWinnerA ? "text-emerald-700 font-semibold" : isTie ? "text-gray-500" : match.participantA && match.participantA !== "TBD" ? "text-gray-800" : "text-gray-300 italic"}`}>
+          {isMyA && <span className="text-[9px] text-violet-500 font-bold shrink-0">★</span>}
+          <span className={`flex-1 truncate ${isWinnerA ? "text-emerald-700 font-semibold" : isTie ? "text-gray-500" : isMyA ? "text-violet-700 font-semibold" : match.participantA && match.participantA !== "TBD" ? "text-gray-800" : "text-gray-300 italic"}`}>
             {renderName(match.participantA)}
           </span>
           {match.completed && match.scoreA != null && (
@@ -851,18 +861,21 @@ function MatchCard({
           className={`flex items-center gap-2 px-3 py-1.5 transition-colors ${
             isWinnerB
               ? "bg-emerald-50"
-              : dropTarget === "b"
-                ? "bg-indigo-50"
-                : wbB
-                  ? "bg-amber-50/60"
-                  : ""
+              : isMyB
+                ? "bg-violet-50"
+                : dropTarget === "b"
+                  ? "bg-indigo-50"
+                  : wbB
+                    ? "bg-amber-50/60"
+                    : ""
           } ${match.participantB && canDrag ? "cursor-grab active:cursor-grabbing" : ""} ${!match.participantB || match.participantB === "TBD" ? "print-tbd-row" : ""}`}
         >
           {wbB && <span className="text-[9px] text-amber-500 font-semibold shrink-0" title="From Winners Bracket">WB</span>}
           {isWinnerB && !isFinal && <span className="text-[9px] text-emerald-600 font-bold shrink-0">W</span>}
           {isWinnerB && isFinal && <span className="text-sm shrink-0">👑</span>}
           {isTie && <span className="text-[9px] text-gray-400 font-bold shrink-0">TIE</span>}
-          <span className={`flex-1 truncate ${isWinnerB ? "text-emerald-700 font-semibold" : isTie ? "text-gray-500" : match.participantB && match.participantB !== "TBD" ? "text-gray-800" : "text-gray-300 italic"}`}>
+          {isMyB && <span className="text-[9px] text-violet-500 font-bold shrink-0">★</span>}
+          <span className={`flex-1 truncate ${isWinnerB ? "text-emerald-700 font-semibold" : isTie ? "text-gray-500" : isMyB ? "text-violet-700 font-semibold" : match.participantB && match.participantB !== "TBD" ? "text-gray-800" : "text-gray-300 italic"}`}>
             {renderName(match.participantB)}
           </span>
           {match.completed && match.scoreB != null && (
@@ -995,6 +1008,7 @@ function RoundRobinView({
   onReportResult?: (matchId: string, winner: "a" | "b" | "tie", scoreA?: number, scoreB?: number) => Promise<void>;
   allowTies?: boolean;
 }) {
+  const highlightName = useContext(HighlightContext);
   const participantSet = new Set<string>();
   for (const round of rounds) {
     for (const match of round.matches) {
@@ -1068,10 +1082,11 @@ function RoundRobinView({
             {standingRows.map((row) => (
               <div
                 key={row.name}
-                className={`flex items-center gap-3 px-3 py-2 ${row.isTied ? "bg-amber-50" : "bg-white"}`}
+                className={`flex items-center gap-3 px-3 py-2 ${row.name === highlightName ? "bg-violet-50" : row.isTied ? "bg-amber-50" : "bg-white"}`}
               >
                 <span className="text-xs font-mono text-gray-400 w-5 shrink-0">{row.rank}.</span>
-                <span className={`flex-1 ${row.rank === 1 && !row.isTied ? "font-semibold text-gray-900" : row.isTied && row.rank === 1 ? "font-semibold text-amber-900" : "text-gray-700"}`}>
+                <span className={`flex-1 flex items-center gap-1 ${row.name === highlightName ? "font-semibold text-violet-700" : row.rank === 1 && !row.isTied ? "font-semibold text-gray-900" : row.isTied && row.rank === 1 ? "font-semibold text-amber-900" : "text-gray-700"}`}>
+                  {row.name === highlightName && <span className="text-[9px] text-violet-500 font-bold">★</span>}
                   {row.name}
                 </span>
                 {row.isTied && (
@@ -1190,6 +1205,7 @@ function MatchRow({
   allowTies?: boolean;
 }) {
   const tournamentId = useContext(TournamentIdContext);
+  const highlightName = useContext(HighlightContext);
   const [reporting, setReporting] = useState(false);
   const [selectedWinner, setSelectedWinner] = useState<"a" | "b" | "tie" | null>(null);
   const [scoreA, setScoreA] = useState("0");
@@ -1203,6 +1219,8 @@ function MatchRow({
   const isWinnerA = match.completed && !match.tie && match.winner === match.participantA;
   const isWinnerB = match.completed && !match.tie && match.winner === match.participantB;
   const isTie = match.completed && match.tie;
+  const isMyA = !!highlightName && match.participantA === highlightName;
+  const isMyB = !!highlightName && match.participantB === highlightName;
 
   async function handleSubmit() {
     if (!selectedWinner || !onReportResult) return;
@@ -1252,15 +1270,17 @@ function MatchRow({
           canReport ? "border-gray-200 hover:border-indigo-300 cursor-pointer transition-colors" : "border-gray-200"
         }`}
       >
-        <span className={`flex-1 px-2.5 py-1.5 truncate ${isWinnerA || isTie ? "bg-emerald-50 text-emerald-700 font-semibold" : "bg-gray-50 text-gray-800"} ${!match.participantA || match.participantA === "TBD" ? "print-tbd-row" : ""}`}>
+        <span className={`flex-1 px-2.5 py-1.5 truncate ${isWinnerA || isTie ? "bg-emerald-50 text-emerald-700 font-semibold" : isMyA ? "bg-violet-50 text-violet-700 font-semibold" : "bg-gray-50 text-gray-800"} ${!match.participantA || match.participantA === "TBD" ? "print-tbd-row" : ""}`}>
           {isWinnerA && <span className="text-[9px] font-bold mr-1">W</span>}
           {isTie && <span className="text-[9px] font-bold mr-1 text-emerald-600">T</span>}
+          {isMyA && !isWinnerA && !isTie && <span className="text-[9px] font-bold mr-1">★</span>}
           {!match.participantA || match.participantA === "TBD" ? <span className="text-gray-300 italic print-hide-tbd">TBD</span> : match.participantA}
           {match.completed && match.scoreA != null && <span className="ml-1 text-emerald-600">{match.scoreA}</span>}
         </span>
         <span className="px-2 text-gray-400">vs</span>
-        <span className={`flex-1 px-2.5 py-1.5 truncate text-right ${isWinnerB || isTie ? "bg-emerald-50 text-emerald-700 font-semibold" : "text-gray-800"} ${!match.participantB || match.participantB === "TBD" ? "print-tbd-row" : ""}`}>
+        <span className={`flex-1 px-2.5 py-1.5 truncate text-right ${isWinnerB || isTie ? "bg-emerald-50 text-emerald-700 font-semibold" : isMyB ? "bg-violet-50 text-violet-700 font-semibold" : "text-gray-800"} ${!match.participantB || match.participantB === "TBD" ? "print-tbd-row" : ""}`}>
           {isTie && <span className="text-[9px] font-bold ml-1 text-emerald-600">T</span>}
+          {isMyB && !isWinnerB && !isTie && <span className="text-[9px] font-bold ml-1">★</span>}
           {!match.participantB || match.participantB === "TBD" ? <span className="text-gray-300 italic print-hide-tbd">TBD</span> : match.participantB}
           {match.completed && match.scoreB != null && <span className="ml-1 text-emerald-600">{match.scoreB}</span>}
           {isWinnerB && <span className="text-[9px] font-bold ml-1">W</span>}

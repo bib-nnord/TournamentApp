@@ -24,6 +24,7 @@ import { apiFetch } from "@/lib/api";
 import { usePolling } from "@/hooks/usePolling";
 import { generateBracket, type Bracket } from "@/lib/generateBracket";
 import BracketView from "@/components/BracketView";
+import Modal from "@/components/Modal";
 import StatusBadge from "@/components/StatusBadge";
 import { tournamentStatusColors, participantTypeColors } from "@/lib/colors";
 import { formatDate, getTournamentWinner } from "@/lib/helpers";
@@ -272,6 +273,13 @@ export default function TournamentPage() {
     if (p.membersSnapshot?.some((m) => m.userId === currentUser.id)) return true;
     return false;
   }) : null;
+
+  const myHighlightName: string | undefined = tournament.teamMode
+    ? (tournament.teamAssignments?.find((t) =>
+        t.members.some((m) => m.userId === currentUser?.id)
+      )?.name ?? undefined)
+    : (myParticipant?.displayName ?? undefined);
+
   const isUnconfirmedParticipant = myParticipant != null && !myParticipant.confirmed && !myParticipant.declined;
 
   async function handleConfirm(accept: boolean) {
@@ -1419,6 +1427,7 @@ export default function TournamentPage() {
                   <BracketView
                     bracket={editablePreviewBracket ?? tournament.previewBracketData}
                     tournamentId={tournament.id}
+                    highlightName={myHighlightName}
                     onSwapParticipants={swapPreviewParticipants}
                     advancersPerGroup={previewAdvancersPerGroup}
                     onAdvancersChange={(value) => {
@@ -1470,6 +1479,7 @@ export default function TournamentPage() {
             <BracketView
               bracket={tournament.bracketData}
               tournamentId={tournament.id}
+              highlightName={myHighlightName}
               onReportResult={isCreator && tournament.status === "active" ? handleReportResult : undefined}
               onReportTiebreaker={isCreator && tournament.status === "active" ? handleReportTiebreaker : undefined}
               onUndoTiebreaker={isCreator && tournament.status === "active" ? handleUndoTiebreaker : undefined}
@@ -1478,84 +1488,83 @@ export default function TournamentPage() {
         )}
 
         {/* Edit Settings Modal */}
-        {editingSettings && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setEditingSettings(false)}>
-            <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-6 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
-              <h2 className="text-base font-semibold text-gray-800 mb-4">Edit Settings</h2>
-              <div className="flex flex-col gap-4">
-                <div>
-                  <label className="block text-xs text-gray-400 uppercase tracking-wide mb-1">Tournament name</label>
-                  <input
-                    value={editName}
-                    onChange={e => setEditName(e.target.value)}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-400 uppercase tracking-wide mb-1">Game / Discipline</label>
-                  <input
-                    value={editGame}
-                    onChange={e => setEditGame(e.target.value)}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-400 uppercase tracking-wide mb-1">Description <span className="normal-case text-gray-300">(optional)</span></label>
-                  <textarea
-                    value={editDescription}
-                    onChange={e => setEditDescription(e.target.value)}
-                    rows={3}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-none"
-                  />
-                </div>
-                {tournament.bracketData && (
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={editAllowTies}
-                      onClick={() => setEditAllowTies(v => !v)}
-                      className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${editAllowTies ? "bg-indigo-600" : "bg-gray-200"}`}
-                    >
-                      <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${editAllowTies ? "translate-x-4" : "translate-x-0"}`} />
-                    </button>
-                    <span className="text-sm text-gray-700">Allow ties <span className="text-gray-400">— matches can end in a draw</span></span>
-                  </div>
-                )}
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={editIsPrivate}
-                    onClick={() => setEditIsPrivate(v => !v)}
-                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${editIsPrivate ? "bg-gray-700" : "bg-gray-200"}`}
-                  >
-                    <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${editIsPrivate ? "translate-x-4" : "translate-x-0"}`} />
-                  </button>
-                  <span className="text-sm text-gray-700">Private <span className="text-gray-400">— only visible to you and participants</span></span>
-                </div>
-                {settingsError && <p className="text-xs text-red-500">{settingsError}</p>}
-                <div className="flex gap-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={handleSaveSettings}
-                    disabled={savingSettings || !editName.trim() || !editGame.trim()}
-                    className="flex-1 py-2 rounded-lg text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40 transition-colors"
-                  >
-                    {savingSettings ? "Saving…" : "Save"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setEditingSettings(false)}
-                    className="px-4 py-2 rounded-lg text-sm text-gray-500 hover:text-gray-700 border border-gray-200 hover:border-gray-300 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                </div>
+        <Modal
+          isOpen={editingSettings}
+          onClose={() => setEditingSettings(false)}
+          title="Edit Settings"
+        >
+          <div className="flex flex-col gap-4">
+            <div>
+              <label className="block text-xs text-gray-400 uppercase tracking-wide mb-1">Tournament name</label>
+              <input
+                value={editName}
+                onChange={e => setEditName(e.target.value)}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-400 uppercase tracking-wide mb-1">Game / Discipline</label>
+              <input
+                value={editGame}
+                onChange={e => setEditGame(e.target.value)}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-400 uppercase tracking-wide mb-1">Description <span className="normal-case text-gray-300">(optional)</span></label>
+              <textarea
+                value={editDescription}
+                onChange={e => setEditDescription(e.target.value)}
+                rows={3}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-none"
+              />
+            </div>
+            {tournament.bracketData && (
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={editAllowTies}
+                  onClick={() => setEditAllowTies(v => !v)}
+                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${editAllowTies ? "bg-indigo-600" : "bg-gray-200"}`}
+                >
+                  <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${editAllowTies ? "translate-x-4" : "translate-x-0"}`} />
+                </button>
+                <span className="text-sm text-gray-700">Allow ties <span className="text-gray-400">— matches can end in a draw</span></span>
               </div>
+            )}
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={editIsPrivate}
+                onClick={() => setEditIsPrivate(v => !v)}
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${editIsPrivate ? "bg-gray-700" : "bg-gray-200"}`}
+              >
+                <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${editIsPrivate ? "translate-x-4" : "translate-x-0"}`} />
+              </button>
+              <span className="text-sm text-gray-700">Private <span className="text-gray-400">— only visible to you and participants</span></span>
+            </div>
+            {settingsError && <p className="text-xs text-red-500">{settingsError}</p>}
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                onClick={handleSaveSettings}
+                disabled={savingSettings || !editName.trim() || !editGame.trim()}
+                className="flex-1 py-2 rounded-lg text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40 transition-colors"
+              >
+                {savingSettings ? "Saving…" : "Save"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditingSettings(false)}
+                className="px-4 py-2 rounded-lg text-sm text-gray-500 hover:text-gray-700 border border-gray-200 hover:border-gray-300 transition-colors"
+              >
+                Cancel
+              </button>
             </div>
           </div>
-        )}
+        </Modal>
 
         {/* Actions (creator only) */}
         {isCreator && (

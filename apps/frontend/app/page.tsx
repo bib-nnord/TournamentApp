@@ -14,7 +14,7 @@ export default function Home() {
             Host your Tournaments.
           </h1>
           <p className="text-lg text-gray-500 max-w-xl">
-            Create and join tournaments for any game or sport. Track results, manage teams or plan matches.
+            Create and join tournaments. Track results, manage teams or plan matches.
           </p>
           <AuthButtons />
         </div>

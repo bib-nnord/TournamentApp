@@ -1,9 +1,16 @@
 "use client";
 
 import { useEffect } from "react";
-import type { ModalProps } from "./types";
+import type { ModalProps, ModalSize } from "./types";
 
-export default function Modal({ isOpen, onClose, title, children }: ModalProps) {
+const SIZE_CLASSES: Record<ModalSize, string> = {
+  sm: "max-w-sm",
+  md: "max-w-md",
+  lg: "max-w-lg",
+  xl: "max-w-xl",
+};
+
+export default function Modal({ isOpen, onClose, title, size = "md", children }: ModalProps) {
   useEffect(() => {
     if (!isOpen) return;
     function handleKey(e: KeyboardEvent) {
@@ -25,16 +32,22 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl p-8"
+        className={`relative w-full ${SIZE_CLASSES[size]} mx-4 max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl border border-gray-100 p-6`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-gray-900">{title}</h2>
+        <div className="flex items-center justify-between mb-5">
+          {title
+            ? <h2 className="text-base font-semibold text-gray-800">{title}</h2>
+            : <span />}
           <button
+            type="button"
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-xl leading-none"
+            aria-label="Close"
+            className="text-gray-400 hover:text-gray-600 transition-colors"
           >
-            &times;
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
           </button>
         </div>
         {children}
