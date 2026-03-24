@@ -25,13 +25,13 @@ export default function Home() {
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-gray-900">Current Tournaments</h2>
           <Link
-            href="/tournaments"
+            href="/tournaments?filter=active"
             className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
           >
-            {LABEL_ALL_TOURNAMENTS}
+            See more
           </Link>
         </div>
-        <TournamentList />
+        <TournamentList defaultFilter={["active"]} hideFilters sortBy="participants" />
       </div>
 
       {/* Teams */}

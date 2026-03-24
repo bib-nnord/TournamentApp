@@ -129,6 +129,28 @@ export async function list(req: Request, res: Response) {
       prisma.tournament.count({ where }),
     ]);
 
+    // Fetch match progress for active tournaments
+    const activeTournamentIds = tournaments
+      .filter((t: any) => t.status === 'active')
+      .map((t: any) => t.tournament_id);
+
+    const matchStats: Record<number, { total: number; completed: number }> = {};
+    if (activeTournamentIds.length > 0) {
+      const matchGroups = await prisma.match.groupBy({
+        by: ['tournament_id', 'status'],
+        where: { tournament_id: { in: activeTournamentIds } },
+        _count: { match_id: true },
+      });
+      for (const group of matchGroups) {
+        const tid = group.tournament_id!;
+        if (!matchStats[tid]) matchStats[tid] = { total: 0, completed: 0 };
+        matchStats[tid].total += group._count.match_id;
+        if (group.status === 'completed' || group.status === 'tie') {
+          matchStats[tid].completed += group._count.match_id;
+        }
+      }
+    }
+
     return res.json({
       tournaments: tournaments.map((t: any) => ({
         id: t.tournament_id,
@@ -145,6 +167,11 @@ export async function list(req: Request, res: Response) {
           displayName: t.creator.display_name ?? null,
         },
         createdAt: t.created_at,
+        startDate: t.start_date ?? null,
+        startedAt: t.started_at ?? null,
+        matchProgress: t.status === 'active'
+          ? (matchStats[t.tournament_id] ?? { total: 0, completed: 0 })
+          : undefined,
       })),
       page: Math.floor(skip / take) + 1,
       totalPages: Math.ceil(total / take),

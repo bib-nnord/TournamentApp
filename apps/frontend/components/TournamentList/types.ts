@@ -14,4 +14,6 @@ export interface TournamentSummary {
   creator: { id: number; username: string; displayName?: string | null };
   createdAt: string;
   startDate: string | null;
+  startedAt: string | null;
+  matchProgress?: { completed: number; total: number };
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { tournamentStatusLabel } from "@/types";
+import { tournamentStatusLabel, tournamentFormatInfo } from "@/types";
 import { useFetch } from "@/hooks/useFetch";
 import { useFilterToggle } from "@/hooks/useFilterToggle";
 import { tournamentStatusColors } from "@/lib/colors";
@@ -27,18 +27,34 @@ const statusOrder: Record<string, number> = {
   draft: 4,
 };
 
-export default function TournamentList() {
+interface TournamentListProps {
+  defaultFilter?: Filter[];
+  hideFilters?: boolean;
+  sortBy?: "status" | "participants";
+}
+
+export default function TournamentList({
+  defaultFilter = ["all"],
+  hideFilters = false,
+  sortBy = "status",
+}: TournamentListProps) {
   const { data, loading, error } = useFetch<{ tournaments: TournamentSummary[] }>("/tournaments");
-  const { activeFilters, toggleFilter } = useFilterToggle<Filter>(["all"], "all");
+  const { activeFilters, toggleFilter } = useFilterToggle<Filter>(defaultFilter, "all");
 
   const tournaments = data?.tournaments ?? [];
   const filtered = tournaments
     .filter((t) => activeFilters.includes("all") ? true : activeFilters.includes(t.status))
-    .sort((a, b) => (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99));
+    .sort((a, b) =>
+      sortBy === "participants"
+        ? b.participants - a.participants
+        : (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99)
+    );
 
   return (
     <div>
-      <FilterTabs filters={filters} active={activeFilters} onToggle={toggleFilter} className="mb-6" />
+      {!hideFilters && (
+        <FilterTabs filters={filters} active={activeFilters} onToggle={toggleFilter} className="mb-6" />
+      )}
 
       {loading ? (
         <p className="text-sm text-gray-400">Loading…</p>
@@ -48,33 +64,59 @@ export default function TournamentList() {
         <p className="text-sm text-gray-500">No tournaments found.</p>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {filtered.map((t) => (
-            <Link
-              key={t.id}
-              href={`/tournaments/view/${t.id}`}
-              className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-shadow flex flex-col gap-3"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <h2 className="text-sm font-semibold text-gray-900">{t.name}</h2>
-                <StatusBadge
-                  label={tournamentStatusLabel[t.status]}
-                  colorClass={tournamentStatusColors[t.status]}
-                  className="shrink-0"
-                />
-              </div>
-              <div className="text-xs text-gray-500 flex flex-col gap-1">
-                <span className="text-gray-700 font-medium">{t.game}</span>
-                {t.startDate && <span>{formatDate(t.startDate)}</span>}
-                <span>{t.participants} / {t.max} participants</span>
-              </div>
-              <div className="text-[11px] text-gray-400 inline-flex items-center gap-1">
-                <span>by {t.creator.displayName || t.creator.username}</span>
-                {t.creator.displayName && t.creator.displayName.toLowerCase() !== t.creator.username.toLowerCase() && (
-                  <span className="text-gray-400">@{t.creator.username}</span>
+          {filtered.map((t) => {
+            const formatLabel = tournamentFormatInfo[t.format as keyof typeof tournamentFormatInfo]?.label ?? t.format;
+            const progress = t.matchProgress;
+            const progressPct = progress && progress.total > 0
+              ? Math.round((progress.completed / progress.total) * 100)
+              : null;
+
+            return (
+              <Link
+                key={t.id}
+                href={`/tournaments/view/${t.id}`}
+                className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-shadow flex flex-col gap-3"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <h2 className="text-sm font-semibold text-gray-900">{t.name}</h2>
+                  <StatusBadge
+                    label={tournamentStatusLabel[t.status]}
+                    colorClass={tournamentStatusColors[t.status]}
+                    className="shrink-0"
+                  />
+                </div>
+                <div className="text-xs text-gray-500 flex flex-col gap-1">
+                  <span className="text-gray-700 font-medium">{t.game}</span>
+                  <span className="text-gray-400">{formatLabel}</span>
+                  {t.startDate && <span>{formatDate(t.startDate)}</span>}
+                  <span>{t.participants} / {t.max} participants</span>
+                </div>
+
+                {/* Match progress bar — only for active tournaments with match data */}
+                {t.status === "active" && progress && progress.total > 0 && (
+                  <div>
+                    <div className="flex justify-between text-[10px] text-gray-400 mb-1">
+                      <span>{progress.completed} of {progress.total} matches played</span>
+                      <span>{progressPct}%</span>
+                    </div>
+                    <div className="w-full bg-gray-100 rounded-full h-1.5">
+                      <div
+                        className="bg-indigo-500 h-1.5 rounded-full transition-all"
+                        style={{ width: `${progressPct}%` }}
+                      />
+                    </div>
+                  </div>
                 )}
-              </div>
-            </Link>
-          ))}
+
+                <div className="text-[11px] text-gray-400 inline-flex items-center gap-1">
+                  <span>by {t.creator.displayName || t.creator.username}</span>
+                  {t.creator.displayName && t.creator.displayName.toLowerCase() !== t.creator.username.toLowerCase() && (
+                    <span className="text-gray-400">@{t.creator.username}</span>
+                  )}
+                </div>
+              </Link>
+            );
+          })}
         </div>
       )}
     </div>

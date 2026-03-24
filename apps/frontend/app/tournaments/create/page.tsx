@@ -1,11 +1,58 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useSelector } from "react-redux";
+import type { RootState } from "@/store/store";
 import {
   LABEL_BACK_TO_TOURNAMENTS,
   LABEL_QUICK_TOURNAMENT,
   LABEL_SCHEDULED_TOURNAMENT,
+  LABEL_CREATE_AN_ACCOUNT,
+  LABEL_LOG_IN,
 } from "@/constants/labels";
 
 export default function CreateTournamentPage() {
+  const [mounted, setMounted] = useState(false);
+  const checked = useSelector((state: RootState) => state.auth.checked);
+  const user = useSelector((state: RootState) => state.user.current);
+
+  useEffect(() => setMounted(true), []);
+
+  // Show nothing until the Redux store has hydrated and auth is resolved
+  if (!mounted || !checked) return null;
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="bg-white rounded-2xl border border-gray-200 p-10 max-w-md w-full text-center shadow-sm">
+          <div className="text-4xl mb-4">🔒</div>
+          <h1 className="text-xl font-bold text-gray-900 mb-2">Sign in to create a tournament</h1>
+          <p className="text-sm text-gray-500 mb-6">
+            You need an account to host tournaments. It only takes a moment to get started.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Link
+              href="/register"
+              className="px-6 py-2.5 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700"
+            >
+              {LABEL_CREATE_AN_ACCOUNT}
+            </Link>
+            <Link
+              href="/login"
+              className="px-6 py-2.5 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50"
+            >
+              {LABEL_LOG_IN}
+            </Link>
+          </div>
+          <Link href="/tournaments" className="mt-6 inline-block text-sm text-gray-400 hover:text-gray-600">
+            {LABEL_BACK_TO_TOURNAMENTS}
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-2xl mx-auto px-4 py-10">
