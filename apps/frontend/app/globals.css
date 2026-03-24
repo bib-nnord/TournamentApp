@@ -166,6 +166,233 @@
   .rounded-xl,
   .rounded-lg { border-radius: var(--radius-lg); }
 }
+m
+.landing-page {
+  position: relative;
+  isolation: isolate;
+}
+
+.badminton-scroll-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  transform: translateY(var(--badminton-court-shift, 0px));
+  background:
+    linear-gradient(90deg, transparent 3.8%, rgba(244, 250, 245, 0.72) 4%, transparent 4.2%, transparent 49.8%, rgba(244, 250, 245, 0.74) 50%, transparent 50.2%, transparent 95.8%, rgba(244, 250, 245, 0.72) 96%, transparent 96.2%),
+    linear-gradient(180deg, transparent 7.5%, rgba(244, 250, 245, 0.72) 8%, transparent 8.5%, transparent 47.5%, rgba(244, 250, 245, 0.75) 48%, transparent 48.5%, transparent 87.5%, rgba(244, 250, 245, 0.72) 88%, transparent 88.5%),
+    linear-gradient(160deg, #b9d8a8 0%, #a4c38d 38%, #86a76e 100%);
+  background-size: 100% 100%, 100% 100%, 100% 100%;
+  opacity: 0.74;
+}
+
+.hero-badminton-wrap {
+  position: relative;
+  overflow: hidden;
+}
+
+.hero-badminton-scene {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.42;
+  filter: grayscale(1);
+}
+
+.hero-badminton-glow {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 25%, rgba(220, 220, 220, 0.15), transparent 52%),
+    radial-gradient(circle at 50% 82%, rgba(70, 70, 70, 0.34), transparent 68%);
+}
+
+.hero-badminton-court {
+  position: absolute;
+  left: 50%;
+  top: 58%;
+  width: min(680px, 92%);
+  height: 170px;
+  transform: translate(-50%, -50%) perspective(700px) rotateX(56deg);
+  border: 2px solid rgba(220, 220, 220, 0.48);
+  border-radius: 14px;
+  background:
+    linear-gradient(90deg, transparent 49.5%, rgba(224, 224, 224, 0.55) 49.7%, rgba(224, 224, 224, 0.55) 50.3%, transparent 50.5%),
+    linear-gradient(180deg, transparent 24.7%, rgba(210, 210, 210, 0.34) 25%, transparent 25.3%, transparent 74.7%, rgba(210, 210, 210, 0.34) 75%, transparent 75.3%),
+    linear-gradient(180deg, rgba(108, 108, 108, 0.5), rgba(46, 46, 46, 0.7));
+  box-shadow: 0 22px 56px rgba(8, 8, 8, 0.32);
+}
+
+.hero-badminton-net {
+  position: absolute;
+  left: 50%;
+  top: calc(58% - 13px);
+  width: min(560px, 80%);
+  height: 14px;
+  transform: translate(-50%, -50%);
+  background:
+    repeating-linear-gradient(90deg, rgba(235, 235, 235, 0.75) 0 2px, rgba(255, 255, 255, 0) 2px 6px),
+    linear-gradient(180deg, rgba(230, 230, 230, 0.75), rgba(180, 180, 180, 0.55));
+  border-radius: 4px;
+  opacity: 0.72;
+}
+
+.hero-badminton-racket {
+  position: absolute;
+  width: 66px;
+  height: 104px;
+  border-radius: 49% 49% 43% 43%;
+  border: 3px solid rgba(238, 238, 238, 0.78);
+  box-shadow: 0 8px 16px rgba(12, 12, 12, 0.18);
+}
+
+.hero-badminton-racket::after {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border-radius: inherit;
+  background:
+    repeating-linear-gradient(90deg, rgba(232, 232, 232, 0.52) 0 2px, transparent 2px 6px),
+    repeating-linear-gradient(180deg, rgba(232, 232, 232, 0.52) 0 2px, transparent 2px 6px);
+  opacity: 0.52;
+}
+
+.hero-badminton-handle {
+  position: absolute;
+  left: 50%;
+  bottom: -74px;
+  width: 12px;
+  height: 82px;
+  border-radius: 999px;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, rgba(212, 212, 212, 0.8), rgba(116, 116, 116, 0.85));
+  box-shadow: inset 0 -4px 0 rgba(30, 30, 30, 0.25);
+}
+
+.hero-badminton-racket-left {
+  left: clamp(4%, 14vw, 22%);
+  top: 28%;
+  transform: rotate(-22deg);
+  animation: badminton-racket-left 3.8s ease-in-out infinite;
+}
+
+.hero-badminton-racket-right {
+  right: clamp(4%, 14vw, 22%);
+  top: 28%;
+  transform: rotate(21deg) scaleX(-1);
+  animation: badminton-racket-right 3.8s ease-in-out infinite;
+}
+
+.hero-badminton-shuttle {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 34px;
+  height: 22px;
+  filter: grayscale(1);
+  transform-origin: 50% 50%;
+  animation: badminton-shuttle-rally 3.8s linear infinite;
+}
+
+.hero-badminton-shuttle::before {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 5px;
+  width: 13px;
+  height: 13px;
+  border-radius: 999px;
+  background: rgba(245, 245, 245, 0.98);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.62), 0 0 12px rgba(255, 255, 255, 0.35);
+}
+
+.hero-badminton-shuttle::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 2px;
+  width: 22px;
+  height: 18px;
+  background:
+    linear-gradient(170deg, rgba(252, 252, 252, 0.9) 0 30%, transparent 30%),
+    linear-gradient(10deg, rgba(252, 252, 252, 0.9) 0 30%, transparent 30%),
+    repeating-linear-gradient(90deg, rgba(248, 248, 248, 0.56) 0 2px, transparent 2px 5px);
+  clip-path: polygon(100% 50%, 0% 0%, 0% 100%);
+  opacity: 0.9;
+}
+
+@media (max-width: 768px) {
+  .hero-badminton-court {
+    top: 66%;
+    height: 152px;
+  }
+
+  .hero-badminton-racket {
+    width: 50px;
+    height: 80px;
+  }
+
+  .hero-badminton-racket-left {
+    left: 2%;
+    top: 30%;
+  }
+
+  .hero-badminton-racket-right {
+    right: 2%;
+    top: 30%;
+  }
+}
+
+@keyframes badminton-racket-left {
+  0%,
+  44%,
+  100% { transform: rotate(-22deg) translateY(0); }
+  20% { transform: rotate(-10deg) translateY(-6px) translateX(8px); }
+}
+
+@keyframes badminton-racket-right {
+  0%,
+  44%,
+  100% { transform: rotate(21deg) scaleX(-1) translateY(0); }
+  68% { transform: rotate(10deg) scaleX(-1) translateY(-6px) translateX(8px); }
+}
+
+@keyframes badminton-shuttle-rally {
+  0% {
+    left: clamp(11%, 16vw, 21%);
+    top: 38%;
+    transform: rotate(-12deg) scaleX(1);
+  }
+  25% {
+    left: 50%;
+    top: 19%;
+    transform: rotate(0deg) scaleX(1);
+  }
+  49.4% {
+    transform: rotate(11deg) scaleX(1);
+  }
+  50% {
+    left: clamp(74%, 81vw, 86%);
+    top: 38%;
+    transform: rotate(12deg) scaleX(1);
+  }
+  50.6% {
+    transform: rotate(12deg) scaleX(-1);
+  }
+  75% {
+    left: 50%;
+    top: 18%;
+    transform: rotate(0deg) scaleX(-1);
+  }
+  99.4% {
+    transform: rotate(-11deg) scaleX(-1);
+  }
+  100% {
+    left: clamp(11%, 16vw, 21%);
+    top: 38%;
+    transform: rotate(-12deg) scaleX(-1);
+  }
+}
 
 /* ─── Print styles for PDF export ────────────────────────────────────────── */
 @page {

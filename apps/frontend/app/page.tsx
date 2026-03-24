@@ -1,15 +1,35 @@
 import AuthButtons from "@/components/AuthButtons";
+import PageScrollSportsBackground from "@/components/PageScrollSportsBackground";
 import TeamList from "@/components/TeamList";
 import TournamentList from "@/components/TournamentList";
 import { LABEL_ALL_TEAMS } from "@/constants/labels";
 import Link from "next/link";
 export default function Home() {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="landing-page min-h-screen bg-background">
+      <PageScrollSportsBackground />
+      <div className="badminton-scroll-bg" aria-hidden="true" />
 
       {/* Hero */}
-      <div className="border-b border-border bg-card">
-        <div className="mx-auto flex max-w-4xl flex-col items-center gap-3 px-4 py-10 text-center">
+      <div className="hero-badminton-wrap border-b border-border bg-card/70">
+        <div className="hero-badminton-scene" aria-hidden="true">
+          <div className="hero-badminton-glow" />
+          <div className="hero-badminton-court" />
+          <div className="hero-badminton-net" />
+          <div className="hero-badminton-racket hero-badminton-racket-left">
+            <span className="hero-badminton-handle" />
+          </div>
+          <div className="hero-badminton-racket hero-badminton-racket-right">
+            <span className="hero-badminton-handle" />
+          </div>
+          <div className="hero-badminton-shuttle" />
+        </div>
+        <div
+          className={
+            "relative mx-auto flex max-w-4xl flex-col items-center gap-3 px-4 " +
+            "py-12 text-center"
+          }
+        >
           <h1 className="text-4xl font-bold tracking-tight text-foreground">
             Host your Tournaments.
           </h1>
