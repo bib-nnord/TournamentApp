@@ -22,6 +22,7 @@ import type { TournamentStatus, TournamentFormat } from "@/types";
 import { tournamentStatusLabel, tournamentFormatInfo } from "@/types";
 import { apiFetch } from "@/lib/api";
 import { usePolling } from "@/hooks/usePolling";
+import { useNotify } from "@/hooks/useNotify";
 import { generateBracket, type Bracket } from "@/lib/generateBracket";
 import BracketView from "@/components/BracketView";
 import Modal from "@/components/Modal";
@@ -78,6 +79,7 @@ function renderParticipantLabel(participant: TournamentParticipantData, classNam
 export default function TournamentPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const notify = useNotify();
   const currentUser = useSelector((state: RootState) => state.user.current);
   const [tournament, setTournament] = useState<TournamentData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -128,30 +130,41 @@ export default function TournamentPage() {
       });
       if (res.ok) {
         setTournament(prev => prev ? { ...prev, status: "cancelled" } : prev);
+        notify.success("Tournament cancelled.");
       } else if (res.status === 409) {
         setConflictError(true);
+        notify.warning("Tournament changed elsewhere. Reload and try again.");
       } else {
         const body = await res.json().catch(() => ({}));
-        setError(body.error ?? "Failed to cancel tournament");
+        const message = body.error ?? "Failed to cancel tournament";
+        setError(message);
+        notify.error(message);
       }
     } catch {
-      setError("Network error");
+      const message = "Network error";
+      setError(message);
+      notify.error(message);
     }
-  }, [tournament]));
+  }, [notify, tournament]));
 
   const deleteAction = useConfirmAction(useCallback(async () => {
     try {
       const res = await apiFetch(`/tournaments/${tournament!.id}`, { method: "DELETE" });
       if (res.ok) {
+        notify.success("Tournament deleted.");
         router.push("/tournaments");
       } else {
         const body = await res.json().catch(() => ({}));
-        setError(body.error ?? "Failed to delete");
+        const message = body.error ?? "Failed to delete";
+        setError(message);
+        notify.error(message);
       }
     } catch {
-      setError("Network error");
+      const message = "Network error";
+      setError(message);
+      notify.error(message);
     }
-  }, [tournament, router]));
+  }, [notify, router, tournament]));
 
   useEffect(() => {
     async function load() {
@@ -312,9 +325,13 @@ export default function TournamentPage() {
       if (res.ok) {
         const updated = await res.json();
         setTournament(updated);
+        notify.success(accept ? "Invitation accepted." : "Invitation declined.");
+      } else {
+        const body = await res.json().catch(() => ({}));
+        notify.error(body.error ?? "Failed to update invitation response");
       }
     } catch {
-      // silently fail
+      notify.error("Network error");
     } finally {
       setConfirming(false);
     }
@@ -458,20 +475,26 @@ export default function TournamentPage() {
 
       if (res.status === 409) {
         setConflictError(true);
+        notify.warning("Tournament changed elsewhere. Reload and try again.");
         return false;
       }
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        setError(body.error ?? "Failed to save preview changes");
+        const message = body.error ?? "Failed to save preview changes";
+        setError(message);
+        notify.error(message);
         return false;
       }
 
       const updated = await res.json();
       setTournament(updated);
       setPreviewDirty(false);
+      notify.success("Bracket preview changes saved.");
       return true;
     } catch {
-      setError("Network error");
+      const message = "Network error";
+      setError(message);
+      notify.error(message);
       return false;
     } finally {
       setSavingPreview(false);
@@ -489,16 +512,21 @@ export default function TournamentPage() {
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        setInviteError(body.error ?? "Failed to send invite");
+        const message = body.error ?? "Failed to send invite";
+        setInviteError(message);
+        notify.error(message);
         return;
       }
       const updated = await res.json();
       setTournament(updated);
       setInviteNotice(invites.length === 1 ? "Invite sent." : "Invites sent.");
+      notify.success(invites.length === 1 ? "Invite sent." : "Invites sent.");
       setTeamSearch("");
       setShowTeamDropdown(false);
     } catch {
-      setInviteError("Network error");
+      const message = "Network error";
+      setInviteError(message);
+      notify.error(message);
     } finally {
       setInviting(false);
     }
@@ -514,12 +542,21 @@ export default function TournamentPage() {
       });
       if (res.ok) {
         setTournament(await res.json());
+        notify.success(
+          tournament.registrationMode === "approval"
+            ? "Application submitted. Awaiting organizer approval."
+            : "You joined the tournament."
+        );
       } else {
         const body = await res.json().catch(() => ({}));
-        setRegisterError(body.error ?? "Failed to register");
+        const message = body.error ?? "Failed to register";
+        setRegisterError(message);
+        notify.error(message);
       }
     } catch {
-      setRegisterError("Network error");
+      const message = "Network error";
+      setRegisterError(message);
+      notify.error(message);
     } finally {
       setRegistering(false);
     }
@@ -534,12 +571,17 @@ export default function TournamentPage() {
       });
       if (res.ok) {
         setTournament(await res.json());
+        notify.info("Registration withdrawn.");
       } else {
         const body = await res.json().catch(() => ({}));
-        setRegisterError(body.error ?? "Failed to unregister");
+        const message = body.error ?? "Failed to unregister";
+        setRegisterError(message);
+        notify.error(message);
       }
     } catch {
-      setRegisterError("Network error");
+      const message = "Network error";
+      setRegisterError(message);
+      notify.error(message);
     } finally {
       setRegistering(false);
     }
@@ -554,8 +596,14 @@ export default function TournamentPage() {
       });
       if (res.ok) {
         setTournament(await res.json());
+        notify.success(accept ? "Invite accepted." : "Invite declined.");
+      } else {
+        const body = await res.json().catch(() => ({}));
+        notify.error(body.error ?? "Failed to respond to invite");
       }
-    } catch { /* silent */ }
+    } catch {
+      notify.error("Network error");
+    }
     finally { setConfirming(false); }
   }
 
@@ -567,8 +615,14 @@ export default function TournamentPage() {
       });
       if (res.ok) {
         setTournament(await res.json());
+        notify.success(decision === "approve" ? "Participant approved." : "Participant declined.");
+      } else {
+        const body = await res.json().catch(() => ({}));
+        notify.error(body.error ?? `Failed to ${decision} participant`);
       }
-    } catch { /* silent */ }
+    } catch {
+      notify.error("Network error");
+    }
     finally { setDecidingParticipant(null); }
   }
 
@@ -580,8 +634,14 @@ export default function TournamentPage() {
       });
       if (res.ok) {
         setTournament(await res.json());
+        notify.info("Invite rescinded.");
+      } else {
+        const body = await res.json().catch(() => ({}));
+        notify.error(body.error ?? "Failed to rescind invite");
       }
-    } catch { /* silent */ }
+    } catch {
+      notify.error("Network error");
+    }
     finally { setDecidingParticipant(null); }
   }
 
@@ -594,12 +654,17 @@ export default function TournamentPage() {
       if (res.ok) {
         setTournament(await res.json());
         setPreviewDirty(false);
+        notify.success("Bracket preview generated.");
       } else {
         const body = await res.json().catch(() => ({}));
-        setError(body.error ?? "Failed to preview bracket");
+        const message = body.error ?? "Failed to preview bracket";
+        setError(message);
+        notify.error(message);
       }
     } catch {
-      setError("Network error");
+      const message = "Network error";
+      setError(message);
+      notify.error(message);
     } finally {
       setPreviewing(false);
     }
@@ -618,12 +683,17 @@ export default function TournamentPage() {
       });
       if (res.ok) {
         setTournament(await res.json());
+        notify.success("Tournament started.");
       } else {
         const body = await res.json().catch(() => ({}));
-        setError(body.error ?? "Failed to start tournament");
+        const message = body.error ?? "Failed to start tournament";
+        setError(message);
+        notify.error(message);
       }
     } catch {
-      setError("Network error");
+      const message = "Network error";
+      setError(message);
+      notify.error(message);
     } finally {
       setStarting(false);
     }
@@ -677,12 +747,17 @@ export default function TournamentPage() {
         const updated = await res.json();
         setTournament(updated);
         setAssignmentDirty(false);
+        notify.success("Team assignments saved.");
       } else {
         const body = await res.json().catch(() => ({}));
-        setAssignmentError(body.error ?? "Failed to save team assignments");
+        const message = body.error ?? "Failed to save team assignments";
+        setAssignmentError(message);
+        notify.error(message);
       }
     } catch {
-      setAssignmentError("Network error");
+      const message = "Network error";
+      setAssignmentError(message);
+      notify.error(message);
     } finally {
       setSavingAssignments(false);
     }
@@ -699,14 +774,20 @@ export default function TournamentPage() {
       });
       if (res.ok) {
         setTournament(prev => prev ? { ...prev, status: "completed" } : prev);
+        notify.success("Tournament finished.");
       } else if (res.status === 409) {
         setConflictError(true);
+        notify.warning("Tournament changed elsewhere. Reload and try again.");
       } else {
         const body = await res.json().catch(() => ({}));
-        setError(body.error ?? "Failed to finish tournament");
+        const message = body.error ?? "Failed to finish tournament";
+        setError(message);
+        notify.error(message);
       }
     } catch {
-      setError("Network error");
+      const message = "Network error";
+      setError(message);
+      notify.error(message);
     } finally {
       setFinishing(false);
     }
@@ -743,11 +824,14 @@ export default function TournamentPage() {
       if (res.status === 409) {
         setEditingSettings(false);
         setConflictError(true);
+        notify.warning("Tournament changed elsewhere. Reload and try again.");
         return;
       }
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setSettingsError(data.error ?? "Failed to save settings");
+        const message = data.error ?? "Failed to save settings";
+        setSettingsError(message);
+        notify.error(message);
         return;
       }
       const updated = await res.json();
@@ -760,8 +844,11 @@ export default function TournamentPage() {
         bracketData: updated.bracketData ?? prev.bracketData,
       } : prev);
       setEditingSettings(false);
+      notify.success("Tournament settings saved.");
     } catch {
-      setSettingsError("Network error");
+      const message = "Network error";
+      setSettingsError(message);
+      notify.error(message);
     } finally {
       setSavingSettings(false);
     }
@@ -779,6 +866,7 @@ export default function TournamentPage() {
     }
     const { bracketData, updatedAt } = await res.json();
     setTournament(prev => prev ? { ...prev, bracketData, updatedAt } : prev);
+    notify.success("Match result reported.");
   }
 
   async function handleReportTiebreaker(matchId: string, winnerName: string) {
@@ -793,6 +881,7 @@ export default function TournamentPage() {
     }
     const { bracketData, updatedAt } = await res.json();
     setTournament(prev => prev ? { ...prev, bracketData, updatedAt } : prev);
+    notify.success(`Tiebreaker winner set to ${winnerName}.`);
   }
 
   async function handleUndoTiebreaker() {
@@ -807,6 +896,7 @@ export default function TournamentPage() {
     }
     const { bracketData, updatedAt } = await res.json();
     setTournament(prev => prev ? { ...prev, bracketData, updatedAt } : prev);
+    notify.info("Tiebreaker reset.");
   }
 
   return (

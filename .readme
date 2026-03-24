@@ -9,6 +9,7 @@ current TODOS:
 redesign
 work on profile more.
 settings page
+PDF for saving WIP tournament
 
 Critical
 Hardcoded secrets — docker-compose.yml has DB password postgres and JWT secret "replace_with_your_production_secret" in plain text. No .env or .env.example exists.

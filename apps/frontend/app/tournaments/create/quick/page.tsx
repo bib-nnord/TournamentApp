@@ -14,6 +14,7 @@ import QuickTournamentForm, { type QuickTournamentData } from "@/components/Quic
 import TournamentPreview from "@/components/TournamentPreview";
 import type { Bracket } from "@/lib/generateBracket";
 import { apiFetch } from "@/lib/api";
+import { useNotify } from "@/hooks/useNotify";
 import type { SavedDraft } from "./types";
 
 const STORAGE_KEY = "quick-tournament-draft";
@@ -49,6 +50,7 @@ function clearDraft() {
 
 export default function QuickTournamentPage() {
   const router = useRouter();
+  const notify = useNotify();
   const [ready, setReady] = useState(false);
   const [step, setStep] = useState<"form" | "preview">("form");
   const [formData, setFormData] = useState<QuickTournamentData | null>(null);
@@ -164,15 +166,20 @@ export default function QuickTournamentPage() {
 
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        setSubmitError(body.error ?? "Failed to create tournament");
+        const message = body.error ?? "Failed to create tournament";
+        setSubmitError(message);
+        notify.error(message);
         return;
       }
 
       clearDraft();
       const created = await res.json();
+      notify.success("Tournament created successfully.");
       router.push(`/tournaments/view/${created.id}`);
     } catch {
-      setSubmitError("Network error — please try again");
+      const message = "Network error — please try again";
+      setSubmitError(message);
+      notify.error(message);
     } finally {
       setSubmitting(false);
     }

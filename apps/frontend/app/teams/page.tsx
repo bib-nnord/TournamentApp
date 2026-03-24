@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { useFetch } from "@/hooks/useFetch";
+import { useNotify } from "@/hooks/useNotify";
 import { apiFetch } from "@/lib/api";
 import { teamRoleColors } from "@/lib/colors";
 import type { TeamRole } from "@/types";
@@ -25,6 +26,7 @@ interface PublicTeam {
 
 export default function TeamsPage() {
   const user = useRequireAuth();
+  const notify = useNotify();
   const { data, loading, error } = useFetch<{ teams: MyTeam[] }>(user ? "/teams/my" : null);
   const { data: allData, loading: allLoading } = useFetch<{ teams: PublicTeam[] }>(
     user ? "/teams?limit=20" : null
@@ -47,12 +49,17 @@ export default function TeamsPage() {
       const res = await apiFetch(`/teams/${team.id}/join`, { method: "POST" });
       if (res.ok) {
         setJoinedIds((prev) => new Set([...prev, team.id]));
+        notify.success(`Joined ${team.name}.`);
       } else {
         const body = await res.json().catch(() => ({}));
-        setJoinError(body.error ?? "Failed to join team");
+        const message = body.error ?? "Failed to join team";
+        setJoinError(message);
+        notify.error(message);
       }
     } catch {
-      setJoinError("Failed to join team");
+      const message = "Failed to join team";
+      setJoinError(message);
+      notify.error(message);
     } finally {
       setJoiningId(null);
     }

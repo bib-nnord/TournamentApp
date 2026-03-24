@@ -6,9 +6,11 @@ import { useRouter } from "next/navigation";
 import { LABEL_BACK_TO_TOURNAMENT_TYPE } from "@/constants/labels";
 import ScheduledTournamentForm, { type ScheduledTournamentData } from "@/components/ScheduledTournamentForm";
 import { apiFetch } from "@/lib/api";
+import { useNotify } from "@/hooks/useNotify";
 
 export default function ScheduledTournamentPage() {
   const router = useRouter();
+  const notify = useNotify();
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -36,14 +38,19 @@ export default function ScheduledTournamentPage() {
 
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        setSubmitError(body.error ?? "Failed to create tournament");
+        const message = body.error ?? "Failed to create tournament";
+        setSubmitError(message);
+        notify.error(message);
         return;
       }
 
       const created = await res.json();
+      notify.success("Tournament created successfully.");
       router.push(`/tournaments/view/${created.id}`);
     } catch {
-      setSubmitError("Network error — please try again");
+      const message = "Network error — please try again";
+      setSubmitError(message);
+      notify.error(message);
     } finally {
       setSubmitting(false);
     }

@@ -168,7 +168,7 @@ export default function MessagesPage() {
   function handleListPointerDown(e: React.PointerEvent<HTMLDivElement>) {
     const target = e.target as HTMLElement;
     const blockedTarget = target.closest(
-      "input, textarea, select, label, a, button:not([data-drag-scroll='allow'])"
+      "input, textarea, select, label, a, button"
     );
     if (blockedTarget || !listRef.current) return;
 
@@ -342,7 +342,7 @@ export default function MessagesPage() {
   }
 
   function handleReply(message: Message) {
-    setComposeRecipient(message.from);
+    setComposeRecipient(message.senderUsername ?? "");
     setComposeSubject(message.subject.startsWith("Re: ") ? message.subject : `Re: ${message.subject}`);
     setComposeBody("");
     setComposeError(null);
@@ -594,7 +594,7 @@ export default function MessagesPage() {
               </div>
             )}
 
-            {openMessage.senderId != null && openMessage.folder !== "sent" && (
+            {openMessage.senderUsername && openMessage.folder !== "sent" && (
               <div className="mt-4 pt-4 border-t border-gray-100">
                 <button
                   onClick={() => handleReply(openMessage)}
@@ -777,7 +777,6 @@ export default function MessagesPage() {
                     />
 
                     <button
-                      data-drag-scroll="allow"
                       onClick={() => openAndRead(m.id)}
                       className="flex items-center gap-3 flex-1 min-w-0 text-left"
                     >

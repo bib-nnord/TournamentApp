@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useFetch } from "@/hooks/useFetch";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
+import { useNotify } from "@/hooks/useNotify";
 import { apiFetch } from "@/lib/api";
 import { teamRoleColors } from "@/lib/colors";
 import { getUserInitial, getTeamPermissions } from "@/lib/helpers";
@@ -51,6 +52,7 @@ interface TeamNewsItem {
 
 export default function TeamPage() {
   const user = useRequireAuth();
+  const notify = useNotify();
   const { id } = useParams<{ id: string }>();
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -109,11 +111,14 @@ export default function TeamPage() {
       const res = await apiFetch(`/teams/${id}/join`, { method: "POST" });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        setActionError(body.error ?? "Failed to join");
+        const message = body.error ?? "Failed to join";
+        setActionError(message);
+        notify.error(message);
         return;
       }
       const { team: updated } = await res.json();
       setData({ team: updated });
+      notify.success("Joined team.");
     });
   }
 
@@ -123,7 +128,9 @@ export default function TeamPage() {
       const res = await apiFetch(`/teams/${id}/leave`, { method: "POST" });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        setActionError(body.error ?? "Failed to leave");
+        const message = body.error ?? "Failed to leave";
+        setActionError(message);
+        notify.error(message);
         return;
       }
       setData((prev) =>
@@ -138,6 +145,7 @@ export default function TeamPage() {
             }
           : prev
       );
+      notify.info("Left team.");
     });
   }
 
@@ -146,7 +154,9 @@ export default function TeamPage() {
       const res = await apiFetch(`/teams/${id}/members/${memberId}`, { method: "DELETE" });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        setActionError(body.error ?? "Failed to kick member");
+        const message = body.error ?? "Failed to kick member";
+        setActionError(message);
+        notify.error(message);
         return;
       }
       setData((prev) =>
@@ -160,6 +170,7 @@ export default function TeamPage() {
             }
           : prev
       );
+      notify.success("Member removed from team.");
     });
   }
 
@@ -171,7 +182,9 @@ export default function TeamPage() {
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        setActionError(body.error ?? "Failed to update role");
+        const message = body.error ?? "Failed to update role";
+        setActionError(message);
+        notify.error(message);
         return;
       }
       const { member } = await res.json();
@@ -185,6 +198,7 @@ export default function TeamPage() {
             }
           : prev
       );
+      notify.success(newRole === "moderator" ? "Member promoted to moderator." : "Member role updated.");
     });
   }
 
@@ -199,10 +213,13 @@ export default function TeamPage() {
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        setInviteError(body.error ?? "Failed to send invite");
+        const message = body.error ?? "Failed to send invite";
+        setInviteError(message);
+        notify.error(message);
         return;
       }
       setInviteSent(inviteUsername);
+      notify.success(`Invitation sent to ${inviteUsername}.`);
       setInviteUsername("");
     });
   }
@@ -212,7 +229,9 @@ export default function TeamPage() {
       const res = await apiFetch(`/teams/${id}/news/read-all`, { method: "PATCH" });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        setActionError(body.error ?? "Failed to mark team news as read");
+        const message = body.error ?? "Failed to mark team news as read";
+        setActionError(message);
+        notify.error(message);
         return;
       }
 
@@ -223,6 +242,7 @@ export default function TeamPage() {
             }
           : prev
       );
+      notify.success("Team news marked as read.");
     });
   }
 

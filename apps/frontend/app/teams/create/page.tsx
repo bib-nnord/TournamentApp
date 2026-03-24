@@ -2,10 +2,12 @@
 
 import React, { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { useNotify } from "@/hooks/useNotify";
 import { apiFetch } from "@/lib/api";
 
 export default function CreateTeamPage() {
   const router = useRouter();
+  const notify = useNotify();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [disciplines, setDisciplines] = useState<string[]>([]);
@@ -59,13 +61,18 @@ export default function CreateTeamPage() {
       });
       if (res.ok) {
         const { team } = await res.json();
+        notify.success("Team created successfully.");
         router.push(`/teams/${team.id}`);
       } else {
         const data = await res.json();
-        setError(data.error || "Failed to create team");
+        const message = data.error || "Failed to create team";
+        setError(message);
+        notify.error(message);
       }
     } catch {
-      setError("Failed to create team");
+      const message = "Failed to create team";
+      setError(message);
+      notify.error(message);
     } finally {
       setLoading(false);
     }

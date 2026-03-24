@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { logoutAsync } from "@/store/authSlice";
 import type { AppDispatch } from "@/store/store";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
+import { useNotify } from "@/hooks/useNotify";
 import { apiFetch } from "@/lib/api";
 import {
   LABEL_CHANGE_PASSWORD,
@@ -88,6 +89,7 @@ export default function SettingsPage() {
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
   const user = useRequireAuth();
+  const notify = useNotify();
   const [allowMessagesFrom, setAllowMessagesFrom] = useState("everyone");
   const [allowMessagesFromDraft, setAllowMessagesFromDraft] = useState("everyone");
   const [profileForm, setProfileForm] = useState<ProfileFormState>(defaultProfileForm);
@@ -200,7 +202,9 @@ export default function SettingsPage() {
         });
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
-          setSettingsError(body.error ?? "Failed to save settings");
+          const message = body.error ?? "Failed to save settings";
+          setSettingsError(message);
+          notify.error(message);
           return;
         }
       } else if (hasUnsavedProfile) {
@@ -221,7 +225,9 @@ export default function SettingsPage() {
         });
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
-          setSettingsError(body.error ?? "Failed to save settings");
+          const message = body.error ?? "Failed to save settings";
+          setSettingsError(message);
+          notify.error(message);
           return;
         }
       }
@@ -231,8 +237,11 @@ export default function SettingsPage() {
       setAllowMessagesFrom(allowMessagesFromDraft);
       setSavedProfileForm(profileForm);
       setLocalSaveState("saved");
+      notify.success("Settings saved.");
     } catch {
-      setSettingsError("Network error");
+      const message = "Network error";
+      setSettingsError(message);
+      notify.error(message);
     } finally {
       setSettingsSaving(false);
     }
@@ -248,12 +257,17 @@ export default function SettingsPage() {
       });
       const body = await res.json();
       if (!res.ok) {
-        setPwForm(f => ({ ...f, loading: false, error: body.error ?? "Failed to change password" }));
+        const message = body.error ?? "Failed to change password";
+        setPwForm(f => ({ ...f, loading: false, error: message }));
+        notify.error(message);
         return;
       }
       setPwForm({ open: false, current: "", next: "", loading: false, error: null, done: true });
+      notify.success("Password changed.");
     } catch {
-      setPwForm(f => ({ ...f, loading: false, error: "Network error" }));
+      const message = "Network error";
+      setPwForm(f => ({ ...f, loading: false, error: message }));
+      notify.error(message);
     }
   }
 
@@ -267,12 +281,17 @@ export default function SettingsPage() {
       });
       const body = await res.json();
       if (!res.ok) {
-        setEmailForm(f => ({ ...f, loading: false, error: body.error ?? "Failed to change email" }));
+        const message = body.error ?? "Failed to change email";
+        setEmailForm(f => ({ ...f, loading: false, error: message }));
+        notify.error(message);
         return;
       }
       setEmailForm({ open: false, email: "", password: "", loading: false, error: null, done: true });
+      notify.success("Email updated.");
     } catch {
-      setEmailForm(f => ({ ...f, loading: false, error: "Network error" }));
+      const message = "Network error";
+      setEmailForm(f => ({ ...f, loading: false, error: message }));
+      notify.error(message);
     }
   }
 

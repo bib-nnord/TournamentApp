@@ -6,8 +6,10 @@ export interface Message {
   category: MessageCategory;
   folder: "inbox" | "sent";
   from: string;
+  senderUsername: string | null;
   senderId: number | null;
   to: string | null;
+  recipientUsername: string | null;
   recipientId: number;
   subject: string;
   preview: string;

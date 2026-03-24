@@ -3,7 +3,7 @@ import { useCallback } from 'react';
 import type { AppDispatch } from '@/store/store';
 import { addNotification, type NotificationType } from '@/store/notificationsSlice';
 
-const DEFAULT_DURATION = 4000;
+const DEFAULT_DURATION = 60000;
 
 export function useNotify() {
   const dispatch = useDispatch<AppDispatch>();

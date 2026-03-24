@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { useFetch } from "@/hooks/useFetch";
+import { useNotify } from "@/hooks/useNotify";
 import { apiFetch } from "@/lib/api";
 import {
   LABEL_SEND_REQUEST,
@@ -17,6 +18,7 @@ import type { Friend, FriendRequest } from "@/types";
 
 export default function FriendsPage() {
   const user = useRequireAuth();
+  const notify = useNotify();
   const { data: friendsData, setData: setFriendsData, loading: friendsLoading } =
     useFetch<{ friends: Friend[] }>("/friends");
   const { data: requestsData, setData: setRequestsData, loading: requestsLoading } =
@@ -49,17 +51,22 @@ export default function FriendsPage() {
       });
       const body = await res.json();
       if (!res.ok) {
-        setAddError(body.error ?? "Failed to send request");
+        const message = body.error ?? "Failed to send request";
+        setAddError(message);
+        notify.error(message);
         return;
       }
       setAddInput("");
+      notify.success(`Friend request sent to ${username}.`);
       setRequestsData((prev) =>
         prev
           ? { ...prev, outgoing: [body.friendship, ...prev.outgoing] }
           : prev
       );
     } catch {
-      setAddError("Network error");
+      const message = "Network error";
+      setAddError(message);
+      notify.error(message);
     } finally {
       setSending(false);
     }
@@ -68,7 +75,11 @@ export default function FriendsPage() {
   async function handleAccept(id: number) {
     try {
       const res = await apiFetch(`/friends/${id}/accept`, { method: "PATCH" });
-      if (!res.ok) return;
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        notify.error(body.error ?? "Failed to accept friend request");
+        return;
+      }
       const body = await res.json();
       // Move from incoming to friends
       setRequestsData((prev) =>
@@ -81,43 +92,67 @@ export default function FriendsPage() {
           ? { ...prev, friends: [body.friendship, ...prev.friends] }
           : prev
       );
-    } catch { /* silent */ }
+      notify.success(`You are now friends with ${body.friendship.username}.`);
+    } catch {
+      notify.error("Network error");
+    }
   }
 
   async function handleDecline(id: number) {
     try {
       const res = await apiFetch(`/friends/${id}/decline`, { method: "PATCH" });
-      if (!res.ok) return;
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        notify.error(body.error ?? "Failed to decline friend request");
+        return;
+      }
       setRequestsData((prev) =>
         prev
           ? { ...prev, incoming: prev.incoming.filter((r) => r.id !== id) }
           : prev
       );
-    } catch { /* silent */ }
+      notify.info("Friend request declined.");
+    } catch {
+      notify.error("Network error");
+    }
   }
 
   async function handleCancelOutgoing(id: number) {
     try {
       const res = await apiFetch(`/friends/${id}`, { method: "DELETE" });
-      if (!res.ok) return;
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        notify.error(body.error ?? "Failed to cancel request");
+        return;
+      }
       setRequestsData((prev) =>
         prev
           ? { ...prev, outgoing: prev.outgoing.filter((r) => r.id !== id) }
           : prev
       );
-    } catch { /* silent */ }
+      notify.info("Friend request cancelled.");
+    } catch {
+      notify.error("Network error");
+    }
   }
 
   async function handleRemoveFriend(id: number) {
     try {
       const res = await apiFetch(`/friends/${id}`, { method: "DELETE" });
-      if (!res.ok) return;
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        notify.error(body.error ?? "Failed to remove friend");
+        return;
+      }
       setFriendsData((prev) =>
         prev
           ? { ...prev, friends: prev.friends.filter((f) => f.id !== id) }
           : prev
       );
-    } catch { /* silent */ }
+      notify.info("Friend removed.");
+    } catch {
+      notify.error("Network error");
+    }
   }
 
   const loading = friendsLoading || requestsLoading;
