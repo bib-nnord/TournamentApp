@@ -21,26 +21,35 @@ interface PublicTeam {
   id: number;
   name: string;
   open: boolean;
+  allowApplications?: boolean;
   members: number;
 }
 
 export default function TeamsPage() {
   const user = useRequireAuth();
   const notify = useNotify();
-  const { data, loading, error } = useFetch<{ teams: MyTeam[] }>(user ? "/teams/my" : null);
-  const { data: allData, loading: allLoading } = useFetch<{ teams: PublicTeam[] }>(
+  const { data, loading, error, setData } = useFetch<{ teams: MyTeam[] }>(user ? "/teams/my" : null);
+  const { data: allData, loading: allLoading, setData: setAllData } = useFetch<{ teams: PublicTeam[] }>(
     user ? "/teams?limit=20" : null
   );
 
   const [joiningId, setJoiningId] = useState<number | null>(null);
-  const [joinedIds, setJoinedIds] = useState<Set<number>>(new Set());
+  const [applyingId, setApplyingId] = useState<number | null>(null);
+  const [appliedIds, setAppliedIds] = useState<Set<number>>(new Set());
   const [joinError, setJoinError] = useState<string | null>(null);
 
   const myTeams = data?.teams ?? [];
   const myTeamIds = new Set(myTeams.map((t) => t.id));
   const discoverTeams = (allData?.teams ?? []).filter(
-    (t) => !myTeamIds.has(t.id) && !joinedIds.has(t.id)
+    (t) => !myTeamIds.has(t.id) && !appliedIds.has(t.id)
   );
+
+  async function refreshMyTeams() {
+    const res = await apiFetch("/teams/my");
+    if (!res.ok) return;
+    const refreshed = await res.json();
+    setData(refreshed);
+  }
 
   async function handleJoin(team: PublicTeam) {
     setJoiningId(team.id);
@@ -48,7 +57,12 @@ export default function TeamsPage() {
     try {
       const res = await apiFetch(`/teams/${team.id}/join`, { method: "POST" });
       if (res.ok) {
-        setJoinedIds((prev) => new Set([...prev, team.id]));
+        await refreshMyTeams();
+        setAllData((prev) =>
+          prev
+            ? { teams: prev.teams.filter((t) => t.id !== team.id) }
+            : prev
+        );
         notify.success(`Joined ${team.name}.`);
       } else {
         const body = await res.json().catch(() => ({}));
@@ -62,6 +76,29 @@ export default function TeamsPage() {
       notify.error(message);
     } finally {
       setJoiningId(null);
+    }
+  }
+
+  async function handleApply(team: PublicTeam) {
+    setApplyingId(team.id);
+    setJoinError(null);
+    try {
+      const res = await apiFetch(`/teams/${team.id}/apply`, { method: "POST" });
+      if (res.ok) {
+        setAppliedIds((prev) => new Set([...prev, team.id]));
+        notify.success(`Application sent to ${team.name}.`);
+      } else {
+        const body = await res.json().catch(() => ({}));
+        const message = body.error ?? "Failed to apply to team";
+        setJoinError(message);
+        notify.error(message);
+      }
+    } catch {
+      const message = "Failed to apply to team";
+      setJoinError(message);
+      notify.error(message);
+    } finally {
+      setApplyingId(null);
     }
   }
 
@@ -153,6 +190,15 @@ export default function TeamsPage() {
                         className="text-xs px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
                       >
                         {joiningId === team.id ? "Joining…" : "Join"}
+                      </button>
+                    )}
+                    {!team.open && team.allowApplications && (
+                      <button
+                        onClick={() => handleApply(team)}
+                        disabled={applyingId === team.id}
+                        className="text-xs px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                      >
+                        {applyingId === team.id ? "Applying…" : "Apply"}
                       </button>
                     )}
                   </div>

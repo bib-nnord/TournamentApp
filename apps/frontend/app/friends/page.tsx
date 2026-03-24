@@ -25,6 +25,7 @@ export default function FriendsPage() {
     useFetch<{ incoming: FriendRequest[]; outgoing: FriendRequest[] }>("/friends/requests");
 
   const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<"asc" | "desc">("asc");
   const [addInput, setAddInput] = useState("");
   const [addError, setAddError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
@@ -37,6 +38,11 @@ export default function FriendsPage() {
 
   const filtered = friends.filter((f) =>
     f.username.toLowerCase().includes(search.toLowerCase())
+  );
+  const sortedFriends = [...filtered].sort((a, b) =>
+    sort === "asc"
+      ? a.username.localeCompare(b.username, undefined, { sensitivity: "base" })
+      : b.username.localeCompare(a.username, undefined, { sensitivity: "base" })
   );
 
   async function handleSendRequest() {
@@ -272,22 +278,46 @@ export default function FriendsPage() {
                 <h2 className="text-sm font-semibold text-gray-800">
                   Friends <span className="text-gray-400 font-normal">({friends.length})</span>
                 </h2>
-                <input
-                  type="text"
-                  placeholder="Search..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="border border-gray-300 rounded-lg px-3 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 w-36"
-                />
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder="Search..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="border border-gray-300 rounded-lg px-3 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 w-36"
+                  />
+                  <button
+                    onClick={() => setSort("asc")}
+                    className={`px-2.5 py-1 text-xs rounded-lg border font-medium transition-colors ${
+                      sort === "asc"
+                        ? "bg-blue-600 text-white border-blue-600"
+                        : "border-gray-300 text-gray-600 hover:bg-gray-50"
+                    }`}
+                    title="Sort A → Z"
+                  >
+                    A→Z
+                  </button>
+                  <button
+                    onClick={() => setSort("desc")}
+                    className={`px-2.5 py-1 text-xs rounded-lg border font-medium transition-colors ${
+                      sort === "desc"
+                        ? "bg-blue-600 text-white border-blue-600"
+                        : "border-gray-300 text-gray-600 hover:bg-gray-50"
+                    }`}
+                    title="Sort Z → A"
+                  >
+                    Z→A
+                  </button>
+                </div>
               </div>
 
-              {filtered.length === 0 ? (
+              {sortedFriends.length === 0 ? (
                 <p className="text-sm text-gray-400">
                   {friends.length === 0 ? "No friends yet." : "No friends found."}
                 </p>
               ) : (
                 <div className="flex flex-col gap-2">
-                  {filtered.map((f) => (
+                  {sortedFriends.map((f) => (
                     <UserListItem
                       key={f.id}
                       username={f.username}

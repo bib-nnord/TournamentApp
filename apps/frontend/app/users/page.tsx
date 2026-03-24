@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { apiFetch } from "@/lib/api";
 import { getUserInitial } from "@/lib/helpers";
@@ -16,6 +16,13 @@ interface UserItem {
 }
 
 export default function UsersPage() {
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const dragStateRef = useRef({
+    pointerId: -1,
+    startY: 0,
+    startScrollTop: 0,
+    dragged: false,
+  });
   const [users, setUsers] = useState<UserItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -24,6 +31,7 @@ export default function UsersPage() {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [sort, setSort] = useState<"asc" | "desc">("asc");
+  const [isDraggingList, setIsDraggingList] = useState(false);
 
   // Debounce search input
   useEffect(() => {
@@ -56,7 +64,44 @@ export default function UsersPage() {
   // Reset to page 1 when search or sort changes
   useEffect(() => {
     setPage(1);
-  }, [debouncedQuery, sort]);
+  }, [debouncedQuery]);
+
+  function handleListPointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    const target = e.target as HTMLElement;
+    const blockedTarget = target.closest("input, textarea, select, label, a, button");
+    if (blockedTarget || !listRef.current) return;
+
+    dragStateRef.current.pointerId = e.pointerId;
+    dragStateRef.current.startY = e.clientY;
+    dragStateRef.current.startScrollTop = listRef.current.scrollTop;
+    dragStateRef.current.dragged = false;
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+
+  function handleListPointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    if (dragStateRef.current.pointerId !== e.pointerId || !listRef.current) return;
+
+    const deltaY = e.clientY - dragStateRef.current.startY;
+    if (!dragStateRef.current.dragged && Math.abs(deltaY) > 4) {
+      dragStateRef.current.dragged = true;
+      setIsDraggingList(true);
+    }
+
+    if (!dragStateRef.current.dragged) return;
+
+    const container = listRef.current;
+    container.scrollTop = dragStateRef.current.startScrollTop - deltaY;
+  }
+
+  function handleListPointerUp(e: React.PointerEvent<HTMLDivElement>) {
+    if (dragStateRef.current.pointerId !== e.pointerId) return;
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+    dragStateRef.current.pointerId = -1;
+    dragStateRef.current.dragged = false;
+    setIsDraggingList(false);
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -84,7 +129,10 @@ export default function UsersPage() {
             className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
           <button
-            onClick={() => setSort("asc")}
+            onClick={() => {
+              setSort("asc");
+              setPage(1);
+            }}
             className={`px-3 py-2 text-sm rounded-lg border font-medium transition-colors ${
               sort === "asc"
                 ? "bg-indigo-600 text-white border-indigo-600"
@@ -95,7 +143,10 @@ export default function UsersPage() {
             A→Z
           </button>
           <button
-            onClick={() => setSort("desc")}
+            onClick={() => {
+              setSort("desc");
+              setPage(1);
+            }}
             className={`px-3 py-2 text-sm rounded-lg border font-medium transition-colors ${
               sort === "desc"
                 ? "bg-indigo-600 text-white border-indigo-600"
@@ -113,7 +164,21 @@ export default function UsersPage() {
         ) : users.length === 0 ? (
           <p className="text-sm text-gray-500">No users found.</p>
         ) : (
-          <div className="bg-white rounded-xl border border-gray-100 divide-y divide-gray-100 overflow-hidden">
+          <div
+            ref={listRef}
+            onPointerDown={handleListPointerDown}
+            onPointerMove={handleListPointerMove}
+            onPointerUp={handleListPointerUp}
+            onPointerCancel={handleListPointerUp}
+            onPointerLeave={(e) => {
+              if (dragStateRef.current.pointerId === e.pointerId) {
+                handleListPointerUp(e);
+              }
+            }}
+            className={`bg-white rounded-xl border border-gray-100 divide-y divide-gray-100 overflow-y-auto min-h-[26rem] max-h-[calc(100vh-14rem)] overscroll-none touch-pan-y ${
+              isDraggingList ? "cursor-grabbing select-none" : "cursor-grab"
+            }`}
+          >
             {users.map((u) => (
               <Link
                 key={u.id}

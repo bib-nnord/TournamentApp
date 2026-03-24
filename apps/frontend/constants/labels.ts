@@ -66,7 +66,7 @@ export const LABEL_VIEW_ALL = "View all";
 // ─── Team ────────────────────────────────────────────────────────────────────
 export const LABEL_BACK_TO_TEAMS = "← Back to teams";
 export const LABEL_JOIN_TEAM = "Join team";
-export const LABEL_REQUEST_TO_JOIN = "Request to join";
+export const LABEL_REQUEST_TO_JOIN = "Apply";
 export const LABEL_LEAVE_TEAM = "Leave team";
 export const LABEL_INVITE_MEMBER = "Invite member";
 export const LABEL_EDIT_TEAM = "Edit team";

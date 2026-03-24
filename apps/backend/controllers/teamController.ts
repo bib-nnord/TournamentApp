@@ -21,6 +21,7 @@ export async function list(req: Request, res: Response) {
         id: team.team_id,
         name: team.name,
         open: team.is_open,
+        allowApplications: !team.is_open,
         members: team._count.members,
       })),
     });
@@ -405,6 +406,97 @@ export async function join(req: Request, res: Response) {
   } catch (err) {
     console.error('[teams/join]', err);
     res.status(500).json({ error: 'Failed to join team' });
+  }
+}
+
+export async function apply(req: Request, res: Response) {
+  try {
+    const teamId = parseInt(String(req.params.id), 10);
+    if (isNaN(teamId)) return res.status(400).json({ error: 'Invalid team ID' });
+
+    const [team, applicant] = await Promise.all([
+      prisma.team.findUnique({ where: { team_id: teamId }, select: { team_id: true, name: true, is_open: true } }),
+      prisma.user.findUnique({ where: { user_id: req.user.id }, select: { user_id: true, username: true, display_name: true } }),
+    ]);
+
+    if (!team) return res.status(404).json({ error: 'Team not found' });
+    if (team.is_open) return res.status(400).json({ error: 'This team is open. Use join instead.' });
+
+    const existing = await teamService.findMembership(teamId, req.user.id);
+    if (existing) return res.status(409).json({ error: 'Already a member' });
+
+    const existingApplication = await prisma.message.findFirst({
+      where: {
+        sender_id: req.user.id,
+        category: 'teams',
+        folder: 'sent',
+        subject: 'Team application',
+        reference_id: teamId,
+      },
+      select: { message_id: true },
+    });
+    if (existingApplication) {
+      return res.status(409).json({ error: 'You already sent an application to this team' });
+    }
+
+    const approvers = await prisma.teamMember.findMany({
+      where: { team_id: teamId, role: { in: ['lead', 'moderator'] as any } },
+      include: { user: { select: { user_id: true, username: true, display_name: true } } },
+    });
+
+    if (approvers.length === 0) {
+      return res.status(400).json({ error: 'This team cannot accept applications right now' });
+    }
+
+    const applicantName = applicant?.display_name || applicant?.username || 'A user';
+    const applicantUsername = applicant?.username || 'unknown';
+
+    await prisma.$transaction([
+      ...approvers.map((member) =>
+        prisma.message.create({
+          data: {
+            sender_id: req.user.id,
+            recipient_id: member.user.user_id,
+            sender_name: applicantName,
+            recipient_name: member.user.display_name || member.user.username,
+            category: 'teams',
+            folder: 'inbox',
+            subject: 'Team application',
+            body: `${applicantName} (@${applicantUsername}) applied to join "${team.name}".`,
+            reference_id: teamId,
+          },
+        })
+      ),
+      prisma.message.create({
+        data: {
+          sender_id: req.user.id,
+          recipient_id: req.user.id,
+          sender_name: applicantName,
+          recipient_name: applicantName,
+          category: 'teams',
+          folder: 'sent',
+          subject: 'Team application',
+          body: `You applied to join "${team.name}".`,
+          reference_id: teamId,
+          is_read: true,
+        },
+      }),
+    ]);
+
+    try {
+      await publishTeamNews(
+        teamId,
+        `New application for ${team.name}`,
+        `${applicantName} applied to join the team.`
+      );
+    } catch (newsErr) {
+      console.error('[teams/apply.news]', newsErr);
+    }
+
+    return res.status(201).json({ ok: true });
+  } catch (err) {
+    console.error('[teams/apply]', err);
+    res.status(500).json({ error: 'Failed to submit application' });
   }
 }
 

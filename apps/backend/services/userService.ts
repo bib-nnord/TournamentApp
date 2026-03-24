@@ -172,7 +172,10 @@ export async function listUsers(page: number, limit: number, q?: string, sort: '
   const [rows, total] = await Promise.all([
     prisma.user.findMany({
       where,
-      orderBy: { username: sort },
+      orderBy: [
+        { display_name: { sort, nulls: 'last' } },
+        { username: sort },
+      ],
       skip: (page - 1) * limit,
       take: limit,
       select: userListSelect,

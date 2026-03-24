@@ -122,6 +122,20 @@ export default function TeamPage() {
     });
   }
 
+  async function handleApply() {
+    await doAction("apply", async () => {
+      const res = await apiFetch(`/teams/${id}/apply`, { method: "POST" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        const message = body.error ?? "Failed to apply";
+        setActionError(message);
+        notify.error(message);
+        return;
+      }
+      notify.success("Application sent.");
+    });
+  }
+
   async function handleLeave() {
     if (!confirm("Are you sure you want to leave this team?")) return;
     await doAction("leave", async () => {
@@ -305,12 +319,14 @@ export default function TeamPage() {
           <div className="flex gap-2 mt-5 flex-wrap">
             {isUnrelated && (
               <button
-                onClick={handleJoin}
-                disabled={!team.open || actionLoading === "join"}
-                title={!team.open ? "This team is closed — join by invitation only" : undefined}
+                onClick={team.open ? handleJoin : handleApply}
+                disabled={actionLoading === "join" || actionLoading === "apply"}
+                title={!team.open ? "This team is closed — apply to join" : undefined}
                 className="text-sm px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-60"
               >
-                {actionLoading === "join" ? "Joining…" : team.open ? LABEL_JOIN_TEAM : LABEL_REQUEST_TO_JOIN}
+                {(actionLoading === "join" || actionLoading === "apply")
+                  ? (team.open ? "Joining…" : "Applying…")
+                  : (team.open ? LABEL_JOIN_TEAM : LABEL_REQUEST_TO_JOIN)}
               </button>
             )}
 

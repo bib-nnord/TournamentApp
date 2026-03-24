@@ -19,6 +19,7 @@ router.patch('/:id', authenticate, teamController.update);
 router.delete('/:id', authenticate, teamController.disband);
 
 router.post('/:id/join', authenticate, teamController.join);
+router.post('/:id/apply', authenticate, teamController.apply);
 router.post('/:id/invite', authenticate, teamController.inviteMember);
 router.post('/:id/leave', authenticate, teamController.leave);
 
