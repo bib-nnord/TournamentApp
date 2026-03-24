@@ -297,10 +297,21 @@ export default function MessagesPage() {
   }
 
   async function markAllRead() {
-    setMessages((prev) => prev.map((m) => ({ ...m, read: true })));
+    const prev = messages;
+    setMessages((m) => m.map((msg) => ({ ...msg, read: true })));
     setSelected(new Set());
-    await apiFetch("/messages/read-all", { method: "PATCH" });
-    window.dispatchEvent(new Event("unread-count-changed"));
+    try {
+      const res = await apiFetch("/messages/read-all", { method: "PATCH" });
+      if (!res.ok) {
+        setMessages(prev);
+        return;
+      }
+      // Re-fetch to ensure local state matches DB (guards against concurrent poll revert)
+      await fetchMessages();
+      window.dispatchEvent(new Event("unread-count-changed"));
+    } catch {
+      setMessages(prev);
+    }
   }
 
   function hasTournamentLink(m: Message) {

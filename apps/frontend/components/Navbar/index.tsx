@@ -4,7 +4,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { ChevronDown, Mail, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Mail } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
 import { Button } from "@/components/ui/button";
@@ -39,7 +39,7 @@ const authedLinks = [
   { href: "/friends", label: "Friends" },
 ] as const;
 
-function SharpNavLink({
+function NavLink({
   href,
   children,
   index,
@@ -61,16 +61,17 @@ function SharpNavLink({
         <Link
           href={href}
           className={cn(
-            "relative inline-flex h-8 w-full items-center justify-center border-y border-border/70 px-3.5 text-[13px] font-semibold tracking-normal transition-colors md:h-9 md:px-4",
-            index > 0 && "-ml-px border-l",
-            isFirst && "rounded-l-sm border-l",
-            isLast && "rounded-r-sm border-r",
+            "relative inline-flex w-full items-center justify-center font-bold tracking-wide transition-colors md:h-9 md:px-4",
+            index > 0 && "-ml-px border-l border-border/50",
             active
-              ? "border-border bg-primary/95 text-primary-foreground shadow-sm"
-              : "border-border/70 bg-card text-foreground/80 hover:border-border hover:bg-muted/70 hover:text-foreground"
+              ? "bg-card text-primary-foreground"
+              : "bg-card text-foreground/60 hover:bg-muted/70 hover:text-foreground"
           )}
         >
-          {children}
+          {active && (
+            <span className="pointer-events-none absolute inset-x-1.5 inset-y-0 rounded-[2px] bg-primary/90" />
+          )}
+          <span className="relative">{children}</span>
         </Link>
       </NavigationMenuLink>
     </NavigationMenuItem>
@@ -120,10 +121,14 @@ export default function Navbar() {
 
   if (collapsed) {
     return (
-      <div className="fixed top-2 right-2 z-50">
-        <Button onClick={() => setCollapsed(false)} variant="outline" size="sm" className="h-7 rounded-sm px-2 text-xs">
+      <div className="fixed top-0 right-6 z-50">
+        <button
+          onClick={() => setCollapsed(false)}
+          className="flex items-center gap-1 rounded-b border border-t-0 border-border bg-card px-3 py-1 text-[11px] font-medium text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <ChevronDown className="h-3 w-3" />
           Show nav
-        </Button>
+        </button>
       </div>
     );
   }
@@ -131,14 +136,14 @@ export default function Navbar() {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-card/95 shadow-sm backdrop-blur">
       <div className="mx-auto flex h-12 w-full max-w-[110rem] items-center gap-2 px-4 md:px-5">
-        <Link href="/" className="shrink-0 rounded-sm border border-border bg-background px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-foreground md:text-sm">
+        <Link href="/" className="shrink-0 rounded-sm border border-border bg-background px-2.5 py-1 text-xs font-bold uppercase tracking-[0.08em] text-foreground md:text-sm">
           Tournament App
         </Link>
 
         <NavigationMenu className="hidden max-w-none flex-1 md:flex">
           <NavigationMenuList className="w-full justify-stretch space-x-0">
             {links.map((link, index) => (
-              <SharpNavLink
+              <NavLink
                 key={link.href}
                 href={link.href}
                 index={index}
@@ -146,7 +151,7 @@ export default function Navbar() {
                 isLast={index === links.length - 1}
               >
                 {link.label}
-              </SharpNavLink>
+              </NavLink>
             ))}
           </NavigationMenuList>
         </NavigationMenu>
@@ -158,8 +163,8 @@ export default function Navbar() {
               variant="outline"
               size="sm"
               className={cn(
-                "relative h-8 rounded-sm px-2.5",
-                messagesActive && "border-primary bg-primary text-primary-foreground hover:bg-primary/90"
+                "relative h-8 rounded-md px-2.5",
+                messagesActive && "border-primary bg-primary/10 text-primary"
               )}
             >
               <Link href="/messages" className="gap-1.5">
@@ -182,10 +187,10 @@ export default function Navbar() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-8 w-48 justify-between rounded-sm px-2 data-[state=open]:rounded-b-none data-[state=open]:border-b-transparent md:w-52"
+                  className="h-8 w-48 justify-between rounded-md px-2 data-[state=open]:rounded-b-none data-[state=open]:border-b-transparent md:w-52"
                 >
-                  <Avatar className="h-5 w-5 rounded-sm border border-border">
-                    <AvatarFallback className="rounded-sm bg-secondary text-[10px] font-semibold text-secondary-foreground">
+                  <Avatar className="h-5 w-5 rounded-md border border-border">
+                    <AvatarFallback className="rounded-md bg-secondary text-[10px] font-semibold text-secondary-foreground">
                       {getUserInitial(user.username)}
                     </AvatarFallback>
                   </Avatar>
@@ -196,7 +201,7 @@ export default function Navbar() {
               <DropdownMenuContent
                 align="end"
                 sideOffset={0}
-                className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-0 rounded-t-none border-t-0"
+                className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-0 rounded-b-md rounded-t-none border-t-0"
               >
                 <DropdownMenuItem asChild>
                   <Link href={`/profile/${user.username}`}>Profile</Link>
@@ -222,7 +227,7 @@ export default function Navbar() {
           )}
 
           <Button onClick={() => setCollapsed(true)} variant="ghost" size="icon" className="h-7 w-7 rounded-sm" title="Collapse navbar">
-            <X className="h-3.5 w-3.5" />
+            <ChevronUp className="h-3.5 w-3.5" />
           </Button>
         </div>
       </div>
