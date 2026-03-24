@@ -34,3 +34,4 @@ useRequireAuth doesn't check token expiry — User sees protected page briefly b
 Dockerfile double-copies prisma/ — Minor image build inefficiency.
 
 Tailwind Shadcn AI Library for Assistant
+

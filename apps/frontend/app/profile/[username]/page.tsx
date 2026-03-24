@@ -8,6 +8,7 @@ import type { TournamentSummary } from "@/components/TournamentList/types";
 import UserListItem from "@/components/UserListItem";
 import { LABEL_EDIT_PROFILE, LABEL_VIEW_ALL } from "@/constants/labels";
 import { useFetch } from "@/hooks/useFetch";
+import { useNotify } from "@/hooks/useNotify";
 import { apiFetch } from "@/lib/api";
 import { teamRoleColors, tournamentStatusColors } from "@/lib/colors";
 import { getUserInitial } from "@/lib/helpers";
@@ -82,6 +83,7 @@ const emptyProfileForm: ProfileFormState = {
 export default function ProfilePage() {
   const { username } = useParams<{ username: string }>();
   const user = useSelector((state: RootState) => state.user.current);
+  const notify = useNotify();
   const isOwnProfile = user?.username === username;
   const {
     data: profileData,
@@ -142,13 +144,17 @@ export default function ProfilePage() {
       if (res.ok) {
         const { friendship } = await res.json();
         setFriendStatus({ status: "pending_sent", friendshipId: friendship.id });
+        notify.success(`Friend request sent to ${username}.`);
+      } else {
+        const body = await res.json().catch(() => ({}));
+        notify.error(body.error ?? "Failed to send friend request");
       }
     } catch {
-      /* ignore */
+      notify.error("Network error");
     } finally {
       setFriendLoading(false);
     }
-  }, [username, setFriendStatus]);
+  }, [username, setFriendStatus, notify]);
 
   const handleAcceptRequest = useCallback(async () => {
     if (!friendStatus?.friendshipId) return;
@@ -160,13 +166,17 @@ export default function ProfilePage() {
       if (res.ok) {
         const { friendship } = await res.json();
         setFriendStatus({ status: "accepted", friendshipId: friendship.id });
+        notify.success(`You are now friends with ${username}.`);
+      } else {
+        const body = await res.json().catch(() => ({}));
+        notify.error(body.error ?? "Failed to accept friend request");
       }
     } catch {
-      /* ignore */
+      notify.error("Network error");
     } finally {
       setFriendLoading(false);
     }
-  }, [friendStatus, setFriendStatus]);
+  }, [friendStatus, setFriendStatus, notify, username]);
 
   const handleDeclineRequest = useCallback(async () => {
     if (!friendStatus?.friendshipId) return;
@@ -177,13 +187,17 @@ export default function ProfilePage() {
       });
       if (res.ok) {
         setFriendStatus({ status: "none" });
+        notify.info("Friend request declined.");
+      } else {
+        const body = await res.json().catch(() => ({}));
+        notify.error(body.error ?? "Failed to decline friend request");
       }
     } catch {
-      /* ignore */
+      notify.error("Network error");
     } finally {
       setFriendLoading(false);
     }
-  }, [friendStatus, setFriendStatus]);
+  }, [friendStatus, setFriendStatus, notify]);
 
   const handleRemoveFriend = useCallback(async () => {
     if (!friendStatus?.friendshipId) return;
@@ -194,13 +208,17 @@ export default function ProfilePage() {
       });
       if (res.ok) {
         setFriendStatus({ status: "none" });
+        notify.info("Friend removed.");
+      } else {
+        const body = await res.json().catch(() => ({}));
+        notify.error(body.error ?? "Failed to remove friend");
       }
     } catch {
-      /* ignore */
+      notify.error("Network error");
     } finally {
       setFriendLoading(false);
     }
-  }, [friendStatus, setFriendStatus]);
+  }, [friendStatus, setFriendStatus, notify]);
 
   function updateProfileForm(patch: Partial<ProfileFormState>) {
     setProfileForm((prev) => ({ ...prev, ...patch }));
