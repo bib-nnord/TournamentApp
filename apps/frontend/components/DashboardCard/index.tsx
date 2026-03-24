@@ -18,15 +18,15 @@ export default function DashboardCard({
   children,
 }: DashboardCardProps) {
   return (
-    <div className={`bg-white rounded-2xl border border-gray-100 shadow-sm p-6 ${className ?? ""}`}>
-      <h2 className="text-sm font-semibold text-gray-800 mb-4 flex items-center gap-2">
+    <div className={`rounded-lg border border-border bg-card p-4 shadow-sm ${className ?? ""}`}>
+      <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-card-foreground">
         {dotColor && <span className={`w-2 h-2 rounded-full ${dotColor} inline-block`} />}
         {title}
       </h2>
       {loading ? (
-        <p className="text-sm text-gray-400">Loading…</p>
+        <p className="text-sm text-muted-foreground">Loading…</p>
       ) : empty ? (
-        <p className="text-sm text-gray-400">{emptyMessage}</p>
+        <p className="text-sm text-muted-foreground">{emptyMessage}</p>
       ) : (
         children
       )}

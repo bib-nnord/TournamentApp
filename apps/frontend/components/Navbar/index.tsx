@@ -1,42 +1,90 @@
 "use client";
 
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
-import { useEffect, useState, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { ChevronDown, Mail, X } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
-import { useRouter, usePathname } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  NavigationMenu,
+  NavigationMenuItem,
+  NavigationMenuLink,
+  NavigationMenuList,
+} from "@/components/ui/navigation-menu";
+import { Separator } from "@/components/ui/separator";
+import { apiFetch } from "@/lib/api";
+import { getUserInitial } from "@/lib/helpers";
+import { cn } from "@/lib/utils";
 import { logoutAsync } from "@/store/authSlice";
 import type { RootState, AppDispatch } from "@/store/store";
-import { getUserInitial } from "@/lib/helpers";
-import { apiFetch } from "@/lib/api";
 
-function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
+const sharedLinks = [
+  { href: "/tournaments", label: "Tournaments" },
+  { href: "/users", label: "Users" },
+] as const;
+
+const authedLinks = [
+  { href: "/dashboard", label: "Dashboard" },
+  { href: "/teams", label: "Teams" },
+  { href: "/friends", label: "Friends" },
+] as const;
+
+function SharpNavLink({
+  href,
+  children,
+  index,
+  isFirst,
+  isLast,
+}: {
+  href: string;
+  children: React.ReactNode;
+  index: number;
+  isFirst: boolean;
+  isLast: boolean;
+}) {
   const pathname = usePathname();
   const active = pathname === href || pathname.startsWith(href + "/");
+
   return (
-    <Link
-      href={href}
-      className={`text-sm px-3 py-1.5 rounded-lg transition-colors ${
-        active
-          ? "bg-indigo-50 text-indigo-700 font-medium"
-          : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-      }`}
-    >
-      {children}
-    </Link>
+    <NavigationMenuItem className="flex-1">
+      <NavigationMenuLink asChild>
+        <Link
+          href={href}
+          className={cn(
+            "relative inline-flex h-8 w-full items-center justify-center border-y border-border/70 px-3.5 text-[13px] font-semibold tracking-normal transition-colors md:h-9 md:px-4",
+            index > 0 && "-ml-px border-l",
+            isFirst && "rounded-l-sm border-l",
+            isLast && "rounded-r-sm border-r",
+            active
+              ? "border-border bg-primary/95 text-primary-foreground shadow-sm"
+              : "border-border/70 bg-card text-foreground/80 hover:border-border hover:bg-muted/70 hover:text-foreground"
+          )}
+        >
+          {children}
+        </Link>
+      </NavigationMenuLink>
+    </NavigationMenuItem>
   );
 }
 
 export default function Navbar() {
   const [collapsed, setCollapsed] = useState(false);
-  const [mounted, setMounted] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
   const pathname = usePathname();
   const user = useSelector((state: RootState) => state.user.current);
   const isLoggedIn = !!user;
-
-  useEffect(() => setMounted(true), []);
 
   const fetchUnread = useCallback(async () => {
     try {
@@ -49,7 +97,8 @@ export default function Navbar() {
   }, []);
 
   useEffect(() => {
-    if (!isLoggedIn) { setUnreadCount(0); return; }
+    if (!isLoggedIn) return;
+
     fetchUnread();
     const interval = setInterval(fetchUnread, 30000);
     const handleUpdate = () => fetchUnread();
@@ -65,111 +114,117 @@ export default function Navbar() {
     router.push("/");
   }
 
+  const links = isLoggedIn ? [...sharedLinks, ...authedLinks] : [...sharedLinks];
+  const effectiveUnread = isLoggedIn ? unreadCount : 0;
+  const messagesActive = pathname === "/messages" || pathname.startsWith("/messages/");
+
   if (collapsed) {
     return (
       <div className="fixed top-2 right-2 z-50">
-        <button
-          onClick={() => setCollapsed(false)}
-          className="text-xs px-2 py-1 rounded bg-white border border-gray-200 shadow-sm text-gray-400 hover:text-gray-600 hover:bg-gray-50"
-          title="Show navbar"
-        >
-          ▼ Show navbar
-        </button>
+        <Button onClick={() => setCollapsed(false)} variant="outline" size="sm" className="h-7 rounded-sm px-2 text-xs">
+          Show nav
+        </Button>
       </div>
     );
   }
 
   return (
-    <header className="sticky top-0 z-50 w-full bg-white border-b border-gray-100 shadow-sm">
-      <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
-
-        {/* Logo */}
-        <Link href="/" className="text-base font-bold text-gray-900 shrink-0 tracking-tight">
+    <header className="sticky top-0 z-50 w-full border-b border-border bg-card/95 shadow-sm backdrop-blur">
+      <div className="mx-auto flex h-12 w-full max-w-[110rem] items-center gap-2 px-4 md:px-5">
+        <Link href="/" className="shrink-0 rounded-sm border border-border bg-background px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-foreground md:text-sm">
           Tournament App
         </Link>
 
-        {/* Main nav */}
-        {mounted && (
-          <nav className="flex items-center gap-1">
-            <NavLink href="/tournaments">Tournaments</NavLink>
-            <NavLink href="/users">Users</NavLink>
-            {isLoggedIn && (
-              <>
-                <NavLink href="/dashboard">Dashboard</NavLink>
-                <NavLink href="/teams">My Teams</NavLink>
-                <NavLink href="/friends">Friends</NavLink>
-              </>
-            )}
-          </nav>
-        )}
+        <NavigationMenu className="hidden max-w-none flex-1 md:flex">
+          <NavigationMenuList className="w-full justify-stretch space-x-0">
+            {links.map((link, index) => (
+              <SharpNavLink
+                key={link.href}
+                href={link.href}
+                index={index}
+                isFirst={index === 0}
+                isLast={index === links.length - 1}
+              >
+                {link.label}
+              </SharpNavLink>
+            ))}
+          </NavigationMenuList>
+        </NavigationMenu>
 
-        {/* Right side */}
-        <div className="flex items-center gap-2 shrink-0">
-          {mounted && isLoggedIn && (
-            <Link
-              href="/messages"
-              className={`relative text-sm px-3 py-1.5 rounded-lg transition-colors ${
-                pathname === "/messages" || pathname.startsWith("/messages/")
-                  ? "bg-indigo-50 text-indigo-700 font-medium"
-                  : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-              }`}
-            >
-              Messages
-              {unreadCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center px-1 text-[10px] font-bold text-white bg-red-500 rounded-full">
-                  {unreadCount > 99 ? "99+" : unreadCount}
-                </span>
+      <div className="flex items-center gap-1.5">
+          {isLoggedIn && (
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className={cn(
+                "relative h-8 rounded-sm px-2.5",
+                messagesActive && "border-primary bg-primary text-primary-foreground hover:bg-primary/90"
               )}
-            </Link>
+            >
+              <Link href="/messages" className="gap-1.5">
+                <Mail className="h-3.5 w-3.5" />
+                Messages
+                {effectiveUnread > 0 && (
+                  <Badge className="ml-1 h-4 min-w-4 rounded-sm bg-primary px-1 text-[10px] text-primary-foreground">
+                    {effectiveUnread > 99 ? "99+" : effectiveUnread}
+                  </Badge>
+                )}
+              </Link>
+            </Button>
           )}
-          {mounted && (isLoggedIn ? (
-            <>
-              <Link
-                href={`/profile/${user.username}`}
-                className="flex items-center gap-2 text-sm px-2 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
-                title="Your profile"
-              >
-                <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-600 shrink-0">
-                  {getUserInitial(user.username)}
-                </div>
-                <span className="text-gray-700 font-medium hidden sm:inline">{user.username}</span>
-              </Link>
-              <Link
-                href="/settings"
-                className="text-gray-400 hover:text-gray-700 p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
-                title="Settings"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-              </Link>
-              <button
-                onClick={handleLogout}
-                className="text-sm px-3 py-1.5 rounded-lg text-red-600 hover:bg-red-50 transition-colors"
-              >
-                Logout
-              </button>
-            </>
-          ) : (
-            <>
-              <Link href="/login" className="text-sm px-3 py-1.5 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors">
-                Login
-              </Link>
-              <Link href="/register" className="text-sm px-3 py-1.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors">
-                Register
-              </Link>
-            </>
-          ))}
-          <button
-            onClick={() => setCollapsed(true)}
-            className="text-gray-300 hover:text-gray-500 text-xs p-1 rounded hover:bg-gray-100 transition-colors"
-            title="Collapse navbar"
-          >
-            ▲
-          </button>
-        </div>
 
+          <Separator orientation="vertical" className="mx-0.5 hidden h-6 md:block" />
+
+          {isLoggedIn && user ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-48 justify-between rounded-sm px-2 data-[state=open]:rounded-b-none data-[state=open]:border-b-transparent md:w-52"
+                >
+                  <Avatar className="h-5 w-5 rounded-sm border border-border">
+                    <AvatarFallback className="rounded-sm bg-secondary text-[10px] font-semibold text-secondary-foreground">
+                      {getUserInitial(user.username)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="max-w-24 truncate text-xs font-medium md:text-sm">{user.username}</span>
+                  <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                sideOffset={0}
+                className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-0 rounded-t-none border-t-0"
+              >
+                <DropdownMenuItem asChild>
+                  <Link href={`/profile/${user.username}`}>Profile</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/settings">Settings</Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
+                  Logout
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <div className="hidden items-center md:flex">
+              <Button asChild variant="outline" size="sm" className="h-8 rounded-l-sm rounded-r-none border-r-0 px-3">
+                <Link href="/login">Login</Link>
+              </Button>
+              <Button asChild size="sm" className="h-8 rounded-r-sm rounded-l-none px-3">
+                <Link href="/register">Register</Link>
+              </Button>
+            </div>
+          )}
+
+          <Button onClick={() => setCollapsed(true)} variant="ghost" size="icon" className="h-7 w-7 rounded-sm" title="Collapse navbar">
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </div>
       </div>
     </header>
   );

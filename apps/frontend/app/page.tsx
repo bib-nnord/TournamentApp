@@ -1,19 +1,19 @@
-import Link from "next/link";
-import TournamentList from "@/components/TournamentList";
-import TeamList from "@/components/TeamList";
 import AuthButtons from "@/components/AuthButtons";
-import { LABEL_ALL_TOURNAMENTS, LABEL_ALL_TEAMS } from "@/constants/labels";
+import TeamList from "@/components/TeamList";
+import TournamentList from "@/components/TournamentList";
+import { LABEL_ALL_TEAMS } from "@/constants/labels";
+import Link from "next/link";
 export default function Home() {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
 
       {/* Hero */}
-      <div className="bg-white border-b">
-        <div className="max-w-4xl mx-auto px-4 py-16 flex flex-col items-center text-center gap-4">
-          <h1 className="text-5xl font-bold text-gray-900 tracking-tight">
+      <div className="border-b border-border bg-card">
+        <div className="mx-auto flex max-w-4xl flex-col items-center gap-3 px-4 py-10 text-center">
+          <h1 className="text-4xl font-bold tracking-tight text-foreground">
             Host your Tournaments.
           </h1>
-          <p className="text-lg text-gray-500 max-w-xl">
+          <p className="max-w-xl text-base text-muted-foreground">
             Create and join tournaments. Track results, manage teams or plan matches.
           </p>
           <AuthButtons />
@@ -21,12 +21,12 @@ export default function Home() {
       </div>
 
       {/* Tournaments */}
-      <div className="max-w-4xl mx-auto px-4 py-10">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-gray-900">Current Tournaments</h2>
+      <div className="mx-auto max-w-4xl px-4 py-7">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-xl font-bold text-foreground">Current Tournaments</h2>
           <Link
             href="/tournaments?filter=active"
-            className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
+            className="text-sm font-medium text-primary hover:text-primary/80"
           >
             See more
           </Link>
@@ -35,12 +35,12 @@ export default function Home() {
       </div>
 
       {/* Teams */}
-      <div className="max-w-4xl mx-auto px-4 pb-10">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-gray-900">Teams</h2>
+      <div className="mx-auto max-w-4xl px-4 pb-7">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-xl font-bold text-foreground">Teams</h2>
           <Link
             href="/teams"
-            className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
+            className="text-sm font-medium text-primary hover:text-primary/80"
           >
             {LABEL_ALL_TEAMS}
           </Link>

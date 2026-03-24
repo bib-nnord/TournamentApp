@@ -57,11 +57,11 @@ export default function TournamentList({
       )}
 
       {loading ? (
-        <p className="text-sm text-gray-400">Loading…</p>
+        <p className="text-sm text-muted-foreground">Loading…</p>
       ) : error ? (
-        <p className="text-sm text-red-500">{error}</p>
+        <p className="text-sm text-destructive">{error}</p>
       ) : filtered.length === 0 ? (
-        <p className="text-sm text-gray-500">No tournaments found.</p>
+        <p className="text-sm text-muted-foreground">No tournaments found.</p>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {filtered.map((t) => {
@@ -71,20 +71,20 @@ export default function TournamentList({
               ? Math.round((progress.completed / progress.total) * 100)
               : null;
             const joinedClass = t.isJoined
-              ? "border-indigo-300 bg-indigo-50/30 hover:border-indigo-400"
-              : "border-gray-100";
+              ? "border-primary/40 bg-accent/35 hover:border-primary/60"
+              : "border-border";
 
             return (
               <Link
                 key={t.id}
                 href={`/tournaments/view/${t.id}`}
-                className={`bg-white rounded-xl border shadow-sm p-5 hover:shadow-md transition-shadow flex flex-col gap-3 ${joinedClass}`}
+                className={`flex flex-col gap-2.5 rounded-lg border bg-card p-4 shadow-sm transition-shadow hover:shadow-md ${joinedClass}`}
               >
                 <div className="flex items-start justify-between gap-2">
-                  <h2 className="text-sm font-semibold text-gray-900">{t.name}</h2>
+                  <h2 className="text-sm font-semibold text-card-foreground">{t.name}</h2>
                   <div className="flex items-center gap-1.5">
                     {t.isJoined && (
-                      <span className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded bg-indigo-100 text-indigo-700">
+                      <span className="rounded bg-accent px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent-foreground">
                         You are in
                       </span>
                     )}
@@ -95,9 +95,9 @@ export default function TournamentList({
                     />
                   </div>
                 </div>
-                <div className="text-xs text-gray-500 flex flex-col gap-1">
-                  <span className="text-gray-700 font-medium">{t.game}</span>
-                  <span className="text-gray-400">{formatLabel}</span>
+                <div className="flex flex-col gap-1 text-xs text-muted-foreground">
+                  <span className="font-medium text-foreground">{t.game}</span>
+                  <span className="text-muted-foreground">{formatLabel}</span>
                   {t.startDate && <span>{formatDate(t.startDate)}</span>}
                   <span>{t.participants} / {t.max} participants</span>
                 </div>
@@ -105,23 +105,23 @@ export default function TournamentList({
                 {/* Match progress bar — only for active tournaments with match data */}
                 {t.status === "active" && progress && progress.total > 0 && (
                   <div>
-                    <div className="flex justify-between text-[10px] text-gray-400 mb-1">
+                    <div className="mb-1 flex justify-between text-[10px] text-muted-foreground">
                       <span>{progress.completed} of {progress.total} matches played</span>
                       <span>{progressPct}%</span>
                     </div>
-                    <div className="w-full bg-gray-100 rounded-full h-1.5">
+                    <div className="h-1.5 w-full rounded-full bg-muted">
                       <div
-                        className="bg-indigo-500 h-1.5 rounded-full transition-all"
+                        className="h-1.5 rounded-full bg-primary transition-all"
                         style={{ width: `${progressPct}%` }}
                       />
                     </div>
                   </div>
                 )}
 
-                <div className="text-[11px] text-gray-400 inline-flex items-center gap-1">
+                <div className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
                   <span>by {t.creator.displayName || t.creator.username}</span>
                   {t.creator.displayName && t.creator.displayName.toLowerCase() !== t.creator.username.toLowerCase() && (
-                    <span className="text-gray-400">@{t.creator.username}</span>
+                    <span className="text-muted-foreground">@{t.creator.username}</span>
                   )}
                 </div>
               </Link>

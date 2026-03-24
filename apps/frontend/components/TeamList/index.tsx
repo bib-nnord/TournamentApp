@@ -15,15 +15,15 @@ export default function TeamList() {
   const teams = data?.teams ?? [];
 
   if (loading) {
-    return <p className="text-sm text-gray-400">Loading…</p>;
+    return <p className="text-sm text-muted-foreground">Loading…</p>;
   }
 
   if (error) {
-    return <p className="text-sm text-red-500">{error}</p>;
+    return <p className="text-sm text-destructive">{error}</p>;
   }
 
   if (teams.length === 0) {
-    return <p className="text-sm text-gray-500">No teams yet.</p>;
+    return <p className="text-sm text-muted-foreground">No teams yet.</p>;
   }
 
   return (
@@ -32,15 +32,15 @@ export default function TeamList() {
         <Link
           key={t.id}
           href={`/teams/${t.id}`}
-          className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-shadow flex flex-col gap-3"
+          className="flex flex-col gap-2.5 rounded-lg border border-border bg-card p-4 shadow-sm transition-shadow hover:shadow-md"
         >
           <div className="flex items-start justify-between">
-            <h2 className="text-sm font-semibold text-gray-900">{t.name}</h2>
-            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${t.open ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+            <h2 className="text-sm font-semibold text-card-foreground">{t.name}</h2>
+            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${t.open ? "bg-emerald-500/15 text-emerald-400" : "bg-muted text-muted-foreground"}`}>
               {t.open ? "Open" : "Closed"}
             </span>
           </div>
-          <p className="text-xs text-gray-500">{t.members} members</p>
+          <p className="text-xs text-muted-foreground">{t.members} members</p>
         </Link>
       ))}
     </div>
