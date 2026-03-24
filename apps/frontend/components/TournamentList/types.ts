@@ -17,4 +17,6 @@ export interface TournamentSummary {
   startedAt: string | null;
   isJoined?: boolean;
   matchProgress?: { completed: number; total: number };
+  currentRound?: string | null;
+  nextMatchAt?: string | null;
 }

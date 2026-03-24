@@ -210,7 +210,7 @@ m
 .hero-badminton-court {
   position: absolute;
   left: 50%;
-  top: 58%;
+  top: 59.8%;
   width: min(680px, 92%);
   height: 170px;
   transform: translate(-50%, -50%) perspective(700px) rotateX(56deg);
@@ -226,7 +226,7 @@ m
 .hero-badminton-net {
   position: absolute;
   left: 50%;
-  top: calc(58% - 13px);
+  top: calc(59.8% - 13px);
   width: min(560px, 80%);
   height: 14px;
   transform: translate(-50%, -50%);
@@ -323,7 +323,7 @@ m
 
 @media (max-width: 768px) {
   .hero-badminton-court {
-    top: 66%;
+    top: 67.8%;
     height: 152px;
   }
 

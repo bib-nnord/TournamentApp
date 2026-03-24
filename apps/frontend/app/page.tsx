@@ -26,7 +26,7 @@ export default function Home() {
         </div>
         <div
           className={
-            "relative mx-auto flex max-w-4xl flex-col items-center gap-3 px-4 " +
+            "relative mx-auto flex max-w-5xl flex-col items-center gap-3 px-4 " +
             "py-12 text-center"
           }
         >
@@ -41,31 +41,46 @@ export default function Home() {
       </div>
 
       {/* Tournaments */}
-      <div className="mx-auto max-w-4xl px-4 py-7">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-foreground">Current Tournaments</h2>
-          <Link
-            href="/tournaments?filter=active"
-            className="text-sm font-medium text-primary hover:text-primary/80"
-          >
-            See more
-          </Link>
-        </div>
-        <TournamentList defaultFilter={["active"]} hideFilters sortBy="participants" />
+      <div className="mx-auto max-w-5xl px-4 py-5">
+        <section className="rounded-xl border border-border/80 bg-card/75 p-4 backdrop-blur-sm">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-lg font-bold text-foreground">Current Tournaments</h2>
+            <Link
+              href="/tournaments?filter=active"
+              className={
+                "inline-flex items-center rounded-md border border-border/80 px-2.5 py-1 " +
+                "text-sm font-medium text-primary hover:bg-muted/65 hover:text-primary/80"
+              }
+            >
+              See more
+            </Link>
+          </div>
+          <TournamentList
+            defaultFilter={["active"]}
+            hideFilters
+            sortBy="participants"
+            layout="carousel"
+          />
+        </section>
       </div>
 
       {/* Teams */}
-      <div className="mx-auto max-w-4xl px-4 pb-7">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-foreground">Teams</h2>
-          <Link
-            href="/teams"
-            className="text-sm font-medium text-primary hover:text-primary/80"
-          >
-            {LABEL_ALL_TEAMS}
-          </Link>
-        </div>
-        <TeamList />
+      <div className="mx-auto max-w-5xl px-4 pb-6">
+        <section className="rounded-xl border border-border/80 bg-card/75 p-4 backdrop-blur-sm">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-lg font-bold text-foreground">Teams</h2>
+            <Link
+              href="/teams"
+              className={
+                "inline-flex items-center rounded-md border border-border/80 px-2.5 py-1 " +
+                "text-sm font-medium text-primary hover:bg-muted/65 hover:text-primary/80"
+              }
+            >
+              {LABEL_ALL_TEAMS}
+            </Link>
+          </div>
+          <TeamList layout="carousel" />
+        </section>
       </div>
 
     </div>

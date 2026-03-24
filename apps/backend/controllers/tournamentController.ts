@@ -135,6 +135,9 @@ export async function list(req: Request, res: Response) {
       .map((t: any) => t.tournament_id);
 
     const matchStats: Record<number, { total: number; completed: number }> = {};
+    const currentRoundByTournament: Record<number, string | null> = {};
+    const nextMatchAtByTournament: Record<number, Date | null> = {};
+
     if (activeTournamentIds.length > 0) {
       const matchGroups = await prisma.match.groupBy({
         by: ['tournament_id', 'status'],
@@ -148,6 +151,68 @@ export async function list(req: Request, res: Response) {
         if (group.status === 'completed' || group.status === 'tie') {
           matchStats[tid].completed += group._count.match_id;
         }
+      }
+
+      const matches = await prisma.match.findMany({
+        where: { tournament_id: { in: activeTournamentIds } },
+        select: {
+          tournament_id: true,
+          round: true,
+          status: true,
+          scheduled_at: true,
+          played_at: true,
+          created_at: true,
+        },
+      });
+
+      const matchesByTournament = new Map<number, Array<any>>();
+      for (const match of matches) {
+        const tid = match.tournament_id;
+        if (!tid) continue;
+        const bucket = matchesByTournament.get(tid) ?? [];
+        bucket.push(match);
+        matchesByTournament.set(tid, bucket);
+      }
+
+      for (const tournamentId of activeTournamentIds) {
+        const tournamentMatches = matchesByTournament.get(tournamentId) ?? [];
+
+        const inProgress = tournamentMatches
+          .filter((m) => m.status === 'in_progress' && m.round)
+          .sort((a, b) => {
+            const aTime = new Date(a.created_at).getTime();
+            const bTime = new Date(b.created_at).getTime();
+            return aTime - bTime;
+          });
+
+        const upcoming = tournamentMatches
+          .filter((m) => (m.status === 'scheduled' || m.status === 'in_progress') && m.round)
+          .sort((a, b) => {
+            const aTime = a.scheduled_at ? new Date(a.scheduled_at).getTime() : Number.MAX_SAFE_INTEGER;
+            const bTime = b.scheduled_at ? new Date(b.scheduled_at).getTime() : Number.MAX_SAFE_INTEGER;
+            return aTime - bTime;
+          });
+
+        const played = tournamentMatches
+          .filter((m) => (m.status === 'completed' || m.status === 'tie') && m.round)
+          .sort((a, b) => {
+            const aTime = new Date(a.played_at ?? a.created_at).getTime();
+            const bTime = new Date(b.played_at ?? b.created_at).getTime();
+            return bTime - aTime;
+          });
+
+        currentRoundByTournament[tournamentId] =
+          inProgress[0]?.round ?? upcoming[0]?.round ?? played[0]?.round ?? null;
+
+        const nextScheduled = tournamentMatches
+          .filter((m) => m.status === 'scheduled' && m.scheduled_at)
+          .sort((a, b) => {
+            const aTime = new Date(a.scheduled_at).getTime();
+            const bTime = new Date(b.scheduled_at).getTime();
+            return aTime - bTime;
+          });
+
+        nextMatchAtByTournament[tournamentId] = nextScheduled[0]?.scheduled_at ?? null;
       }
     }
 
@@ -194,6 +259,12 @@ export async function list(req: Request, res: Response) {
         matchProgress: t.status === 'active'
           ? (matchStats[t.tournament_id] ?? { total: 0, completed: 0 })
           : undefined,
+        currentRound: t.status === 'active'
+          ? (currentRoundByTournament[t.tournament_id] ?? null)
+          : null,
+        nextMatchAt: t.status === 'active'
+          ? (nextMatchAtByTournament[t.tournament_id] ?? null)
+          : null,
       })),
       page: Math.floor(skip / take) + 1,
       totalPages: Math.ceil(total / take),

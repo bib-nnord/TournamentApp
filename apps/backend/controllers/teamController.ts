@@ -13,6 +13,13 @@ export async function list(req: Request, res: Response) {
       orderBy: { created_at: 'desc' },
       include: {
         _count: { select: { members: true } },
+        members: {
+          where: { role: 'lead' },
+          take: 1,
+          include: {
+            user: { select: { user_id: true, username: true, display_name: true } },
+          },
+        },
       },
     });
 
@@ -20,9 +27,19 @@ export async function list(req: Request, res: Response) {
       teams: teams.map((team) => ({
         id: team.team_id,
         name: team.name,
+        bio: team.description ?? null,
         open: team.is_open,
         allowApplications: !team.is_open,
         members: team._count.members,
+        disciplines: team.disciplines ?? [],
+        leader: team.members[0]
+          ? {
+              id: team.members[0].user.user_id,
+              username: team.members[0].user.username,
+              displayName: team.members[0].user.display_name ?? null,
+            }
+          : null,
+        createdAt: team.created_at,
       })),
     });
   } catch (err) {
