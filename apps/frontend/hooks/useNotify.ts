@@ -1,7 +1,7 @@
-import { useDispatch } from 'react-redux';
 import { useCallback } from 'react';
-import type { AppDispatch } from '@/store/store';
+import { useDispatch } from 'react-redux';
 import { addNotification, type NotificationType } from '@/store/notificationsSlice';
+import type { AppDispatch } from '@/store/store';
 
 const DEFAULT_DURATION = 60000;
 

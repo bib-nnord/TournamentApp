@@ -1,20 +1,20 @@
 'use client';
 
-import Link from "next/link";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
-import { login } from "@/store/authSlice";
-import type { AppDispatch, RootState } from "@/store/store";
-import Modal from "@/components/Modal";
 import ForgotPasswordForm from "@/components/ForgotPasswordForm";
 import FormField from "@/components/FormField";
+import Modal from "@/components/Modal";
 import {
   LABEL_FORGOT_PASSWORD,
   LABEL_SIGN_IN,
   LABEL_SIGNING_IN,
   LABEL_REGISTER,
 } from "@/constants/labels";
+import { login } from "@/store/authSlice";
+import type { AppDispatch, RootState } from "@/store/store";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
   const dispatch = useDispatch<AppDispatch>();

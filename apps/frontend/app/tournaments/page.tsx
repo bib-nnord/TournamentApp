@@ -1,7 +1,7 @@
-import Link from "next/link";
 import TournamentList from "@/components/TournamentList";
-import { LABEL_CREATE } from "@/constants/labels";
 import type { Filter } from "@/components/TournamentList/types";
+import { LABEL_CREATE } from "@/constants/labels";
+import Link from "next/link";
 
 const VALID_FILTERS: Filter[] = ["all", "registration", "active", "completed", "cancelled", "draft"];
 

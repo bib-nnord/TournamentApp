@@ -1,9 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
 import { useSelector } from "react-redux";
-import type { RootState } from "@/store/store";
 import {
   LABEL_BACK_TO_TOURNAMENTS,
   LABEL_QUICK_TOURNAMENT,
@@ -11,12 +9,15 @@ import {
   LABEL_CREATE_AN_ACCOUNT,
   LABEL_LOG_IN,
 } from "@/constants/labels";
+import type { RootState } from "@/store/store";
+import Link from "next/link";
 
 export default function CreateTournamentPage() {
   const [mounted, setMounted] = useState(false);
   const checked = useSelector((state: RootState) => state.auth.checked);
   const user = useSelector((state: RootState) => state.user.current);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setMounted(true), []);
 
   // Show nothing until the Redux store has hydrated and auth is resolved

@@ -1,14 +1,14 @@
 "use client";
 
-import Link from "next/link";
 import { useState, useEffect } from "react";
-import { useRequireAuth } from "@/hooks/useRequireAuth";
+import DashboardCard from "@/components/DashboardCard";
+import type { TournamentSummary } from "@/components/TournamentList/types";
+import { LABEL_CREATE_TOURNAMENT, LABEL_BROWSE_TOURNAMENTS } from "@/constants/labels";
 import { useFetch } from "@/hooks/useFetch";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { tournamentStatusColors } from "@/lib/colors";
 import { formatDate } from "@/lib/helpers";
-import { LABEL_CREATE_TOURNAMENT, LABEL_BROWSE_TOURNAMENTS } from "@/constants/labels";
-import type { TournamentSummary } from "@/components/TournamentList/types";
-import DashboardCard from "@/components/DashboardCard";
+import Link from "next/link";
 
 interface TeamNewsItem {
   id: number;
@@ -39,6 +39,7 @@ export default function DashboardPage() {
   const { data: myMatchesData, loading: myMatchesLoading } = useFetch<{ matches: MyMatch[] }>("/tournaments/my-matches");
   const { data: teamNewsData, loading: teamNewsLoading } = useFetch<{ news: TeamNewsItem[] }>("/teams/news?limit=8");
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setMounted(true), []);
 
   if (!mounted || !user) return null;

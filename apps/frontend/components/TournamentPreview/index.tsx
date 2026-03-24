@@ -2,26 +2,26 @@
 
 import { useState, useMemo, useRef, type KeyboardEvent } from "react";
 import { useSelector } from "react-redux";
-import { tournamentFormatInfo, tournamentStatusLabel, type TournamentFormat, type TournamentStatus } from "@/types";
-import { generateBracket, type Bracket, type BracketOptions } from "@/lib/generateBracket";
 import {
   CUSTOM_DISCIPLINE_VALUE,
   DISCIPLINE_OPTIONS,
   disciplineValueToLabel,
   labelToDisciplineValue,
 } from "@/constants/disciplines";
-import type { QuickTournamentData, Participant } from "../QuickTournamentForm";
-import type { ParticipantMemberType, ParticipantMember } from "../QuickTournamentForm/types";
-import UserSearchInput from "../UserSearchInput";
-import BracketView from "../BracketView";
-import type { RootState } from "@/store/store";
-import { shuffleArray, generateUniqueName } from "@/lib/helpers";
 import {
   LABEL_BACK_TO_FORM,
   LABEL_CONFIRM_START,
   LABEL_SHUFFLE,
   LABEL_REMOVE_QUESTION,
 } from "@/constants/labels";
+import { generateBracket } from "@/lib/generateBracket";
+import { shuffleArray, generateUniqueName } from "@/lib/helpers";
+import type { RootState } from "@/store/store";
+import { tournamentFormatInfo, tournamentStatusLabel, type TournamentFormat, type TournamentStatus } from "@/types";
+import BracketView from "../BracketView";
+import type { QuickTournamentData, Participant } from "../QuickTournamentForm";
+import type { ParticipantMemberType, ParticipantMember } from "../QuickTournamentForm/types";
+import UserSearchInput from "../UserSearchInput";
 import type { TournamentPreviewProps } from "./types";
 
 export default function TournamentPreview({ data, onBack, onConfirm, submitting, submitError }: TournamentPreviewProps) {
@@ -44,7 +44,7 @@ export default function TournamentPreview({ data, onBack, onConfirm, submitting,
     : disciplineValueToLabel(disciplineChoice);
   const [description, setDescription] = useState(data.description);
   const [format, setFormat] = useState<TournamentFormat>(data.format);
-  const [isPrivate, setIsPrivate] = useState(data.isPrivate);
+  const [isPrivate] = useState(data.isPrivate);
   const [status, setStatus] = useState<TournamentStatus>(data.status ?? "active");
   const [participants, setParticipants] = useState<Participant[]>(data.participants);
 
@@ -114,7 +114,6 @@ export default function TournamentPreview({ data, onBack, onConfirm, submitting,
   }
 
   // ─── Live add / remove participants ───────────────────────────────────────
-  const [accountInput, setAccountInput] = useState("");
   const [guestInput, setGuestInput] = useState("");
   const teamMode = data.teamMode;
   const [teamNameInput, setTeamNameInput] = useState("");
@@ -344,7 +343,8 @@ export default function TournamentPreview({ data, onBack, onConfirm, submitting,
                   <span className="text-gray-300 shrink-0 cursor-grab text-xs" title="Drag to reorder">⠿</span>
                   <span className="text-xs text-gray-400 font-mono w-6 shrink-0 text-right">{i + 1}.</span>
                   <div className="flex flex-col flex-1 min-w-0">
-                    <span className={`truncate text-sm ${
+                    <span
+className={`truncate text-sm ${
                       p.type === "team" ? "text-purple-800 font-medium" : p.type === "account" ? "text-gray-800" : "text-amber-700"
                     }`}>
                       {p.name}
@@ -355,7 +355,8 @@ export default function TournamentPreview({ data, onBack, onConfirm, submitting,
                       </span>
                     )}
                   </div>
-                  <span className={`text-[10px] uppercase shrink-0 px-2 py-0.5 rounded leading-none ${
+                  <span
+className={`text-[10px] uppercase shrink-0 px-2 py-0.5 rounded leading-none ${
                     p.type === "team"
                       ? "bg-purple-50 text-purple-500"
                       : p.type === "account"
@@ -483,8 +484,6 @@ export default function TournamentPreview({ data, onBack, onConfirm, submitting,
               const groups = bracket.groups;
               if (!groups) return;
               const allRegularGroups = groups.filter(g => !g.autoAdvance);
-              const groupSize = 4;
-
               if (toGi >= allRegularGroups.length + autoAdvanceGroups.length) {
                 // Moving to auto-advance group
                 return;

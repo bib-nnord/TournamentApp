@@ -1,6 +1,6 @@
-import Link from "next/link";
 import ForgotPasswordForm from "@/components/ForgotPasswordForm";
 import { LABEL_BACK_TO_LOGIN } from "@/constants/labels";
+import Link from "next/link";
 
 export default function ForgotPasswordPage() {
   return (

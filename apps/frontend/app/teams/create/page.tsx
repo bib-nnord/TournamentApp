@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState, useRef } from "react";
-import { useRouter } from "next/navigation";
 import { useNotify } from "@/hooks/useNotify";
 import { apiFetch } from "@/lib/api";
+import { useRouter } from "next/navigation";
 
 export default function CreateTeamPage() {
   const router = useRouter();

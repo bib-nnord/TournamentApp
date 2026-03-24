@@ -1,13 +1,13 @@
 'use client';
 
-import Link from "next/link";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
+import FormField from "@/components/FormField";
+import { LABEL_CREATE_ACCOUNT, LABEL_CREATING_ACCOUNT, LABEL_SIGN_IN } from "@/constants/labels";
 import { register } from "@/store/authSlice";
 import type { AppDispatch, RootState } from "@/store/store";
-import { LABEL_CREATE_ACCOUNT, LABEL_CREATING_ACCOUNT, LABEL_SIGN_IN } from "@/constants/labels";
-import FormField from "@/components/FormField";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export default function RegisterPage() {
   const dispatch = useDispatch<AppDispatch>();

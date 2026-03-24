@@ -1,10 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useRequireAuth } from "@/hooks/useRequireAuth";
-import { useFetch } from "@/hooks/useFetch";
-import { useNotify } from "@/hooks/useNotify";
-import { apiFetch } from "@/lib/api";
+import UserListItem from "@/components/UserListItem";
+import UserSearchInput from "@/components/UserSearchInput";
 import {
   LABEL_SEND_REQUEST,
   LABEL_ACCEPT,
@@ -12,8 +10,10 @@ import {
   LABEL_CANCEL,
   LABEL_REMOVE,
 } from "@/constants/labels";
-import UserListItem from "@/components/UserListItem";
-import UserSearchInput from "@/components/UserSearchInput";
+import { useFetch } from "@/hooks/useFetch";
+import { useNotify } from "@/hooks/useNotify";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
+import { apiFetch } from "@/lib/api";
 import type { Friend, FriendRequest } from "@/types";
 
 export default function FriendsPage() {

@@ -1,6 +1,6 @@
 "use client";
 
-/* eslint-disable max-len */
+ 
 
 import { useState, useCallback, useEffect } from "react";
 import { useSelector } from "react-redux";

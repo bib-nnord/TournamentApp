@@ -1,15 +1,16 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
 import { useSelector } from "react-redux";
-import type { RootState } from "@/store/store";
 import { LABEL_CREATE_AN_ACCOUNT, LABEL_LOG_IN } from "@/constants/labels";
+import type { RootState } from "@/store/store";
+import Link from "next/link";
 
 export default function AuthButtons() {
   const [mounted, setMounted] = useState(false);
   const user = useSelector((state: RootState) => state.user.current);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setMounted(true), []);
 
   if (!mounted) return null;

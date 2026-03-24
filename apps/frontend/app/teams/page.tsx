@@ -1,13 +1,13 @@
 "use client";
 
 import React, { useState } from "react";
-import Link from "next/link";
-import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { useFetch } from "@/hooks/useFetch";
 import { useNotify } from "@/hooks/useNotify";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { apiFetch } from "@/lib/api";
 import { teamRoleColors } from "@/lib/colors";
 import type { TeamRole } from "@/types";
+import Link from "next/link";
 
 interface MyTeam {
   id: number;

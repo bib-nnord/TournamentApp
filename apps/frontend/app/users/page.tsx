@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import Link from "next/link";
 import { apiFetch } from "@/lib/api";
 import { getUserInitial } from "@/lib/helpers";
+import Link from "next/link";
 
 interface UserItem {
   id: number;

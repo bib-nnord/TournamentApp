@@ -1,8 +1,8 @@
 import nextCoreWebVitals from 'eslint-config-next/core-web-vitals';
 import nextTypescript from 'eslint-config-next/typescript';
 import prettier from 'eslint-config-prettier';
-import unusedImports from 'eslint-plugin-unused-imports';
 import importHelpers from 'eslint-plugin-import-helpers';
+import unusedImports from 'eslint-plugin-unused-imports';
 
 const eslintConfig = [
   // Ignores
@@ -50,7 +50,7 @@ const eslintConfig = [
       'no-unused-expressions': 'off',
       'no-new': 'off',
       'new-cap': 'off',
-      'max-len': ['warn', { code: 100 }],
+      //'max-len': ['warn', { code: 100 }],
       'max-params': 'off',
       'react/prop-types': 'off',
       'react/require-default-props': 'off',

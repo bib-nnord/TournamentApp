@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
-import Link from "next/link";
 import { useSelector } from "react-redux";
-import { useConfirmAction } from "@/hooks/useConfirmAction";
+import BracketView from "@/components/BracketView";
+import Modal from "@/components/Modal";
+import UserSearchInput from "@/components/UserSearchInput";
 import {
   LABEL_BACK_TO_TOURNAMENTS,
   LABEL_FINISH_TOURNAMENT,
@@ -18,20 +18,18 @@ import {
   LABEL_DELETING,
   LABEL_CANCEL,
 } from "@/constants/labels";
-import type { TournamentStatus, TournamentFormat } from "@/types";
-import { tournamentStatusLabel, tournamentFormatInfo } from "@/types";
-import { apiFetch } from "@/lib/api";
-import { usePolling } from "@/hooks/usePolling";
+import { useConfirmAction } from "@/hooks/useConfirmAction";
 import { useNotify } from "@/hooks/useNotify";
-import { generateBracket, type Bracket } from "@/lib/generateBracket";
-import BracketView from "@/components/BracketView";
-import Modal from "@/components/Modal";
-import StatusBadge from "@/components/StatusBadge";
+import { usePolling } from "@/hooks/usePolling";
+import { apiFetch } from "@/lib/api";
 import { tournamentStatusColors, participantTypeColors } from "@/lib/colors";
+import { generateBracket, type Bracket } from "@/lib/generateBracket";
 import { formatDate, getTournamentWinner } from "@/lib/helpers";
 import type { RootState } from "@/store/store";
-import type { TournamentParticipantData, TournamentData, TeamAssignment } from "./types";
-import UserSearchInput from "@/components/UserSearchInput";
+import { tournamentStatusLabel, tournamentFormatInfo } from "@/types";
+import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
+import type { TournamentParticipantData, TournamentData } from "./types";
 
 interface TeamSearchResult {
   id: number;
@@ -264,7 +262,7 @@ export default function TournamentPage() {
     } else {
       setLocalTeams([]);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [tournament?.teamAssignments, tournament?.teamMode]);
 
   if (loading) {
@@ -399,10 +397,6 @@ export default function TournamentPage() {
           allowTies: tournament.previewBracketData.allowTies,
         } satisfies Bracket;
       })();
-
-  const previewTeamCount = tournament.teamMode
-    ? localTeams.filter((team) => team.name.trim()).length
-    : approvedCount;
 
   function swapPreviewParticipants(nameA: string, nameB: string) {
     if (!tournament) return;
@@ -1217,7 +1211,8 @@ export default function TournamentPage() {
                         {p.displayName[0]?.toUpperCase()}
                       </div>
                     ) : (
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                      <div
+className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
                         p.type === "account" ? "bg-indigo-100 text-indigo-600" : "bg-amber-100 text-amber-600"
                       }`}>
                         {p.displayName[0]?.toUpperCase()}
@@ -1233,14 +1228,16 @@ export default function TournamentPage() {
                       {p.type}
                     </span>
                     {p.type === "account" && !p.confirmed && !isScheduled && (
-                      <span className={`text-[10px] uppercase px-1.5 py-0.5 rounded font-medium shrink-0 ${
+                      <span
+className={`text-[10px] uppercase px-1.5 py-0.5 rounded font-medium shrink-0 ${
                         p.declined ? "bg-red-100 text-red-600" : "bg-orange-100 text-orange-600"
                       }`}>
                         {p.declined ? "Declined" : "Unconfirmed"}
                       </span>
                     )}
                     {isScheduled && p.registrationStatus && (
-                      <span className={`text-[10px] uppercase px-1.5 py-0.5 rounded font-medium shrink-0 ${
+                      <span
+className={`text-[10px] uppercase px-1.5 py-0.5 rounded font-medium shrink-0 ${
                         p.registrationStatus === "approved" ? "bg-green-100 text-green-600" :
                         p.registrationStatus === "pending" ? "bg-yellow-100 text-yellow-600" :
                         p.registrationStatus === "invited" ? "bg-blue-100 text-blue-600" :
@@ -1303,7 +1300,8 @@ export default function TournamentPage() {
                   </span>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                      <div
+className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
                         p.type === "account" ? "bg-indigo-100 text-indigo-600" : p.type === "team" ? "bg-purple-100 text-purple-600" : "bg-amber-100 text-amber-600"
                       }`}>
                         {p.displayName[0]?.toUpperCase()}
@@ -1353,7 +1351,8 @@ export default function TournamentPage() {
                   </span>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                      <div
+className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
                         p.type === "account" ? "bg-indigo-100 text-indigo-600" : p.type === "team" ? "bg-purple-100 text-purple-600" : "bg-amber-100 text-amber-600"
                       }`}>
                         {p.displayName[0]?.toUpperCase()}

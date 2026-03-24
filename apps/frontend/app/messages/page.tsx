@@ -1,6 +1,5 @@
 "use client";
 
-/* eslint-disable max-len */
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import UserSearchInput from "@/components/UserSearchInput";

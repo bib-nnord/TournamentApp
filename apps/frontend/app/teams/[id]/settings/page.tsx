@@ -1,13 +1,13 @@
 "use client";
 
-import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
 import TeamSettingsForm from "@/components/TeamSettingsForm";
+import { LABEL_BACK_TO_TEAM } from "@/constants/labels";
 import { useFetch } from "@/hooks/useFetch";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { getTeamPermissions } from "@/lib/helpers";
 import type { TeamRelation as TeamRole } from "@/types";
-import { LABEL_BACK_TO_TEAM } from "@/constants/labels";
+import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
 
 interface TeamDetailDto {
   id: number;

@@ -1,20 +1,19 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { tournamentFormatInfo, type TournamentFormat } from "@/types";
-import { apiFetch } from "@/lib/api";
-import { generateUniqueName } from "@/lib/helpers";
-import { useTagInput } from "@/hooks/useTagInput";
-import {
-  LABEL_ADD_TEAM,
-  LABEL_GENERATE_BRACKET,
-} from "@/constants/labels";
 import {
   CUSTOM_DISCIPLINE_VALUE,
   DISCIPLINE_OPTIONS,
   disciplineValueToLabel,
   labelToDisciplineValue,
 } from "@/constants/disciplines";
+import {
+  LABEL_ADD_TEAM,
+  LABEL_GENERATE_BRACKET,
+} from "@/constants/labels";
+import { useTagInput } from "@/hooks/useTagInput";
+import { apiFetch } from "@/lib/api";
+import { tournamentFormatInfo, type TournamentFormat } from "@/types";
 import { inputClass, labelClass, ToggleSwitch, FormSection } from "../FormPrimitives";
 import TournamentFormatMiniPreview from "../TournamentFormatMiniPreview";
 import UserSearchInput from "../UserSearchInput";

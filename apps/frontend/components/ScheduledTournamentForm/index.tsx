@@ -1,14 +1,14 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { tournamentFormatInfo, type TournamentFormat, type TournamentRegistrationMode } from "@/types";
-import { apiFetch } from "@/lib/api";
 import {
   CUSTOM_DISCIPLINE_VALUE,
   DISCIPLINE_OPTIONS,
   disciplineValueToLabel,
   labelToDisciplineValue,
 } from "@/constants/disciplines";
+import { apiFetch } from "@/lib/api";
+import { tournamentFormatInfo, type TournamentFormat, type TournamentRegistrationMode } from "@/types";
 import { inputClass, labelClass, ToggleSwitch, FormSection } from "../FormPrimitives";
 import TournamentFormatMiniPreview from "../TournamentFormatMiniPreview";
 import UserSearchInput from "../UserSearchInput";
@@ -127,7 +127,7 @@ export default function ScheduledTournamentForm({ initial, onSubmit, onChange, s
       onChange(buildData());
     }, 500);
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [name, discipline, description, format, isPrivate, teamMode, registrationMode, maxParticipants, startDate, registrationClosesAt, invites]);
 
   function buildData(): ScheduledTournamentData {

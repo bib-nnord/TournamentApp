@@ -1,12 +1,9 @@
 "use client";
 
+import { useCallback, useEffect, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
-import { ChevronDown, ChevronUp, Mail } from "lucide-react";
-import { usePathname, useRouter } from "next/navigation";
-import { useDispatch, useSelector } from "react-redux";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -27,6 +24,9 @@ import { getUserInitial } from "@/lib/helpers";
 import { cn } from "@/lib/utils";
 import { logoutAsync } from "@/store/authSlice";
 import type { RootState, AppDispatch } from "@/store/store";
+import { ChevronDown, ChevronUp, Mail } from "lucide-react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 
 const sharedLinks = [
   { href: "/tournaments", label: "Tournaments" },
@@ -43,14 +43,10 @@ function NavLink({
   href,
   children,
   index,
-  isFirst,
-  isLast,
 }: {
   href: string;
   children: React.ReactNode;
   index: number;
-  isFirst: boolean;
-  isLast: boolean;
 }) {
   const pathname = usePathname();
   const active = pathname === href || pathname.startsWith(href + "/");
@@ -100,6 +96,7 @@ export default function Navbar() {
   useEffect(() => {
     if (!isLoggedIn) return;
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchUnread();
     const interval = setInterval(fetchUnread, 30000);
     const handleUpdate = () => fetchUnread();
@@ -147,8 +144,6 @@ export default function Navbar() {
                 key={link.href}
                 href={link.href}
                 index={index}
-                isFirst={index === 0}
-                isLast={index === links.length - 1}
               >
                 {link.label}
               </NavLink>

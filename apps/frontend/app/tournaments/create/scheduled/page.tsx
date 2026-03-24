@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import ScheduledTournamentForm, { type ScheduledTournamentData } from "@/components/ScheduledTournamentForm";
+import { LABEL_BACK_TO_TOURNAMENT_TYPE } from "@/constants/labels";
+import { useNotify } from "@/hooks/useNotify";
+import { apiFetch } from "@/lib/api";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LABEL_BACK_TO_TOURNAMENT_TYPE } from "@/constants/labels";
-import ScheduledTournamentForm, { type ScheduledTournamentData } from "@/components/ScheduledTournamentForm";
-import { apiFetch } from "@/lib/api";
-import { useNotify } from "@/hooks/useNotify";
 
 export default function ScheduledTournamentPage() {
   const router = useRouter();

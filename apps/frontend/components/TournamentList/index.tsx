@@ -1,11 +1,7 @@
 "use client";
 
-import Link from "next/link";
-import { tournamentStatusLabel, tournamentFormatInfo } from "@/types";
-import { useFetch } from "@/hooks/useFetch";
-import { useFilterToggle } from "@/hooks/useFilterToggle";
-import { tournamentStatusColors } from "@/lib/colors";
-import { formatDate } from "@/lib/helpers";
+import FilterTabs from "@/components/FilterTabs";
+import StatusBadge from "@/components/StatusBadge";
 import {
   Carousel,
   CarouselContent,
@@ -13,8 +9,12 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "@/components/ui/carousel";
-import StatusBadge from "@/components/StatusBadge";
-import FilterTabs from "@/components/FilterTabs";
+import { useFetch } from "@/hooks/useFetch";
+import { useFilterToggle } from "@/hooks/useFilterToggle";
+import { tournamentStatusColors } from "@/lib/colors";
+import { formatDate } from "@/lib/helpers";
+import { tournamentStatusLabel, tournamentFormatInfo } from "@/types";
+import Link from "next/link";
 import type { Filter, TournamentSummary } from "./types";
 
 function getRoundInfo(

@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState, createContext, useContext } from "react";
-import Link from "next/link";
-import type { Bracket, BracketRound, BracketMatch, TiebreakerMatch } from "@/lib/generateBracket";
 import {
   LABEL_CANCEL,
   LABEL_CONFIRM,
@@ -10,6 +8,8 @@ import {
   LABEL_TIE,
   LABEL_UNDO,
 } from "@/constants/labels";
+import type { Bracket, BracketRound, BracketMatch, TiebreakerMatch } from "@/lib/generateBracket";
+import Link from "next/link";
 
 const TournamentIdContext = createContext<number | null>(null);
 const HighlightContext = createContext<string | null>(null);
@@ -194,6 +194,7 @@ export default function BracketView({ bracket, tournamentId, highlightName, onSw
   useEffect(() => {
     if (!isExpanded) return;
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setZoom(1);
     setFitToScreen(false);
   }, [isExpanded, bracket]);

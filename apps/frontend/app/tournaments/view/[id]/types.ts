@@ -1,5 +1,5 @@
-import type { TournamentStatus, TournamentFormat, TournamentCreationMode, TournamentRegistrationMode, TournamentRegistrationStatus } from "@/types";
 import type { Bracket } from "@/lib/generateBracket";
+import type { TournamentStatus, TournamentFormat, TournamentCreationMode, TournamentRegistrationMode, TournamentRegistrationStatus } from "@/types";
 
 export interface TournamentParticipantData {
   seed: number;

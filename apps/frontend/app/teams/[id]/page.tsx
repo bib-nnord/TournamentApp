@@ -1,17 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
-import { useParams } from "next/navigation";
-import { useFetch } from "@/hooks/useFetch";
-import { useRequireAuth } from "@/hooks/useRequireAuth";
-import { useNotify } from "@/hooks/useNotify";
-import { apiFetch } from "@/lib/api";
-import { teamRoleColors } from "@/lib/colors";
-import { getUserInitial, getTeamPermissions } from "@/lib/helpers";
-import { teamRoleLabel } from "@/constants/labels";
-import type { TeamRelation as TeamRole } from "@/types";
 import UserSearchInput from "@/components/UserSearchInput";
+import { teamRoleLabel } from "@/constants/labels";
 import {
   LABEL_BACK_TO_TEAMS,
   LABEL_JOIN_TEAM,
@@ -23,6 +14,15 @@ import {
   LABEL_PROMOTE,
   LABEL_KICK,
 } from "@/constants/labels";
+import { useFetch } from "@/hooks/useFetch";
+import { useNotify } from "@/hooks/useNotify";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
+import { apiFetch } from "@/lib/api";
+import { teamRoleColors } from "@/lib/colors";
+import { getUserInitial, getTeamPermissions } from "@/lib/helpers";
+import type { TeamRelation as TeamRole } from "@/types";
+import Link from "next/link";
+import { useParams } from "next/navigation";
 
 interface TeamMemberDto {
   id: number;

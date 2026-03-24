@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { apiFetch } from "@/lib/api";
 import { LABEL_SAVE_CHANGES, LABEL_DISBAND } from "@/constants/labels";
+import { apiFetch } from "@/lib/api";
 import type { TeamSettingsFormProps } from "./types";
 
 export default function TeamSettingsForm({ teamId, team, isLead, onSuccess, onDisband }: TeamSettingsFormProps) {

@@ -2,18 +2,18 @@
 
 import { useState, useEffect } from "react";
 import { useDispatch } from "react-redux";
-import { useRouter } from "next/navigation";
-import { logoutAsync } from "@/store/authSlice";
-import type { AppDispatch } from "@/store/store";
-import { useRequireAuth } from "@/hooks/useRequireAuth";
-import { useNotify } from "@/hooks/useNotify";
-import { apiFetch } from "@/lib/api";
 import {
   LABEL_CHANGE_PASSWORD,
   LABEL_CHANGE_EMAIL,
   LABEL_LOG_OUT,
   LABEL_DELETE_ACCOUNT,
 } from "@/constants/labels";
+import { useNotify } from "@/hooks/useNotify";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
+import { apiFetch } from "@/lib/api";
+import { logoutAsync } from "@/store/authSlice";
+import type { AppDispatch } from "@/store/store";
+import { useRouter } from "next/navigation";
 
 type ThemePref = "light" | "dark" | "system";
 type LanguagePref = "en" | "de";

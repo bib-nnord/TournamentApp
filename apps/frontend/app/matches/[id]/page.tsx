@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useParams, useSearchParams, useRouter } from "next/navigation";
-import Link from "next/link";
 import { useSelector } from "react-redux";
-import { apiFetch } from "@/lib/api";
 import { usePolling } from "@/hooks/usePolling";
+import { apiFetch } from "@/lib/api";
 import type { RootState } from "@/store/store";
+import Link from "next/link";
+import { useParams, useSearchParams, useRouter } from "next/navigation";
 
 interface BracketMatchDetail {
   match: {
@@ -265,7 +265,8 @@ export default function MatchPage() {
               </h1>
               <p className="text-sm text-gray-400 mt-0.5">{sectionDisplay}</p>
             </div>
-            <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+            <span
+className={`text-xs px-2 py-1 rounded-full font-medium ${
               match.completed ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-600"
             }`}>
               {match.completed ? (match.tie ? "Tie" : "Completed") : "Scheduled"}

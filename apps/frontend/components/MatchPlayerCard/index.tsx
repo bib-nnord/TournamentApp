@@ -1,5 +1,5 @@
-import type { MatchPlayer } from "@/types";
 import { getUserInitial } from "@/lib/helpers";
+import type { MatchPlayer } from "@/types";
 
 interface MatchPlayerCardProps {
   player: MatchPlayer;
