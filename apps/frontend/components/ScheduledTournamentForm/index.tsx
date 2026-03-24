@@ -3,7 +3,14 @@
 import { useState, useEffect, useRef } from "react";
 import { tournamentFormatInfo, type TournamentFormat, type TournamentRegistrationMode } from "@/types";
 import { apiFetch } from "@/lib/api";
+import {
+  CUSTOM_DISCIPLINE_VALUE,
+  DISCIPLINE_OPTIONS,
+  disciplineValueToLabel,
+  labelToDisciplineValue,
+} from "@/constants/disciplines";
 import { inputClass, labelClass, ToggleSwitch, FormSection } from "../FormPrimitives";
+import TournamentFormatMiniPreview from "../TournamentFormatMiniPreview";
 import UserSearchInput from "../UserSearchInput";
 import type { ScheduledTournamentData, ScheduledInvite } from "./types";
 
@@ -34,7 +41,18 @@ interface TeamSearchResult {
 
 export default function ScheduledTournamentForm({ initial, onSubmit, onChange, submitting, submitError }: Props) {
   const [name, setName] = useState(initial?.name ?? "");
-  const [game, setGame] = useState(initial?.game ?? "");
+  const [disciplineChoice, setDisciplineChoice] = useState(() => {
+    const saved = (initial?.discipline ?? (initial as any)?.game ?? "").trim();
+    if (!saved) return "";
+    const value = labelToDisciplineValue(saved);
+    return value ?? CUSTOM_DISCIPLINE_VALUE;
+  });
+  const [customDiscipline, setCustomDiscipline] = useState(() => {
+    const saved = (initial?.discipline ?? (initial as any)?.game ?? "").trim();
+    if (!saved) return "";
+    const value = labelToDisciplineValue(saved);
+    return value ? "" : saved;
+  });
   const [description, setDescription] = useState(initial?.description ?? "");
   const [format, setFormat] = useState<TournamentFormat>(initial?.format ?? "single_elimination");
   const [isPrivate, setIsPrivate] = useState(initial?.isPrivate ?? false);
@@ -46,6 +64,9 @@ export default function ScheduledTournamentForm({ initial, onSubmit, onChange, s
   const [startDate, setStartDate] = useState(initial?.startDate ?? "");
   const [registrationClosesAt, setRegistrationClosesAt] = useState(initial?.registrationClosesAt ?? "");
   const [invites, setInvites] = useState<ScheduledInvite[]>(initial?.invites ?? []);
+  const discipline = disciplineChoice === CUSTOM_DISCIPLINE_VALUE
+    ? customDiscipline.trim()
+    : disciplineValueToLabel(disciplineChoice);
 
   // Team search for invites
   const [teamSearch, setTeamSearch] = useState("");
@@ -107,12 +128,12 @@ export default function ScheduledTournamentForm({ initial, onSubmit, onChange, s
     }, 500);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [name, game, description, format, isPrivate, teamMode, registrationMode, maxParticipants, startDate, registrationClosesAt, invites]);
+  }, [name, discipline, description, format, isPrivate, teamMode, registrationMode, maxParticipants, startDate, registrationClosesAt, invites]);
 
   function buildData(): ScheduledTournamentData {
     return {
       name,
-      game,
+      discipline,
       description,
       format,
       isPrivate,
@@ -151,7 +172,7 @@ export default function ScheduledTournamentForm({ initial, onSubmit, onChange, s
     setInvites((prev) => prev.filter((_, i) => i !== index));
   }
 
-  const canSubmit = name.trim() && game.trim();
+  const canSubmit = name.trim() && discipline.trim();
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
@@ -165,14 +186,31 @@ export default function ScheduledTournamentForm({ initial, onSubmit, onChange, s
         />
       </FormSection>
 
-      <FormSection label="Game / Discipline">
-        <input
-          value={game}
-          onChange={(e) => setGame(e.target.value)}
-          required
-          placeholder="e.g. Chess, Rocket League"
-          className={inputClass}
-        />
+      <FormSection label="Discipline">
+        <div className="flex flex-col gap-2">
+          <select
+            value={disciplineChoice}
+            onChange={(e) => setDisciplineChoice(e.target.value)}
+            required
+            className={inputClass}
+          >
+            <option value="" disabled>Select discipline…</option>
+            {DISCIPLINE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.icon} {option.label}
+              </option>
+            ))}
+          </select>
+          {disciplineChoice === CUSTOM_DISCIPLINE_VALUE && (
+            <input
+              value={customDiscipline}
+              onChange={(e) => setCustomDiscipline(e.target.value)}
+              required
+              placeholder="Enter your own discipline"
+              className={inputClass}
+            />
+          )}
+        </div>
       </FormSection>
 
       <FormSection label="Description" optional>
@@ -197,6 +235,7 @@ export default function ScheduledTournamentForm({ initial, onSubmit, onChange, s
             </option>
           ))}
         </select>
+        <TournamentFormatMiniPreview format={format} />
       </FormSection>
 
       <ToggleSwitch

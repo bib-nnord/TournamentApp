@@ -263,6 +263,7 @@ export async function createScheduled(req: Request, res: Response) {
   const {
     name,
     game,
+    discipline,
     description,
     format,
     isPrivate,
@@ -276,6 +277,7 @@ export async function createScheduled(req: Request, res: Response) {
   } = req.body as {
     name?: string;
     game?: string;
+    discipline?: string;
     description?: string;
     format?: string;
     isPrivate?: boolean;
@@ -288,8 +290,10 @@ export async function createScheduled(req: Request, res: Response) {
     invites?: Array<{ type?: 'account' | 'team'; userId?: number; username?: string; teamId?: number; displayName?: string }>;
   };
 
-  if (!name || !game || !format) {
-    return res.status(400).json({ error: 'name, game, and format are required' });
+  const resolvedDiscipline = (discipline ?? game)?.trim();
+
+  if (!name || !resolvedDiscipline || !format) {
+    return res.status(400).json({ error: 'name, discipline, and format are required' });
   }
 
   if (!VALID_TOURNAMENT_FORMATS.includes(format as any)) {
@@ -336,7 +340,7 @@ export async function createScheduled(req: Request, res: Response) {
     const tournament = await prisma.tournament.create({
       data: {
         name,
-        game,
+        game: resolvedDiscipline,
         description: description || null,
         format: format as any,
         creation_mode: 'scheduled' as any,

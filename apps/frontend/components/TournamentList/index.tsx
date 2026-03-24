@@ -70,20 +70,30 @@ export default function TournamentList({
             const progressPct = progress && progress.total > 0
               ? Math.round((progress.completed / progress.total) * 100)
               : null;
+            const joinedClass = t.isJoined
+              ? "border-indigo-300 bg-indigo-50/30 hover:border-indigo-400"
+              : "border-gray-100";
 
             return (
               <Link
                 key={t.id}
                 href={`/tournaments/view/${t.id}`}
-                className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-shadow flex flex-col gap-3"
+                className={`bg-white rounded-xl border shadow-sm p-5 hover:shadow-md transition-shadow flex flex-col gap-3 ${joinedClass}`}
               >
                 <div className="flex items-start justify-between gap-2">
                   <h2 className="text-sm font-semibold text-gray-900">{t.name}</h2>
-                  <StatusBadge
-                    label={tournamentStatusLabel[t.status]}
-                    colorClass={tournamentStatusColors[t.status]}
-                    className="shrink-0"
-                  />
+                  <div className="flex items-center gap-1.5">
+                    {t.isJoined && (
+                      <span className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded bg-indigo-100 text-indigo-700">
+                        You are in
+                      </span>
+                    )}
+                    <StatusBadge
+                      label={tournamentStatusLabel[t.status]}
+                      colorClass={tournamentStatusColors[t.status]}
+                      className="shrink-0"
+                    />
+                  </div>
                 </div>
                 <div className="text-xs text-gray-500 flex flex-col gap-1">
                   <span className="text-gray-700 font-medium">{t.game}</span>

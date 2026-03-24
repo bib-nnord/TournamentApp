@@ -29,7 +29,11 @@ function loadDraft(): SavedDraft | null {
       localStorage.removeItem(STORAGE_KEY);
       return null;
     }
-    return parsed;
+    const migratedData = {
+      ...parsed.data,
+      discipline: parsed.data?.discipline ?? (parsed.data as any)?.game ?? "",
+    };
+    return { ...parsed, data: migratedData };
   } catch {
     return null;
   }
@@ -151,7 +155,7 @@ export default function QuickTournamentPage() {
         method: "POST",
         body: JSON.stringify({
           name: data.name,
-          game: data.game,
+          discipline: data.discipline,
           description: data.description || undefined,
           format: data.format,
           isPrivate: data.isPrivate,

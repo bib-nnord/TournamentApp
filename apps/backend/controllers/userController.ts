@@ -10,8 +10,10 @@ export async function list(req: Request, res: Response) {
     const page = Math.max(parseInt(String(req.query.page), 10) || 1, 1);
     const limit = Math.min(Math.max(parseInt(String(req.query.limit), 10) || 20, 1), 100);
     const q = String(req.query.q ?? '').trim();
+    const sortRaw = String(req.query.sort ?? '').toLowerCase();
+    const sort: 'asc' | 'desc' = sortRaw === 'desc' ? 'desc' : 'asc';
 
-    const result = await userService.listUsers(page, limit, q || undefined);
+    const result = await userService.listUsers(page, limit, q || undefined, sort);
 
     res.json({
       users: result.users.map(userService.mapUserListItem),

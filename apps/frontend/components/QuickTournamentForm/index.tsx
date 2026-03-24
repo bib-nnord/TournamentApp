@@ -9,7 +9,14 @@ import {
   LABEL_ADD_TEAM,
   LABEL_GENERATE_BRACKET,
 } from "@/constants/labels";
+import {
+  CUSTOM_DISCIPLINE_VALUE,
+  DISCIPLINE_OPTIONS,
+  disciplineValueToLabel,
+  labelToDisciplineValue,
+} from "@/constants/disciplines";
 import { inputClass, labelClass, ToggleSwitch, FormSection } from "../FormPrimitives";
+import TournamentFormatMiniPreview from "../TournamentFormatMiniPreview";
 import UserSearchInput from "../UserSearchInput";
 import type { Participant, ParticipantMemberType, TournamentTeam, TeamSearchResult, QuickTournamentData } from "./types";
 
@@ -26,7 +33,18 @@ const formats = Object.entries(tournamentFormatInfo) as [TournamentFormat, { lab
 
 export default function QuickTournamentForm({ initial, onSubmit, onChange }: Props) {
   const [name, setName] = useState(initial?.name ?? "");
-  const [game, setGame] = useState(initial?.game ?? "");
+  const [disciplineChoice, setDisciplineChoice] = useState(() => {
+    const saved = (initial?.discipline ?? (initial as any)?.game ?? "").trim();
+    if (!saved) return "";
+    const value = labelToDisciplineValue(saved);
+    return value ?? CUSTOM_DISCIPLINE_VALUE;
+  });
+  const [customDiscipline, setCustomDiscipline] = useState(() => {
+    const saved = (initial?.discipline ?? (initial as any)?.game ?? "").trim();
+    if (!saved) return "";
+    const value = labelToDisciplineValue(saved);
+    return value ? "" : saved;
+  });
   const [description, setDescription] = useState(initial?.description ?? "");
   const [format, setFormat] = useState<TournamentFormat>(initial?.format ?? "single_elimination");
   const [isPrivate, setIsPrivate] = useState(initial?.isPrivate ?? false);
@@ -115,6 +133,9 @@ export default function QuickTournamentForm({ initial, onSubmit, onChange }: Pro
     : [...accounts, ...guests];
 
   const { addTag, removeTag } = useTagInput(allNames);
+  const discipline = disciplineChoice === CUSTOM_DISCIPLINE_VALUE
+    ? customDiscipline.trim()
+    : disciplineValueToLabel(disciplineChoice);
 
   // ─── Auto-save draft (debounced) ──────────────────────────────────────
   useEffect(() => {
@@ -131,10 +152,10 @@ export default function QuickTournamentForm({ initial, onSubmit, onChange }: Pro
             ...accounts.map((n) => ({ name: n, type: "account" as const })),
             ...guests.map((n) => ({ name: n, type: "guest" as const })),
           ];
-      onChange({ name, game, description, format, participants, isPrivate, teamMode, allowTies });
+      onChange({ name, discipline, description, format, participants, isPrivate, teamMode, allowTies });
     }, 500);
     return () => clearTimeout(timer);
-  }, [name, game, description, format, isPrivate, teamMode, allowTies, accounts, guests, teams, onChange]);
+  }, [name, discipline, description, format, isPrivate, teamMode, allowTies, accounts, guests, teams, onChange]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -150,7 +171,7 @@ export default function QuickTournamentForm({ initial, onSubmit, onChange }: Pro
           ...accounts.map((n) => ({ name: n, type: "account" as const })),
           ...guests.map((n) => ({ name: n, type: "guest" as const })),
         ];
-    onSubmit({ name, game, description, format, participants, isPrivate, teamMode, allowTies });
+    onSubmit({ name, discipline, description, format, participants, isPrivate, teamMode, allowTies });
   }
 
   return (
@@ -165,14 +186,31 @@ export default function QuickTournamentForm({ initial, onSubmit, onChange }: Pro
         />
       </FormSection>
 
-      <FormSection label="Game / Discipline">
-        <input
-          value={game}
-          onChange={(e) => setGame(e.target.value)}
-          required
-          placeholder="e.g. Chess, Rocket League"
-          className={inputClass}
-        />
+      <FormSection label="Discipline">
+        <div className="flex flex-col gap-2">
+          <select
+            value={disciplineChoice}
+            onChange={(e) => setDisciplineChoice(e.target.value)}
+            required
+            className={inputClass}
+          >
+            <option value="" disabled>Select discipline…</option>
+            {DISCIPLINE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.icon} {option.label}
+              </option>
+            ))}
+          </select>
+          {disciplineChoice === CUSTOM_DISCIPLINE_VALUE && (
+            <input
+              value={customDiscipline}
+              onChange={(e) => setCustomDiscipline(e.target.value)}
+              required
+              placeholder="Enter your own discipline"
+              className={inputClass}
+            />
+          )}
+        </div>
       </FormSection>
 
       <FormSection label="Description" optional>
@@ -197,6 +235,7 @@ export default function QuickTournamentForm({ initial, onSubmit, onChange }: Pro
             </option>
           ))}
         </select>
+        <TournamentFormatMiniPreview format={format} />
       </FormSection>
 
       <ToggleSwitch

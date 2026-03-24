@@ -23,6 +23,7 @@ export default function UsersPage() {
   const [total, setTotal] = useState(0);
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [sort, setSort] = useState<"asc" | "desc">("asc");
 
   // Debounce search input
   useEffect(() => {
@@ -33,7 +34,7 @@ export default function UsersPage() {
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ page: String(page), limit: "20" });
+      const params = new URLSearchParams({ page: String(page), limit: "20", sort });
       if (debouncedQuery) params.set("q", debouncedQuery);
       const res = await apiFetch(`/users?${params}`);
       if (!res.ok) return;
@@ -46,16 +47,16 @@ export default function UsersPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, debouncedQuery]);
+  }, [page, debouncedQuery, sort]);
 
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
 
-  // Reset to page 1 when search changes
+  // Reset to page 1 when search or sort changes
   useEffect(() => {
     setPage(1);
-  }, [debouncedQuery]);
+  }, [debouncedQuery, sort]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -74,14 +75,36 @@ export default function UsersPage() {
         </div>
 
         {/* Search */}
-        <div className="mb-4">
+        <div className="mb-4 flex gap-2">
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search by username or display name…"
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
+          <button
+            onClick={() => setSort("asc")}
+            className={`px-3 py-2 text-sm rounded-lg border font-medium transition-colors ${
+              sort === "asc"
+                ? "bg-indigo-600 text-white border-indigo-600"
+                : "border-gray-300 text-gray-600 hover:bg-gray-50"
+            }`}
+            title="Sort A → Z"
+          >
+            A→Z
+          </button>
+          <button
+            onClick={() => setSort("desc")}
+            className={`px-3 py-2 text-sm rounded-lg border font-medium transition-colors ${
+              sort === "desc"
+                ? "bg-indigo-600 text-white border-indigo-600"
+                : "border-gray-300 text-gray-600 hover:bg-gray-50"
+            }`}
+            title="Sort Z → A"
+          >
+            Z→A
+          </button>
         </div>
 
         {/* User list */}

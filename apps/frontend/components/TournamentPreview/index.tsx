@@ -4,6 +4,12 @@ import { useState, useMemo, useRef, type KeyboardEvent } from "react";
 import { useSelector } from "react-redux";
 import { tournamentFormatInfo, tournamentStatusLabel, type TournamentFormat, type TournamentStatus } from "@/types";
 import { generateBracket, type Bracket, type BracketOptions } from "@/lib/generateBracket";
+import {
+  CUSTOM_DISCIPLINE_VALUE,
+  DISCIPLINE_OPTIONS,
+  disciplineValueToLabel,
+  labelToDisciplineValue,
+} from "@/constants/disciplines";
 import type { QuickTournamentData, Participant } from "../QuickTournamentForm";
 import type { ParticipantMemberType, ParticipantMember } from "../QuickTournamentForm/types";
 import UserSearchInput from "../UserSearchInput";
@@ -21,7 +27,21 @@ import type { TournamentPreviewProps } from "./types";
 export default function TournamentPreview({ data, onBack, onConfirm, submitting, submitError }: TournamentPreviewProps) {
   const currentUser = useSelector((state: RootState) => state.user.current);
   const [name, setName] = useState(data.name);
-  const [game, setGame] = useState(data.game);
+  const [disciplineChoice, setDisciplineChoice] = useState(() => {
+    const saved = (data.discipline ?? (data as any).game ?? "").trim();
+    if (!saved) return "";
+    const value = labelToDisciplineValue(saved);
+    return value ?? CUSTOM_DISCIPLINE_VALUE;
+  });
+  const [customDiscipline, setCustomDiscipline] = useState(() => {
+    const saved = (data.discipline ?? (data as any).game ?? "").trim();
+    if (!saved) return "";
+    const value = labelToDisciplineValue(saved);
+    return value ? "" : saved;
+  });
+  const discipline = disciplineChoice === CUSTOM_DISCIPLINE_VALUE
+    ? customDiscipline.trim()
+    : disciplineValueToLabel(disciplineChoice);
   const [description, setDescription] = useState(data.description);
   const [format, setFormat] = useState<TournamentFormat>(data.format);
   const [isPrivate, setIsPrivate] = useState(data.isPrivate);
@@ -188,7 +208,7 @@ export default function TournamentPreview({ data, onBack, onConfirm, submitting,
 
   // ─── Confirm ──────────────────────────────────────────────────────────────
   function handleConfirm() {
-    const updatedData: QuickTournamentData = { ...data, name, game, description, format, isPrivate, participants, advancersPerGroup, status };
+    const updatedData: QuickTournamentData = { ...data, name, discipline, description, format, isPrivate, participants, advancersPerGroup, status };
     onConfirm(updatedData, { ...bracket, allowTies: updatedData.allowTies !== false });
   }
 
@@ -203,7 +223,7 @@ export default function TournamentPreview({ data, onBack, onConfirm, submitting,
         <h2 className="text-base font-bold text-gray-900 mb-3">Tournament Details</h2>
         <dl className="text-sm space-y-2">
           <div><dt className="text-xs text-gray-400 uppercase tracking-wide">Name</dt><dd className="text-gray-900 font-medium">{name}</dd></div>
-          <div><dt className="text-xs text-gray-400 uppercase tracking-wide">Game</dt><dd className="text-gray-900 font-medium">{game || "—"}</dd></div>
+          <div><dt className="text-xs text-gray-400 uppercase tracking-wide">Discipline</dt><dd className="text-gray-900 font-medium">{discipline || "—"}</dd></div>
           {description && <div><dt className="text-xs text-gray-400 uppercase tracking-wide">Description</dt><dd className="text-gray-700">{description}</dd></div>}
           <div><dt className="text-xs text-gray-400 uppercase tracking-wide">Format</dt><dd className="text-gray-900 font-medium">{tournamentFormatInfo[format]?.label ?? format}</dd></div>
           <div><dt className="text-xs text-gray-400 uppercase tracking-wide">Participants</dt><dd className="text-gray-900 font-medium">{participants.length}</dd></div>
@@ -221,8 +241,29 @@ export default function TournamentPreview({ data, onBack, onConfirm, submitting,
               <input value={name} onChange={(e) => setName(e.target.value)} className={`${inputClass} w-full`} />
             </div>
             <div>
-              <label className={labelClass}>Game</label>
-              <input value={game} onChange={(e) => setGame(e.target.value)} className={`${inputClass} w-full`} />
+              <label className={labelClass}>Discipline</label>
+              <div className="flex flex-col gap-2">
+                <select
+                  value={disciplineChoice}
+                  onChange={(e) => setDisciplineChoice(e.target.value)}
+                  className={`${inputClass} w-full`}
+                >
+                  <option value="" disabled>Select discipline…</option>
+                  {DISCIPLINE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.icon} {option.label}
+                    </option>
+                  ))}
+                </select>
+                {disciplineChoice === CUSTOM_DISCIPLINE_VALUE && (
+                  <input
+                    value={customDiscipline}
+                    onChange={(e) => setCustomDiscipline(e.target.value)}
+                    placeholder="Enter your own discipline"
+                    className={`${inputClass} w-full`}
+                  />
+                )}
+              </div>
             </div>
             <div className="sm:col-span-2">
               <label className={labelClass}>Description</label>

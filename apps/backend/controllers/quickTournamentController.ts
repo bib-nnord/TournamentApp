@@ -8,10 +8,11 @@ import * as tournamentService from '../services/tournamentService';
 import { formatTournament, tournamentCreatorSelect, tournamentParticipantInclude } from './tournamentController';
 
 export async function create(req: Request, res: Response) {
-  const { name, game, description, format, isPrivate, participants, bracketData, maxParticipants, startDate, status, teamMode } =
+  const { name, game, discipline, description, format, isPrivate, participants, bracketData, maxParticipants, startDate, status, teamMode } =
     req.body as {
       name?: string;
       game?: string;
+      discipline?: string;
       description?: string;
       format?: string;
       isPrivate?: boolean;
@@ -24,9 +25,10 @@ export async function create(req: Request, res: Response) {
     };
 
   const isTeamMode = teamMode ?? false;
+  const resolvedDiscipline = (discipline ?? game)?.trim();
 
-  if (!name || !game || !format) {
-    return res.status(400).json({ error: 'name, game, and format are required' });
+  if (!name || !resolvedDiscipline || !format) {
+    return res.status(400).json({ error: 'name, discipline, and format are required' });
   }
 
   const validFormats = [
@@ -143,7 +145,7 @@ export async function create(req: Request, res: Response) {
     const tournament: any = await prisma.tournament.create({
       data: {
         name,
-        game,
+        game: resolvedDiscipline,
         description: description || null,
         format: format as any,
         creation_mode: 'quick' as any,
@@ -171,7 +173,7 @@ export async function create(req: Request, res: Response) {
     notifyUsers(
       recipientIds,
       `You've been added to ${name}`,
-      `You have been added as a participant in the tournament "${name}" (${game}). Visit the tournament page to review and accept or decline.`,
+      `You have been added as a participant in the tournament "${name}" (${resolvedDiscipline}). Visit the tournament page to review and accept or decline.`,
       tournament.tournament_id
     );
 
@@ -185,7 +187,7 @@ export async function create(req: Request, res: Response) {
         await publishTeamNewsToTeams(
           participatingTeamIds,
           `Upcoming tournament: ${name}`,
-          `${name} (${game}) is scheduled for ${startText}.`
+          `${name} (${resolvedDiscipline}) is scheduled for ${startText}.`
         );
       } catch (newsErr) {
         console.error('[tournament.create.teamNews]', newsErr);

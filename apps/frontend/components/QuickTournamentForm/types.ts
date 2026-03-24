@@ -32,7 +32,7 @@ export interface TeamSearchResult {
 
 export interface QuickTournamentData {
   name: string;
-  game: string;
+  discipline: string;
   description: string;
   format: TournamentFormat;
   participants: Participant[];

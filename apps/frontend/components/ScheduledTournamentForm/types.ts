@@ -10,7 +10,7 @@ export interface ScheduledInvite {
 
 export interface ScheduledTournamentData {
   name: string;
-  game: string;
+  discipline: string;
   description: string;
   format: TournamentFormat;
   isPrivate: boolean;

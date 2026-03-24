@@ -76,6 +76,22 @@ export default function CreateTournamentPage() {
             <p className="text-sm text-gray-500">
               Start immediately. Add participants manually — no registration needed.
             </p>
+            <div className="mt-4 rounded-lg border border-indigo-100 bg-indigo-50/50 p-2">
+              <svg viewBox="0 0 160 44" className="w-full h-10" aria-hidden="true">
+                <rect x="6" y="6" width="24" height="5" rx="2" fill="#c7d2fe" />
+                <rect x="6" y="18" width="24" height="5" rx="2" fill="#c7d2fe" />
+                <rect x="6" y="30" width="24" height="5" rx="2" fill="#c7d2fe" />
+                <rect x="58" y="12" width="24" height="5" rx="2" fill="#a5b4fc" />
+                <rect x="58" y="26" width="24" height="5" rx="2" fill="#a5b4fc" />
+                <rect x="112" y="19" width="30" height="6" rx="2" fill="#6366f1" />
+                <path d="M30 8 H44 V14 H58" stroke="#94a3b8" strokeWidth="1.5" fill="none" />
+                <path d="M30 20 H44 V14" stroke="#94a3b8" strokeWidth="1.5" fill="none" />
+                <path d="M30 32 H44 V28 H58" stroke="#94a3b8" strokeWidth="1.5" fill="none" />
+                <path d="M82 14 H98 V22 H112" stroke="#94a3b8" strokeWidth="1.5" fill="none" />
+                <path d="M82 28 H98 V22" stroke="#94a3b8" strokeWidth="1.5" fill="none" />
+              </svg>
+              <p className="mt-1 text-[10px] text-gray-500">Quick bracket example</p>
+            </div>
           </Link>
 
           {/* Scheduled Tournament */}
@@ -90,6 +106,20 @@ export default function CreateTournamentPage() {
             <p className="text-sm text-gray-500">
               Set a future date and open registration. Participants sign up on their own.
             </p>
+            <div className="mt-4 rounded-lg border border-emerald-100 bg-emerald-50/50 p-2">
+              <svg viewBox="0 0 160 44" className="w-full h-10" aria-hidden="true">
+                <rect x="6" y="8" width="34" height="12" rx="4" fill="#d1fae5" stroke="#6ee7b7" />
+                <rect x="6" y="24" width="34" height="12" rx="4" fill="#d1fae5" stroke="#6ee7b7" />
+                <rect x="66" y="13" width="24" height="5" rx="2" fill="#a5b4fc" />
+                <rect x="66" y="25" width="24" height="5" rx="2" fill="#a5b4fc" />
+                <rect x="118" y="19" width="30" height="6" rx="2" fill="#6366f1" />
+                <path d="M40 14 H54 H66" stroke="#94a3b8" strokeWidth="1.5" fill="none" />
+                <path d="M40 30 H54 H66" stroke="#94a3b8" strokeWidth="1.5" fill="none" />
+                <path d="M90 15 H104 V22 H118" stroke="#94a3b8" strokeWidth="1.5" fill="none" />
+                <path d="M90 27 H104 V22" stroke="#94a3b8" strokeWidth="1.5" fill="none" />
+              </svg>
+              <p className="mt-1 text-[10px] text-gray-500">Scheduled bracket example</p>
+            </div>
           </Link>
         </div>
       </div>

@@ -151,6 +151,25 @@ export async function list(req: Request, res: Response) {
       }
     }
 
+    const joinedTournamentIds = new Set<number>();
+    if (req.user && tournaments.length > 0) {
+      const participantRows = await prisma.tournamentParticipant.findMany({
+        where: {
+          tournament_id: { in: tournaments.map((t: any) => t.tournament_id) },
+          OR: [
+            { user_id: req.user.id },
+            { members_snapshot: { array_contains: [{ userId: req.user.id }] } },
+          ],
+          declined: false,
+          registration_status: { notIn: ['declined', 'withdrawn'] as any },
+        },
+        select: { tournament_id: true },
+      });
+      for (const row of participantRows) {
+        joinedTournamentIds.add(row.tournament_id);
+      }
+    }
+
     return res.json({
       tournaments: tournaments.map((t: any) => ({
         id: t.tournament_id,
@@ -169,6 +188,9 @@ export async function list(req: Request, res: Response) {
         createdAt: t.created_at,
         startDate: t.start_date ?? null,
         startedAt: t.started_at ?? null,
+        isJoined: req.user
+          ? t.created_by === req.user.id || joinedTournamentIds.has(t.tournament_id)
+          : false,
         matchProgress: t.status === 'active'
           ? (matchStats[t.tournament_id] ?? { total: 0, completed: 0 })
           : undefined,

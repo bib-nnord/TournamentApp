@@ -159,7 +159,7 @@ export async function searchUsers(q: string, limit: number): Promise<User[]> {
   return rows.map(userFromRow);
 }
 
-export async function listUsers(page: number, limit: number, q?: string) {
+export async function listUsers(page: number, limit: number, q?: string, sort: 'asc' | 'desc' = 'asc') {
   const where: any = q
     ? {
         OR: [
@@ -172,7 +172,7 @@ export async function listUsers(page: number, limit: number, q?: string) {
   const [rows, total] = await Promise.all([
     prisma.user.findMany({
       where,
-      orderBy: { created_at: 'desc' },
+      orderBy: { username: sort },
       skip: (page - 1) * limit,
       take: limit,
       select: userListSelect,

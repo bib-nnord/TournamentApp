@@ -23,7 +23,7 @@ export default function ScheduledTournamentPage() {
         method: "POST",
         body: JSON.stringify({
           name: data.name,
-          game: data.game,
+          discipline: data.discipline,
           description: data.description || undefined,
           format: data.format,
           isPrivate: data.isPrivate,
