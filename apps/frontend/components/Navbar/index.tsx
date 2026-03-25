@@ -158,15 +158,14 @@ export default function Navbar() {
               variant="outline"
               size="sm"
               className={cn(
-                "relative h-8 rounded-md px-2.5",
-                messagesActive && "border-primary bg-primary/10 text-primary"
+                "relative h-8 rounded-md px-2.5 bg-white text-foreground border-primary"
               )}
             >
               <Link href="/messages" className="gap-1.5">
                 <Mail className="h-3.5 w-3.5" />
                 Messages
                 {effectiveUnread > 0 && (
-                  <Badge className="ml-1 h-4 min-w-4 rounded-sm bg-primary px-1 text-[10px] text-primary-foreground">
+                  <Badge className="ml-1 h-4 min-w-4 rounded-sm bg-white px-1 text-[10px] text-primary border border-primary">
                     {effectiveUnread > 99 ? "99+" : effectiveUnread}
                   </Badge>
                 )}
@@ -182,7 +181,7 @@ export default function Navbar() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-8 w-48 justify-between rounded-md px-2 data-[state=open]:rounded-b-none data-[state=open]:border-b-transparent md:w-52"
+                  className="h-8 w-48 justify-between rounded-md px-2 bg-white text-foreground data-[state=open]:rounded-b-none data-[state=open]:border-b-transparent md:w-52"
                 >
                   <Avatar className="h-5 w-5 rounded-md border border-border">
                     <AvatarFallback className="rounded-md bg-secondary text-[10px] font-semibold text-secondary-foreground">
@@ -196,7 +195,7 @@ export default function Navbar() {
               <DropdownMenuContent
                 align="end"
                 sideOffset={0}
-                className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-0 rounded-b-md rounded-t-none border-t-0"
+                className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-0 rounded-b-md rounded-t-none border-t-0 bg-white"
               >
                 <DropdownMenuItem asChild>
                   <Link href={`/profile/${user.username}`}>Profile</Link>

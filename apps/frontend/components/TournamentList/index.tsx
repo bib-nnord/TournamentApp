@@ -58,7 +58,6 @@ const filters: { label: string; value: Filter }[] = [
   { label: "Active", value: "active" },
   { label: "Completed", value: "completed" },
   { label: "Cancelled", value: "cancelled" },
-  { label: "Draft", value: "draft" },
 ];
 
 const statusOrder: Record<string, number> = {
@@ -66,7 +65,6 @@ const statusOrder: Record<string, number> = {
   active: 1,
   completed: 2,
   cancelled: 3,
-  draft: 4,
 };
 
 interface TournamentListProps {
