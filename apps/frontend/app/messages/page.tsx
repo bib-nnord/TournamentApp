@@ -624,7 +624,7 @@ export default function MessagesPage() {
   // --- List view ---
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-2xl mx-auto px-4 py-10">
+      <div className="max-w-4xl mx-auto px-4 py-10">
 
         {/* Header */}
         <div className="flex items-center justify-between mb-6">

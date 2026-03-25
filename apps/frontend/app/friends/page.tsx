@@ -165,15 +165,15 @@ export default function FriendsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-2xl mx-auto px-4 py-10">
+      <div className="max-w-3xl mx-auto px-4 py-10">
         <h1 className="text-2xl font-bold text-gray-900 mb-6">Friends</h1>
 
         {/* Add friend */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6">
-          <h2 className="text-sm font-semibold text-gray-800 mb-3">Add friend</h2>
-          <div className="flex gap-2">
+        <div className="bg-white border border-gray-100 shadow-sm p-4 mb-0 rounded-t-2xl rounded-b-none">
+          <div className="flex flex-row items-center gap-4 w-full">
+            <span className="text-base font-semibold text-gray-800 whitespace-nowrap mr-2">Add friend</span>
             {addInput ? (
-              <div className="flex-1 flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2">
+              <div className="flex-1 flex items-center gap-2 border border-gray-300 rounded-lg px-2 py-2 min-w-0 max-w-xl">
                 <span className="text-sm text-gray-800 font-medium truncate">{addInput}</span>
                 <button
                   type="button"
@@ -193,13 +193,14 @@ export default function FriendsPage() {
                   setAddError(null);
                 }}
                 placeholder="Search users..."
-                className="flex-1"
+                className="flex-1 w-80 max-w-xl text-sm h-11 px-4 py-2"
+                size="sm"
               />
             )}
             <button
               onClick={handleSendRequest}
               disabled={sending || !addInput.trim()}
-              className="text-sm px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              className="text-sm px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 whitespace-nowrap ml-2"
             >
               {sending ? "Sending…" : LABEL_SEND_REQUEST}
             </button>
@@ -273,7 +274,7 @@ export default function FriendsPage() {
             )}
 
             {/* Friends list */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+            <div className="bg-white border border-gray-100 shadow-sm p-6 rounded-b-2xl rounded-t-none">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-sm font-semibold text-gray-800">
                   Friends <span className="text-gray-400 font-normal">({friends.length})</span>
