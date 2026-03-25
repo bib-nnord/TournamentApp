@@ -6,101 +6,90 @@ pnpm dev
 
 
 
-current TODOS:
-
-
-redesign
-work on profile more.
-settings page
-PDF for saving WIP tournament
-
 Critical
-Hardcoded secrets — docker-compose.yml has DB password postgres and JWT secret "replace_with_your_production_secret" in plain text. No .env or .env.example exists.
 
-Zero test infrastructure — No test files, no test framework installed (no jest/vitest/playwright), both root and backend have placeholder "test": "echo Error".
+Move secrets to .env files (remove hardcoded DB/JWT secrets from docker-compose.yml)
+Add test infrastructure (install and configure Jest/Vitest/Playwright; add test files)
+Remove hardcoded API URLs (use env/config for API endpoints)
+High
 
-Hardcoded API URL — http://localhost:2000 is hardcoded in lib/api.ts and store/authSlice.ts. Won't work outside local dev.
-
+Fix notification promises: notifyUser/notifyUsers should be awaited or errors surfaced
+Fix clearAuth: ensure user state is cleared on logout/token refresh failure
+Add error boundary pages (custom error.tsx for all routes)
+Use Next.js router for auth failures (avoid window.location.href)
+Add type safety to formatTournament and bracket code (remove any)
+Handle null tournament creator references throughout backend
+Change Account Deletion to simply anonymizing user rather than deleting
 Medium
 
-No refresh token rotation — Old refresh tokens stay valid after use.
-Missing DB indexes — FK columns like Message.sender_id, Tournament.status, Match.tournament_id, etc. are un-indexed.
-Missing cascade rules — Deleting a User who created teams or is a tournament participant will fail with FK violations.
-
-Race condition on token refresh — Multiple concurrent 401s each independently call refreshAccessToken().
-req.user typed as always-present — express.d.ts doesn't mark user as optional, masking runtime null access on unauthenticated routes.
-No real build step — tsx runs TypeScript at runtime in production Docker; no compiled JS output, no multi-stage build.
- Actively served at /api-docs but provides no value.
-Low 
-No generic API error handling — Every frontend caller must individually parse errors from apiFetch.
-useRequireAuth doesn't check token expiry — User sees protected page briefly before first 401 kicks them out.
-Dockerfile double-copies prisma/ — Minor image build inefficiency.
-
-Tailwind Shadcn AI Library for Assistant
-
-Das gesamte Grafische Rework, 
-
-AI Assistent,
-
-Swagger Autogen (teil 2)
-
-Emails (passwort vergessen und gastregistration)
-
-CI CD 
-
-Testing
+Implement refresh token rotation (invalidate old tokens)
+Add DB indexes to FK columns (e.g., Message.sender_id, Tournament.status)
+Add cascade rules for user/team/tournament deletions
+Fix race condition on token refresh (prevent multiple concurrent refreshes)
+Mark req.user as optional in express.d.ts and handle nulls everywhere
+Add a real build step for Docker (multi-stage, compiled JS output)
+Remove unused/placeholder /api-docs endpoint
+Handle inconsistent req.user null checks in backend
+Add ARIA attributes to modals for accessibility
+Avoid silent error swallowing (handle all errors explicitly)
+Prevent message sender impersonation (add type/role to Message model)
+Remove duplicate API_URL definitions (import from single source)
+Validate route parameters in frontend pages
+Use a request validation library (e.g., zod) in backend controllers
+Strengthen frontend validation (registration, forms)
+Fix useDebouncedSearch dependency issue
+Switch to cursor-based pagination for large datasets
+Add schema validation for JSON bracket data
 
 
-ForgotPasswordForm is a non-functional stub — components/ForgotPasswordForm/index.tsx renders a form with no state, no submission handler, and no API call. Users clicking "Send reset link" get nothing.
+Low
+
+Add generic API error handling in frontend (centralize error parsing)
+Check token expiry in useRequireAuth
+Optimize Dockerfile (avoid double-copying prisma/)
+Improve notification toasts (more info, add UNDO button)
+Add error handling for guest registration emails
+Add light/dark mode support
+Move declined tournaments to bottom and gray them out
+Add icon for tournament view
+UI/UX & Features
+
+Redesign (general)
+Profile improvements
+Settings page improvements
+PDF export for WIP tournaments
+Tailwind/Shadcn/AI Library for Assistant
+Full graphical rework
+AI Assistant
+Swagger Autogen (part 2)
+ForgotPasswordForm: implement full functionality
+CI/CD setup
+Testing (add actual tests)
+Notification Toasts: add more info, UNDO button
+Email to guest users to create account
 
 
-HIGH
-Fire-and-forget notification promises — notify.ts:17: notifyUser() and notifyUsers() use .then().catch() chains that are never awaited or returned. Errors are silently logged to console only — callers have no way to know notifications failed.
+other things to manually add:
 
-clearAuth doesn't clear user state — authSlice.ts:108: The clearAuth reducer only sets checked: true but doesn't dispatch any action to clear the user from the userSlice. After a failed token refresh, the user object may remain stale in the store.
+Tournament display fix date and disciplines. 
 
-No error boundary pages — The frontend has no error.tsx files for any route. Any rendering crash shows the default Next.js error page instead of a graceful fallback.
+tournament fix routes 
 
-Imperative navigation on auth failure — api.ts:23: Uses window.location.href = '/login' instead of Next.js router, causing a full page reload and losing client-side state.
+users fix sorting and maybe draggable scrolling
 
-formatTournament uses any type — tournamentController.ts:9: formatTournament(tournament: any) loses all type safety. The bracket manipulation code throughout the backend relies heavily on any.
+Dashboard everything.
 
-Tournament creator null reference — tournamentController.ts:26: If a creator user is deleted from the DB, tournament.creator is null and the ternary handles it, but many other places access .creator properties directly without null checks.
+Teams collapsible for further details?
 
-MEDIUM
-Inconsistent req.user null handling — The backend mixes req.user?.id (optional chaining) and req.user.id (direct access) across controllers. Routes using optionalAuth can crash if req.user is undefined.
+search by name in discover teams. 
 
-Modal missing ARIA attributes — index.tsx:30: No role="dialog", aria-modal="true", or aria-labelledby on the modal container.
+show who the lead is and discipline in the preview
 
-Silent error swallowing — 15+ locations across the frontend use catch { } or .catch(() => {}) to silently swallow errors, making debugging difficult and hiding failures from users.
+friend settings 
 
-Message sender impersonation risk — The Message model allows sender_id: null with arbitrary sender_name. There's no type/role field to distinguish system messages from user messages, so a malicious API call could fake system notifications.
+messages multi options when selecting many at once as dropdown rather than appearing when relevant also add sorting maybe
 
-Duplicate API_URL definitions — The auth slice (authSlice.ts:4) defines its own API_URL instead of importing from api.ts:4, making it easy for them to drift apart.
+profile and setings verything
 
-No route parameter validation — Frontend pages like app/teams/[id]/page.tsx and app/profile/[username]/page.tsx don't validate dynamic params before making API calls.
-
-No request validation library — All backend controllers manually parse and validate request bodies/query params. Using zod or similar would reduce boilerplate and catch edge cases.
-
-Weak frontend validation — page.tsx:28: Registration only checks password match — no strength requirements, no email format check, no min/max lengths.
-
-useDebouncedSearch missing dependency — useDebouncedSearch.ts:16: buildUrl excluded from effect dependencies with a comment asking callers to pass a stable reference. If they don't, the debounce uses a stale function.
-
-Performance — Skip-based pagination in controllers/userController.ts will degrade on large datasets. Cursor-based pagination would be more efficient.
-
-JSON bracket data has no schema validation — The Prisma Json? type for bracket_data and team_assignments accepts any structure. Invalid data could corrupt tournament state with no validation layer.
-
-Icon for tournament view
-
-Messages larger width 
-
-light&dark mode 
-
-Iff someone declines tournament move to bottom and gray 
-
-Notification Toasts need more information
-
-Email to guest users to. make account 
-
-UNDO button? for toasts?
+add some filler text to homepage
 
