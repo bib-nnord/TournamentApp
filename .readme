@@ -3,6 +3,9 @@ docker-compose up
 cd apps/frontend
 pnpm dev
 
+
+
+
 current TODOS:
 
 
@@ -34,4 +37,70 @@ useRequireAuth doesn't check token expiry — User sees protected page briefly b
 Dockerfile double-copies prisma/ — Minor image build inefficiency.
 
 Tailwind Shadcn AI Library for Assistant
+
+Das gesamte Grafische Rework, 
+
+AI Assistent,
+
+Swagger Autogen (teil 2)
+
+Emails (passwort vergessen und gastregistration)
+
+CI CD 
+
+Testing
+
+
+ForgotPasswordForm is a non-functional stub — components/ForgotPasswordForm/index.tsx renders a form with no state, no submission handler, and no API call. Users clicking "Send reset link" get nothing.
+
+
+HIGH
+Fire-and-forget notification promises — notify.ts:17: notifyUser() and notifyUsers() use .then().catch() chains that are never awaited or returned. Errors are silently logged to console only — callers have no way to know notifications failed.
+
+clearAuth doesn't clear user state — authSlice.ts:108: The clearAuth reducer only sets checked: true but doesn't dispatch any action to clear the user from the userSlice. After a failed token refresh, the user object may remain stale in the store.
+
+No error boundary pages — The frontend has no error.tsx files for any route. Any rendering crash shows the default Next.js error page instead of a graceful fallback.
+
+Imperative navigation on auth failure — api.ts:23: Uses window.location.href = '/login' instead of Next.js router, causing a full page reload and losing client-side state.
+
+formatTournament uses any type — tournamentController.ts:9: formatTournament(tournament: any) loses all type safety. The bracket manipulation code throughout the backend relies heavily on any.
+
+Tournament creator null reference — tournamentController.ts:26: If a creator user is deleted from the DB, tournament.creator is null and the ternary handles it, but many other places access .creator properties directly without null checks.
+
+MEDIUM
+Inconsistent req.user null handling — The backend mixes req.user?.id (optional chaining) and req.user.id (direct access) across controllers. Routes using optionalAuth can crash if req.user is undefined.
+
+Modal missing ARIA attributes — index.tsx:30: No role="dialog", aria-modal="true", or aria-labelledby on the modal container.
+
+Silent error swallowing — 15+ locations across the frontend use catch { } or .catch(() => {}) to silently swallow errors, making debugging difficult and hiding failures from users.
+
+Message sender impersonation risk — The Message model allows sender_id: null with arbitrary sender_name. There's no type/role field to distinguish system messages from user messages, so a malicious API call could fake system notifications.
+
+Duplicate API_URL definitions — The auth slice (authSlice.ts:4) defines its own API_URL instead of importing from api.ts:4, making it easy for them to drift apart.
+
+No route parameter validation — Frontend pages like app/teams/[id]/page.tsx and app/profile/[username]/page.tsx don't validate dynamic params before making API calls.
+
+No request validation library — All backend controllers manually parse and validate request bodies/query params. Using zod or similar would reduce boilerplate and catch edge cases.
+
+Weak frontend validation — page.tsx:28: Registration only checks password match — no strength requirements, no email format check, no min/max lengths.
+
+useDebouncedSearch missing dependency — useDebouncedSearch.ts:16: buildUrl excluded from effect dependencies with a comment asking callers to pass a stable reference. If they don't, the debounce uses a stale function.
+
+Performance — Skip-based pagination in controllers/userController.ts will degrade on large datasets. Cursor-based pagination would be more efficient.
+
+JSON bracket data has no schema validation — The Prisma Json? type for bracket_data and team_assignments accepts any structure. Invalid data could corrupt tournament state with no validation layer.
+
+Icon for tournament view
+
+Messages larger width 
+
+light&dark mode 
+
+Iff someone declines tournament move to bottom and gray 
+
+Notification Toasts need more information
+
+Email to guest users to. make account 
+
+UNDO button? for toasts?
 

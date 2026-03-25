@@ -14,7 +14,9 @@ import { useFilterToggle } from "@/hooks/useFilterToggle";
 import { tournamentStatusColors } from "@/lib/colors";
 import { formatDate } from "@/lib/helpers";
 import { tournamentStatusLabel, tournamentFormatInfo } from "@/types";
+import { GalleryHorizontal, LayoutGrid } from "lucide-react";
 import Link from "next/link";
+import { useState } from "react";
 import type { Filter, TournamentSummary } from "./types";
 
 function getRoundInfo(
@@ -82,6 +84,7 @@ export default function TournamentList({
 }: TournamentListProps) {
   const { data, loading, error } = useFetch<{ tournaments: TournamentSummary[] }>("/tournaments");
   const { activeFilters, toggleFilter } = useFilterToggle<Filter>(defaultFilter, "all");
+  const [layoutMode, setLayoutMode] = useState<"grid" | "carousel">(layout);
 
   const tournaments = data?.tournaments ?? [];
   const filtered = tournaments
@@ -95,7 +98,33 @@ export default function TournamentList({
   return (
     <div>
       {!hideFilters && (
-        <FilterTabs filters={filters} active={activeFilters} onToggle={toggleFilter} className="mb-4" />
+        <div className="mb-4 flex items-center gap-2">
+          <FilterTabs filters={filters} active={activeFilters} onToggle={toggleFilter} className="flex-1" />
+          <div className="flex items-center gap-1 rounded-md border bg-background p-1">
+            <button
+              onClick={() => setLayoutMode("grid")}
+              className={`rounded p-1.5 transition-colors ${
+                layoutMode === "grid"
+                  ? "bg-muted text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              aria-label="Grid view"
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setLayoutMode("carousel")}
+              className={`rounded p-1.5 transition-colors ${
+                layoutMode === "carousel"
+                  ? "bg-muted text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              aria-label="Carousel view"
+            >
+              <GalleryHorizontal className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
       )}
 
       {loading ? (
@@ -104,7 +133,7 @@ export default function TournamentList({
         <p className="text-sm text-destructive">{error}</p>
       ) : filtered.length === 0 ? (
         <p className="text-sm text-muted-foreground">No tournaments found.</p>
-      ) : layout === "carousel" ? (
+      ) : layoutMode === "carousel" ? (
         <Carousel
           opts={{ align: "start" }}
           className="w-full px-10"

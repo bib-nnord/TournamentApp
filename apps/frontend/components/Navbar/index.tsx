@@ -58,7 +58,7 @@ function NavLink({
           href={href}
           className={cn(
             "relative inline-flex w-full items-center justify-center font-bold tracking-wide transition-colors md:h-9 md:px-4",
-            index > 0 && "-ml-px border-l border-border/50",
+            index > 0,
             active
               ? "bg-card text-primary-foreground"
               : "bg-card text-foreground/60 hover:bg-muted/70 hover:text-foreground"
@@ -212,7 +212,7 @@ export default function Navbar() {
             </DropdownMenu>
           ) : (
             <div className="hidden items-center md:flex">
-              <Button asChild variant="outline" size="sm" className="h-8 rounded-l-sm rounded-r-none border-r-0 px-3">
+              <Button asChild variant="outline" size="sm" className="h-8 rounded-l-sm rounded-r-none ">
                 <Link href="/login">Login</Link>
               </Button>
               <Button asChild size="sm" className="h-8 rounded-r-sm rounded-l-none px-3">
