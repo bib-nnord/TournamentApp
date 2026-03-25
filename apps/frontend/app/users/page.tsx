@@ -1,9 +1,14 @@
 "use client";
 
+
 import { useState, useEffect, useCallback, useRef } from "react";
 import { apiFetch } from "@/lib/api";
 import { getUserInitial } from "@/lib/helpers";
 import Link from "next/link";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 interface UserItem {
   id: number;
@@ -105,14 +110,14 @@ export default function UsersPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-3xl mx-auto px-4 py-10">
+      <div className="max-w-5xl mx-auto px-4 py-10">
 
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold text-gray-900">Users</h1>
             {total > 0 && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 font-medium">
+              <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">
                 {total}
               </span>
             )}
@@ -121,110 +126,96 @@ export default function UsersPage() {
 
         {/* Search */}
         <div className="mb-4 flex gap-2">
-          <input
+          <Input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search by username or display name…"
-            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="flex-1 bg-white"
           />
-          <button
+          <Button
+            variant={sort === "asc" ? "default" : "outline"}
             onClick={() => {
               setSort("asc");
               setPage(1);
             }}
-            className={`px-3 py-2 text-sm rounded-lg border font-medium transition-colors ${
-              sort === "asc"
-                ? "bg-indigo-600 text-white border-indigo-600"
-                : "border-gray-300 text-gray-600 hover:bg-gray-50"
-            }`}
             title="Sort A → Z"
           >
             A→Z
-          </button>
-          <button
+          </Button>
+          <Button
+            variant={sort === "desc" ? "default" : "outline"}
             onClick={() => {
               setSort("desc");
               setPage(1);
             }}
-            className={`px-3 py-2 text-sm rounded-lg border font-medium transition-colors ${
-              sort === "desc"
-                ? "bg-indigo-600 text-white border-indigo-600"
-                : "border-gray-300 text-gray-600 hover:bg-gray-50"
-            }`}
             title="Sort Z → A"
           >
             Z→A
-          </button>
+          </Button>
         </div>
 
         {/* User list */}
         {loading ? (
-          <p className="text-sm text-gray-500">Loading…</p>
+          <p className="text-sm text-muted-foreground">Loading…</p>
         ) : users.length === 0 ? (
-          <p className="text-sm text-gray-500">No users found.</p>
+          <p className="text-sm text-muted-foreground">No users found.</p>
         ) : (
-          <div
-            ref={listRef}
-            onPointerDown={handleListPointerDown}
-            onPointerMove={handleListPointerMove}
-            onPointerUp={handleListPointerUp}
-            onPointerCancel={handleListPointerUp}
-            onPointerLeave={(e) => {
-              if (dragStateRef.current.pointerId === e.pointerId) {
-                handleListPointerUp(e);
-              }
-            }}
-            className={`bg-white rounded-xl border border-gray-100 divide-y divide-gray-100 overflow-y-auto min-h-[26rem] max-h-[calc(100vh-14rem)] overscroll-none touch-pan-y ${
-              isDraggingList ? "cursor-grabbing select-none" : "cursor-grab"
-            }`}
-          >
-            {users.map((u) => (
-              <Link
-                key={u.id}
-                href={`/profile/${u.username}`}
-                className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50 transition-colors"
-              >
-                <div className="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center text-sm font-bold text-indigo-600 shrink-0">
-                  {getUserInitial(u.username)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-gray-900">{u.displayName || u.username}</span>
-                    <span className="text-xs text-gray-400">@{u.username}</span>
+          <Card className="overflow-y-auto min-h-[26rem] max-h-[calc(100vh-14rem)]">
+            <CardContent className="p-0 divide-y divide-muted">
+              {users.map((u) => (
+                <Link
+                  key={u.id}
+                  href={`/profile/${u.username}`}
+                  className="flex items-center gap-4 px-4 py-3 hover:bg-accent transition-colors"
+                >
+                  <Avatar className="h-9 w-9">
+                    {u.avatarUrl ? (
+                      <AvatarImage src={u.avatarUrl} alt={u.username} />
+                    ) : (
+                      <AvatarFallback>{getUserInitial(u.username)}</AvatarFallback>
+                    )}
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-foreground">{u.displayName || u.username}</span>
+                      <span className="text-xs text-muted-foreground">@{u.username}</span>
+                    </div>
+                    {u.bio && (
+                      <p className="text-xs text-muted-foreground truncate">{u.bio}</p>
+                    )}
                   </div>
-                  {u.bio && (
-                    <p className="text-xs text-gray-500 truncate">{u.bio}</p>
+                  {u.location && (
+                    <span className="text-xs text-muted-foreground shrink-0">{u.location}</span>
                   )}
-                </div>
-                {u.location && (
-                  <span className="text-xs text-gray-400 shrink-0">{u.location}</span>
-                )}
-              </Link>
-            ))}
-          </div>
+                </Link>
+              ))}
+            </CardContent>
+          </Card>
         )}
 
         {/* Pagination */}
         {totalPages > 1 && (
           <div className="flex items-center justify-center gap-3 mt-6">
-            <button
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page <= 1}
-              className="text-sm px-3 py-1.5 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Previous
-            </button>
-            <span className="text-xs text-gray-500">
+            </Button>
+            <span className="text-xs text-muted-foreground">
               Page {page} of {totalPages}
             </span>
-            <button
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page >= totalPages}
-              className="text-sm px-3 py-1.5 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Next
-            </button>
+            </Button>
           </div>
         )}
 

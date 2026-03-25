@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/carousel";
 import { useFetch } from "@/hooks/useFetch";
 import Link from "next/link";
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 
 interface TeamCard {
   id: number;
@@ -114,32 +115,47 @@ export default function TeamList({ layout = "grid" }: TeamListProps) {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+    <Accordion type="multiple" className="space-y-2">
       {teams.map((t) => (
-        <Link
-          key={t.id}
-          href={`/teams/${t.id}`}
-          className={
-            "flex flex-col gap-2 rounded-lg border border-border bg-card p-3.5 " +
-            "shadow-sm transition-shadow hover:shadow-md"
-          }
-        >
-          <div className="flex items-start justify-between">
-            <h2 className="text-sm font-semibold text-card-foreground">{t.name}</h2>
-            <span
-              className={
-                "rounded-full px-2 py-0.5 text-xs font-medium " +
-                (t.open
-                  ? "bg-emerald-500/15 text-emerald-400"
-                  : "bg-muted text-muted-foreground")
-              }
-            >
+        <AccordionItem key={t.id} value={String(t.id)}>
+          <AccordionTrigger className="flex items-center justify-between px-4 py-3 bg-card border border-border rounded-lg">
+            <span className="text-sm font-semibold text-card-foreground">{t.name}</span>
+            <span className={
+              "ml-2 rounded-full px-2 py-0.5 text-xs font-medium " +
+              (t.open
+                ? "bg-emerald-500/15 text-emerald-400"
+                : "bg-muted text-muted-foreground")
+            }>
               {t.open ? "Open" : "Closed"}
             </span>
-          </div>
-          <p className="text-xs text-muted-foreground">{t.members} members</p>
-        </Link>
+          </AccordionTrigger>
+          <AccordionContent className="bg-card border-x border-b border-border rounded-b-lg">
+            <div className="flex flex-col gap-2 p-3">
+              {t.bio && <p className="text-xs text-muted-foreground">{t.bio}</p>}
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                <span>{t.members} members</span>
+                <span>{t.open ? "Recruiting now" : "Invite only"}</span>
+                <span>
+                  {t.disciplines && t.disciplines.length > 0
+                    ? t.disciplines.slice(0, 2).join(", ")
+                    : "No discipline set"}
+                </span>
+                <span>
+                  {t.leader
+                    ? `Leader: ${t.leader.displayName ?? t.leader.username}`
+                    : "Leader not set"}
+                </span>
+                <span className="col-span-2">
+                  {t.createdAt
+                    ? `Created ${new Date(t.createdAt).toLocaleDateString()}`
+                    : "Recently active"}
+                </span>
+              </div>
+              <Link href={`/teams/${t.id}`} className="mt-2 text-xs text-primary underline">Open team page</Link>
+            </div>
+          </AccordionContent>
+        </AccordionItem>
       ))}
-    </div>
+    </Accordion>
   );
 }
