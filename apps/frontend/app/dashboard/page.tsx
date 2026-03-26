@@ -57,9 +57,8 @@ export default function DashboardPage() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-900">
-            Welcome back, {user.username}
+            Welcome back, {user.username}!
           </h1>
-          <p className="text-sm text-gray-500 mt-1">Latest Tournaments:</p>
         </div>
 
         {/* Quick actions */}
@@ -84,6 +83,8 @@ export default function DashboardPage() {
           </Link>
         </div>
 
+        <p className="text-sm text-gray-500 mt-1">Latest Tournaments:</p>
+        
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
           <DashboardCard title="Active now" dotColor="bg-green-500" loading={activeLoading} empty={activeTournaments.length === 0} emptyMessage="No active tournaments.">

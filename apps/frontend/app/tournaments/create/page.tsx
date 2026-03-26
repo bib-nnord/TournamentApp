@@ -35,13 +35,13 @@ export default function CreateTournamentPage() {
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link
               href="/register"
-              className="px-6 py-2.5 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700"
+              className="px-8 py-3 text-lg bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700"
             >
               {LABEL_CREATE_AN_ACCOUNT}
             </Link>
             <Link
               href="/login"
-              className="px-6 py-2.5 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50"
+              className="px-8 py-3 text-lg border border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-50"
             >
               {LABEL_LOG_IN}
             </Link>
