@@ -238,6 +238,22 @@ export default function ProfilePage() {
   }
 
   async function handleSaveProfile() {
+    // Validate date of birth only on save
+    const value = profileForm.dateOfBirth;
+    if (value) {
+      const date = new Date(value);
+      const now = new Date();
+      const hundredYearsAgo = new Date();
+      hundredYearsAgo.setFullYear(now.getFullYear() - 100);
+      if (date > now) {
+        notify.error("Date of birth cannot be in the future.");
+        return;
+      }
+      if (date < hundredYearsAgo) {
+        notify.error("Date of birth cannot be more than 100 years ago.");
+        return;
+      }
+    }
     setProfileSaving(true);
     setProfileSaveError(null);
 
@@ -550,7 +566,12 @@ export default function ProfilePage() {
               <>
                 {/* Bio */}
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-gray-400 mb-1">Bio</p>
+                  <p className="text-xs uppercase tracking-wide text-gray-400 mb-1">
+                    Bio
+                    {isOwnProfile && profile.visibility && !profile.visibility.bio && (
+                      <span className="ml-1 text-xs text-gray-400">(private)</span>
+                    )}
+                  </p>
                   <p className={`text-sm text-gray-700 leading-6 ${!profile.bio ? "italic text-gray-400" : ""}`}>
                     {profile.bio || (isOwnProfile ? "No bio yet." : "No bio provided.")}
                   </p>
@@ -559,13 +580,23 @@ export default function ProfilePage() {
                 {/* Country & Age */}
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
-                    <p className="text-xs uppercase tracking-wide text-gray-400 mb-1">Country</p>
+                    <p className="text-xs uppercase tracking-wide text-gray-400 mb-1">
+                      Country
+                      {isOwnProfile && profile.visibility && !profile.visibility.country && (
+                        <span className="ml-1 text-xs text-gray-400">(private)</span>
+                      )}
+                    </p>
                     <p className={`text-sm font-medium text-gray-700 ${!profile.country ? "italic text-gray-400" : ""}`}>
                       {profile.country || (isOwnProfile ? "No country set." : "No country provided.")}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs uppercase tracking-wide text-gray-400 mb-1">Age</p>
+                    <p className="text-xs uppercase tracking-wide text-gray-400 mb-1">
+                      Age
+                      {isOwnProfile && profile.visibility && !profile.visibility.age && (
+                        <span className="ml-1 text-xs text-gray-400">(private)</span>
+                      )}
+                    </p>
                     <p className={`text-sm font-medium text-gray-700 ${profile.age === null ? "italic text-gray-400" : ""}`}>
                       {profile.age !== null ? profile.age : (isOwnProfile ? "No age set." : "No age provided.")}
                     </p>
@@ -574,7 +605,12 @@ export default function ProfilePage() {
 
                 {/* Games / Sports */}
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-gray-400 mb-2">Games / sports</p>
+                  <p className="text-xs uppercase tracking-wide text-gray-400 mb-2">
+                    Games / sports
+                    {isOwnProfile && profile.visibility && !profile.visibility.gamesSports && (
+                      <span className="ml-1 text-xs text-gray-400">(private)</span>
+                    )}
+                  </p>
                   {profile.gamesSports.length > 0 ? (
                     <div className="flex flex-wrap gap-2">
                       {profile.gamesSports.map((item) => (
@@ -669,21 +705,82 @@ export default function ProfilePage() {
             <p className="text-sm text-gray-400">No tournaments yet.</p>
           ) : (
             <div className="flex flex-col gap-3">
-              {myTournaments.map((t) => (
-                <Link
-                  key={t.id}
-                  href={`/tournaments/view/${t.id}`}
-                  className="flex items-center justify-between px-4 py-3 rounded-lg border border-gray-100 hover:bg-gray-50"
-                >
-                  <span className="text-sm font-medium text-gray-800">{t.name}</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-400">{t.game}</span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${tournamentStatusColors[t.status]}`}>
-                      {tournamentStatusLabel[t.status]}
-                    </span>
-                  </div>
-                </Link>
-              ))}
+              {myTournaments.map((t) => {
+                // Only show placement for completed tournaments
+                let placement: string | null = null;
+                if (t.status === "completed" && t.bracketData) {
+                  try {
+                    // Find all participants in the bracket
+                    const bracket = t.bracketData;
+                    // For single/double elimination, winner is 1st, loser of final is 2nd, etc.
+                    // For round robin, sort by wins
+                    // For now, only handle single_elimination and round_robin
+                    const userName = profile?.displayName || profile?.username;
+                    if (userName) {
+                      if (bracket.format === "single_elimination" && bracket.rounds?.length) {
+                        const lastRound = bracket.rounds[bracket.rounds.length - 1];
+                        const finalMatch = lastRound.matches[0];
+                        if (finalMatch) {
+                          if (finalMatch.winner === userName) {
+                            placement = "1st place";
+                          } else if (
+                            (finalMatch.participantA === userName || finalMatch.participantB === userName)
+                          ) {
+                            placement = "2nd place";
+                          }
+                        }
+                      } else if (
+                        (bracket.format === "round_robin" || bracket.format === "double_round_robin" || bracket.format === "swiss") && bracket.rounds
+                      ) {
+                        // Count wins for each participant
+                        const wins: Record<string, number> = {};
+                        for (const round of bracket.rounds) {
+                          for (const match of round.matches) {
+                            if (match.winner) {
+                              wins[match.winner] = (wins[match.winner] || 0) + 1;
+                            }
+                          }
+                        }
+                        const sorted = Object.entries(wins).sort((a, b) => b[1] - a[1]);
+                        const index = sorted.findIndex(([name]) => name === userName);
+                        if (index !== -1) {
+                          const place = index + 1;
+                          placement =
+                            place === 1
+                              ? "1st place"
+                              : place === 2
+                              ? "2nd place"
+                              : place === 3
+                              ? "3rd place"
+                              : `${place}th place`;
+                        }
+                      }
+                    }
+                  } catch (e) {
+                    // ignore errors
+                  }
+                }
+                return (
+                  <Link
+                    key={t.id}
+                    href={`/tournaments/view/${t.id}`}
+                    className="flex items-center justify-between px-4 py-3 rounded-lg border border-gray-100 hover:bg-gray-50"
+                  >
+                    <span className="text-sm font-medium text-gray-800">{t.name}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-400">{t.game}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${tournamentStatusColors[t.status]}`}>
+                        {tournamentStatusLabel[t.status]}
+                      </span>
+                      {placement && (
+                        <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-yellow-100 text-yellow-800 ml-2">
+                          {placement}
+                        </span>
+                      )}
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           )}
         </div>

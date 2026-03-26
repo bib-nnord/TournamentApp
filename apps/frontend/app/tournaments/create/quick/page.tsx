@@ -156,6 +156,7 @@ export default function QuickTournamentPage() {
         body: JSON.stringify({
           name: data.name,
           discipline: data.discipline,
+          game: data.discipline, 
           description: data.description || undefined,
           format: data.format,
           isPrivate: data.isPrivate,
