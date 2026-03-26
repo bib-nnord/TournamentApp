@@ -1,4 +1,5 @@
 import { getUserInitial } from "@/lib/helpers";
+import Link from "next/link";
 
 interface UserListItemProps {
   username: string;
@@ -26,10 +27,12 @@ export default function UserListItem({
             <span className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-white ${online ? "bg-green-500" : "bg-gray-300"}`} />
           )}
         </div>
-        <span className="text-sm text-gray-800">{username}</span>
+        <Link href={`/profile/${username}`} className="text-sm text-blue-700 hover:underline focus:underline">
+          {username}
+        </Link>
         {online && <span className="text-xs text-gray-400">Online</span>}
-        {actions && <span className="ml-2">{actions}</span>}
       </div>
+      {actions && <span className="ml-auto">{actions}</span>}
     </div>
   );
 }

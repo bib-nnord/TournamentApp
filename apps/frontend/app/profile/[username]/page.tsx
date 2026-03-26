@@ -548,31 +548,34 @@ export default function ProfilePage() {
               </>
             ) : (
               <>
-                {profile.bio && (
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-gray-400 mb-1">Bio</p>
-                    <p className="text-sm text-gray-700 leading-6">{profile.bio}</p>
-                  </div>
-                )}
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {profile.country && (
-                    <div>
-                      <p className="text-xs uppercase tracking-wide text-gray-400 mb-1">Country</p>
-                      <p className="text-sm font-medium text-gray-700">{profile.country}</p>
-                    </div>
-                  )}
-                  {profile.age !== null && (
-                    <div>
-                      <p className="text-xs uppercase tracking-wide text-gray-400 mb-1">Age</p>
-                      <p className="text-sm font-medium text-gray-700">{profile.age}</p>
-                    </div>
-                  )}
+                {/* Bio */}
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-gray-400 mb-1">Bio</p>
+                  <p className={`text-sm text-gray-700 leading-6 ${!profile.bio ? "italic text-gray-400" : ""}`}>
+                    {profile.bio || (isOwnProfile ? "No bio yet." : "No bio provided.")}
+                  </p>
                 </div>
 
-                {profile.gamesSports.length > 0 && (
+                {/* Country & Age */}
+                <div className="grid gap-4 sm:grid-cols-2">
                   <div>
-                    <p className="text-xs uppercase tracking-wide text-gray-400 mb-2">Games / sports</p>
+                    <p className="text-xs uppercase tracking-wide text-gray-400 mb-1">Country</p>
+                    <p className={`text-sm font-medium text-gray-700 ${!profile.country ? "italic text-gray-400" : ""}`}>
+                      {profile.country || (isOwnProfile ? "No country set." : "No country provided.")}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-gray-400 mb-1">Age</p>
+                    <p className={`text-sm font-medium text-gray-700 ${profile.age === null ? "italic text-gray-400" : ""}`}>
+                      {profile.age !== null ? profile.age : (isOwnProfile ? "No age set." : "No age provided.")}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Games / Sports */}
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-gray-400 mb-2">Games / sports</p>
+                  {profile.gamesSports.length > 0 ? (
                     <div className="flex flex-wrap gap-2">
                       {profile.gamesSports.map((item) => (
                         <span
@@ -583,17 +586,12 @@ export default function ProfilePage() {
                         </span>
                       ))}
                     </div>
-                  </div>
-                )}
-
-                {!profile.bio && !profile.country && profile.age === null &&
-                  profile.gamesSports.length === 0 && (
-                    <p className="text-sm text-gray-400">
-                      {isOwnProfile
-                        ? "Add some profile info to show more about yourself."
-                        : "This user has not shared any public profile info yet."}
+                  ) : (
+                    <p className="text-sm italic text-gray-400">
+                      {isOwnProfile ? "No games or sports set." : "No games or sports provided."}
                     </p>
                   )}
+                </div>
               </>
             )}
           </div>
