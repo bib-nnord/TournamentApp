@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef, type KeyboardEvent } from "react";
+import { useState, useMemo, useRef, useEffect, type KeyboardEvent } from "react";
 import { useSelector } from "react-redux";
 import {
   CUSTOM_DISCIPLINE_VALUE,
@@ -9,7 +9,6 @@ import {
   labelToDisciplineValue,
 } from "@/constants/disciplines";
 import {
-  LABEL_BACK_TO_FORM,
   LABEL_CONFIRM_START,
   LABEL_SHUFFLE,
   LABEL_REMOVE_QUESTION,
@@ -24,7 +23,7 @@ import type { ParticipantMemberType, ParticipantMember } from "../QuickTournamen
 import UserSearchInput from "../UserSearchInput";
 import type { TournamentPreviewProps } from "./types";
 
-export default function TournamentPreview({ data, onBack, onConfirm, submitting, submitError }: TournamentPreviewProps) {
+export default function TournamentPreview({ data, onConfirm, submitting, submitError, onChange }: TournamentPreviewProps) {
   const currentUser = useSelector((state: RootState) => state.user.current);
   const [name, setName] = useState(data.name);
   const [disciplineChoice, setDisciplineChoice] = useState(() => {
@@ -48,11 +47,32 @@ export default function TournamentPreview({ data, onBack, onConfirm, submitting,
   const [status, setStatus] = useState<TournamentStatus>(data.status ?? "active");
   const [participants, setParticipants] = useState<Participant[]>(data.participants);
 
-  const participantNames = participants.map((p) => p.name);
-
   // Combination format options
   const [advancersPerGroup, setAdvancersPerGroup] = useState(data.advancersPerGroup ?? 2);
   const [autoAdvanceGroups, setAutoAdvanceGroups] = useState<string[][]>([]);
+
+  
+  // Call onChange on any relevant state change
+  useEffect(() => {
+    if (!onChange) return;
+    const discipline = disciplineChoice === CUSTOM_DISCIPLINE_VALUE
+      ? customDiscipline.trim()
+      : disciplineValueToLabel(disciplineChoice);
+    onChange({
+      ...data,
+      name,
+      discipline,
+      description,
+      format,
+      isPrivate,
+      status,
+      participants,
+      advancersPerGroup,
+    });
+  }, [name, disciplineChoice, customDiscipline, description, format, isPrivate, status, participants, advancersPerGroup]);
+
+  const participantNames = participants.map((p) => p.name);
+
 
   const bracket = useMemo(
     () => generateBracket(participantNames, format, format === "combination" ? { advancersPerGroup, autoAdvanceGroups } : undefined),
@@ -541,14 +561,6 @@ className={`text-[10px] uppercase shrink-0 px-2 py-0.5 rounded leading-none ${
 
       {/* Actions */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mt-4 no-print">
-        <button
-          type="button"
-          onClick={onBack}
-          disabled={submitting}
-          className="px-5 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-40"
-        >
-          {LABEL_BACK_TO_FORM}
-        </button>
         <button
           type="button"
           onClick={handleConfirm}

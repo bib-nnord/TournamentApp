@@ -122,7 +122,6 @@ export const LABEL_TIE = "Tie";
 
 // ─── Match page ──────────────────────────────────────────────────────────────
 export const LABEL_GENERATE_BRACKET = "Generate Bracket →";
-export const LABEL_BACK_TO_FORM = "← Back to form";
 export const LABEL_CONFIRM_START = "Confirm & Start Tournament";
 export const LABEL_SHUFFLE = "Shuffle";
 export const LABEL_REMOVE_QUESTION = "Remove?";

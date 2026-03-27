@@ -7,4 +7,5 @@ export interface TournamentPreviewProps {
   onConfirm: (data: QuickTournamentData, bracket: Bracket) => void;
   submitting?: boolean;
   submitError?: string | null;
+  onChange?: (data: QuickTournamentData) => void;
 }

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import QuickTournamentForm, { type QuickTournamentData } from "@/components/QuickTournamentForm";
+import { useState, useEffect, useRef } from "react";
+import type { QuickTournamentData } from "@/components/QuickTournamentForm";
 import TournamentPreview from "@/components/TournamentPreview";
 import {
   LABEL_BACK_TO_TOURNAMENT_TYPE,
@@ -39,9 +39,9 @@ function loadDraft(): SavedDraft | null {
   }
 }
 
-function saveDraft(step: "form" | "preview", data: QuickTournamentData) {
+function saveDraft( data: QuickTournamentData) {
   try {
-    const draft: SavedDraft = { step, data, savedAt: Date.now() };
+    const draft: SavedDraft = { data, savedAt: Date.now() };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(draft));
   } catch {
     /* storage full or unavailable */
@@ -52,56 +52,47 @@ function clearDraft() {
   try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
 }
 
+
 export default function QuickTournamentPage() {
   const router = useRouter();
   const notify = useNotify();
   const [ready, setReady] = useState(false);
-  const [step, setStep] = useState<"form" | "preview">("form");
   const [formData, setFormData] = useState<QuickTournamentData | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [showDraftBanner, setShowDraftBanner] = useState(false);
+  const [previewKey, setPreviewKey] = useState(0);
 
   // Load draft on mount
   useEffect(() => {
     const draft = loadDraft();
     if (draft) {
       setFormData(draft.data);
-      setStep(draft.step);
       setShowDraftBanner(true);
     }
     setReady(true);
   }, []);
 
-  // Auto-save whenever formData or step changes (after initial load)
+  // Auto-save whenever formData changes (after initial load)
   useEffect(() => {
     if (!ready) return;
-    if (formData) {
-      saveDraft(step, formData);
+    if (
+      formData &&
+      (formData.name?.trim() || (Array.isArray(formData.participants) && formData.participants.length > 0))
+    ) {
+      saveDraft(formData);
+    } else {
+      clearDraft();
     }
-  }, [formData, step, ready]);
+  }, [formData, ready]);
 
-  function handleFormSubmit(data: QuickTournamentData) {
-    setFormData(data);
-    setStep("preview");
-    setShowDraftBanner(false);
-  }
 
-  // Called by the form whenever its internal state changes
-  const handleFormChange = useCallback((data: QuickTournamentData) => {
-    setFormData(data);
-    saveDraft("form", data);
-  }, []);
-
-  function handleBack() {
-    setStep("form");
-  }
 
   function handleDiscard() {
     clearDraft();
     setFormData(null);
-    setStep("form");
     setShowDraftBanner(false);
+    setPreviewKey((k) => k + 1);
   }
 
   // ─── JSON save / load ──────────────────────────────────────────────────────
@@ -110,7 +101,7 @@ export default function QuickTournamentPage() {
   function handleSaveJSON() {
     const data = formData;
     if (!data) return;
-    const json = JSON.stringify({ version: 1, step, data, savedAt: Date.now() }, null, 2);
+    const json = JSON.stringify({ version: 1, data, savedAt: Date.now() }, null, 2);
     const blob = new Blob([json], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -129,7 +120,6 @@ export default function QuickTournamentPage() {
         const parsed = JSON.parse(reader.result as string);
         if (parsed?.data && parsed.data.name !== undefined) {
           setFormData(parsed.data);
-          setStep(parsed.step === "preview" ? "preview" : "form");
           setShowDraftBanner(false);
         }
       } catch {
@@ -251,39 +241,32 @@ export default function QuickTournamentPage() {
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 14V8m0 0l-3 3m3-3l3 3M3 7v-3a2 2 0 012-2h14a2 2 0 012 2v3" /></svg>
             {LABEL_LOAD_FROM_FILE}
           </button>
-          {step === "preview" && (
-            <button
-              type="button"
-              onClick={handleExportPDF}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2z" /></svg>
-              {LABEL_EXPORT_PDF}
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={handleExportPDF}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2z" /></svg>
+            {LABEL_EXPORT_PDF}
+          </button>
         </div>
 
-        {step === "form" && (
-          <div className="max-w-2xl">
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
-              <h1 className="text-2xl font-bold text-gray-900 mb-1">Quick Tournament</h1>
-              <p className="text-sm text-gray-500 mb-6">
-                Starts immediately — add participants manually and generate the bracket.
-              </p>
-              <QuickTournamentForm initial={formData ?? undefined} onSubmit={handleFormSubmit} onChange={handleFormChange} />
-            </div>
-          </div>
-        )}
-
-        {step === "preview" && formData && (
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-1 no-print">Review &amp; Confirm</h1>
-            <p className="text-sm text-gray-500 mb-6 no-print">
-              Review the bracket and edit details before starting the tournament.
-            </p>
-            <TournamentPreview data={formData} onBack={handleBack} onConfirm={handleConfirm} submitting={submitting} submitError={submitError} />
-          </div>
-        )}
+        {/* Always show preview, allow editing participants in preview */}
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-1 no-print">Review &amp; Confirm</h1>
+          <p className="text-sm text-gray-500 mb-6 no-print">
+            Review the bracket and edit details before starting the tournament.
+          </p>
+          <TournamentPreview
+            key={previewKey}
+            data={formData ?? { name: "", discipline: "", description: "", format: "single_elimination", participants: [], isPrivate: false, teamMode: false, allowTies: true }}
+            onBack={() => {}}
+            onConfirm={handleConfirm}
+            submitting={submitting}
+            submitError={submitError}
+            onChange={saveDraft}
+          />
+        </div>
       </div>
     </div>
   );
