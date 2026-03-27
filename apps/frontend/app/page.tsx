@@ -7,7 +7,6 @@ import Link from "next/link";
 export default function Home() {
   return (
     <div className="landing-page min-h-screen bg-background">
-      <PageScrollSportsBackground />
       <div className="badminton-scroll-bg" aria-hidden="true" />
 
       {/* Hero */}
