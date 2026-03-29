@@ -1,6 +1,6 @@
 "use client";
 
-import { Bot, Minus, Send, Trash2, X } from "lucide-react";
+import { Bot, Check, AlertCircle, Loader2, Minus, Send, Trash2, Trophy, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -18,12 +18,15 @@ import {
 } from "@/components/ui/prompt-input";
 import { PromptSuggestion } from "@/components/ui/prompt-suggestion";
 import { ScrollButton } from "@/components/ui/scroll-button";
+import { apiFetch } from "@/lib/api";
+import { generateBracket } from "@/lib/generateBracket";
+import type { TournamentFormat } from "@/types";
 
 const SUGGESTIONS = [
   "How do I create a tournament?",
   "What formats are available?",
   "Quick vs Scheduled tournament?",
-  "How does team mode work?",
+  "Create a tournament for me",
 ];
 
 const SESSION_KEY = "ai-chat-history";
@@ -33,6 +36,63 @@ interface ChatMessage {
   role: "user" | "assistant";
   content: string;
 }
+
+interface TournamentConfig {
+  type: "quick" | "scheduled";
+  name: string;
+  discipline: string;
+  format: string;
+  description?: string;
+  isPrivate?: boolean;
+  teamMode?: boolean;
+  participants?: string[];
+  startDate?: string;
+  registrationMode?: string;
+  maxParticipants?: number;
+}
+
+const VALID_FORMATS = new Set([
+  "single_elimination", "double_elimination", "round_robin",
+  "double_round_robin", "combination", "swiss",
+]);
+
+function parseTournamentAction(content: string): {
+  before: string;
+  config: TournamentConfig | null;
+  after: string;
+} {
+  const startTag = "[TOURNAMENT_ACTION]";
+  const endTag = "[/TOURNAMENT_ACTION]";
+
+  const startIdx = content.indexOf(startTag);
+  if (startIdx === -1) return { before: content, config: null, after: "" };
+
+  const jsonStart = startIdx + startTag.length;
+  const endIdx = content.indexOf(endTag, jsonStart);
+  if (endIdx === -1) return { before: content, config: null, after: "" };
+
+  const jsonStr = content.slice(jsonStart, endIdx).trim();
+  const before = content.slice(0, startIdx).trim();
+  const after = content.slice(endIdx + endTag.length).trim();
+
+  try {
+    const config = JSON.parse(jsonStr) as TournamentConfig;
+    if (!config.name || !config.discipline || !config.format) return { before: content, config: null, after: "" };
+    if (!VALID_FORMATS.has(config.format)) return { before: content, config: null, after: "" };
+    return { before, config, after };
+  } catch {
+    return { before: content, config: null, after: "" };
+  }
+}
+
+const FORMAT_LABELS: Record<string, string> = {
+  single_elimination: "Single Elimination",
+  double_elimination: "Double Elimination",
+  round_robin: "Round Robin",
+  double_round_robin: "Double Round Robin",
+  combination: "Combination",
+  swiss: "Swiss System",
+};
 
 function loadSessionMessages(): ChatMessage[] {
   if (typeof window === "undefined") return [];
@@ -55,6 +115,89 @@ function genId() {
   return `msg-${Date.now()}-${++idCounter}`;
 }
 
+function TournamentActionCard({
+  config,
+  status,
+  errorMsg,
+  tournamentId,
+  onCreate,
+}: {
+  config: TournamentConfig;
+  status: "idle" | "creating" | "success" | "error";
+  errorMsg?: string;
+  tournamentId?: number;
+  onCreate: () => void;
+}) {
+  return (
+    <div className="my-2 max-w-[85%] rounded-lg border bg-card p-3 shadow-sm">
+      <div className="mb-2 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Trophy className="h-4 w-4 text-primary" />
+          <span className="text-sm font-semibold">
+            {config.type === "quick" ? "Quick" : "Scheduled"} Tournament
+          </span>
+        </div>
+        {status === "success" && tournamentId && (
+          <a
+            href={`/tournaments/view/${tournamentId}`}
+            className="text-xs font-medium text-primary hover:underline"
+          >
+            Edit Details &rarr;
+          </a>
+        )}
+      </div>
+      <div className="space-y-1 text-xs text-muted-foreground">
+        <p><span className="font-medium text-foreground">Name:</span> {config.name}</p>
+        <p><span className="font-medium text-foreground">Discipline:</span> {config.discipline}</p>
+        <p><span className="font-medium text-foreground">Format:</span> {FORMAT_LABELS[config.format] || config.format}</p>
+        {config.participants && (
+          <p><span className="font-medium text-foreground">Participants ({config.participants.length}):</span> {config.participants.join(", ")}</p>
+        )}
+        {config.startDate && (
+          <p><span className="font-medium text-foreground">Start:</span> {new Date(config.startDate).toLocaleDateString()}</p>
+        )}
+        {config.registrationMode && (
+          <p><span className="font-medium text-foreground">Registration:</span> {config.registrationMode.replace("_", " ")}</p>
+        )}
+        {config.maxParticipants && (
+          <p><span className="font-medium text-foreground">Max participants:</span> {config.maxParticipants}</p>
+        )}
+      </div>
+      <div className="mt-3">
+        {status === "idle" && (
+          <Button size="sm" className="w-full text-xs" onClick={onCreate}>
+            <Trophy className="mr-1 h-3 w-3" />
+            Create Tournament
+          </Button>
+        )}
+        {status === "creating" && (
+          <Button size="sm" className="w-full text-xs" disabled>
+            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+            Creating...
+          </Button>
+        )}
+        {status === "success" && (
+          <Button size="sm" variant="outline" className="w-full text-xs text-green-600" disabled>
+            <Check className="mr-1 h-3 w-3" />
+            Created!
+          </Button>
+        )}
+        {status === "error" && (
+          <div>
+            <div className="mb-1 flex items-center gap-1 text-xs text-destructive">
+              <AlertCircle className="h-3 w-3" />
+              {errorMsg || "Failed to create. Are you logged in?"}
+            </div>
+            <Button size="sm" className="w-full text-xs" onClick={onCreate}>
+              Retry
+            </Button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function AiAssistant() {
   const [open, setOpen] = useState(false);
   const [minimized, setMinimized] = useState(false);
@@ -64,6 +207,9 @@ export default function AiAssistant() {
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const initialized = useRef(false);
+  const [creationStatus, setCreationStatus] = useState<
+    Record<string, { status: "idle" | "creating" | "success" | "error"; tournamentId?: number; error?: string }>
+  >({});
 
   // Load session messages on mount
   useEffect(() => {
@@ -125,6 +271,79 @@ export default function AiAssistant() {
     } finally {
       setIsLoading(false);
       abortRef.current = null;
+    }
+  }, []);
+
+  const createTournament = useCallback(async (messageId: string, config: TournamentConfig) => {
+    setCreationStatus((prev) => ({ ...prev, [messageId]: { status: "creating" } }));
+
+    try {
+      let res: Response;
+
+      if (config.type === "quick") {
+        if (!config.participants || config.participants.length < 2) {
+          throw new Error("Need at least 2 participants");
+        }
+
+        const participants = config.participants.map((name) => ({
+          name,
+          type: "guest" as const,
+        }));
+
+        const bracket = generateBracket(
+          config.participants,
+          config.format as TournamentFormat,
+        );
+
+        res = await apiFetch("/tournaments", {
+          method: "POST",
+          body: JSON.stringify({
+            name: config.name,
+            discipline: config.discipline,
+            game: config.discipline,
+            format: config.format,
+            description: config.description || undefined,
+            isPrivate: config.isPrivate || false,
+            teamMode: config.teamMode || false,
+            status: "draft",
+            participants,
+            bracketData: bracket,
+            maxParticipants: config.participants.length,
+            startDate: new Date().toISOString(),
+          }),
+        });
+      } else {
+        res = await apiFetch("/tournaments/scheduled", {
+          method: "POST",
+          body: JSON.stringify({
+            name: config.name,
+            discipline: config.discipline,
+            format: config.format,
+            description: config.description || undefined,
+            isPrivate: config.isPrivate || false,
+            teamMode: config.teamMode || false,
+            startDate: config.startDate,
+            registrationMode: config.registrationMode || "open",
+            maxParticipants: config.maxParticipants,
+          }),
+        });
+      }
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Server error (${res.status})`);
+      }
+
+      const data = await res.json();
+      setCreationStatus((prev) => ({
+        ...prev,
+        [messageId]: { status: "success", tournamentId: data.id },
+      }));
+    } catch (err) {
+      setCreationStatus((prev) => ({
+        ...prev,
+        [messageId]: { status: "error", error: (err as Error).message },
+      }));
     }
   }, []);
 
@@ -261,16 +480,47 @@ export default function AiAssistant() {
 
           {messages.map((m) => (
             <Message key={m.id} className={m.role === "user" ? "justify-end" : ""}>
-              <MessageContent
-                markdown={m.role === "assistant"}
-                className={
-                  m.role === "user"
-                    ? "bg-primary text-primary-foreground max-w-[85%] text-sm"
-                    : "bg-secondary max-w-[85%] text-sm"
+              {m.role === "user" ? (
+                <MessageContent
+                  className="bg-primary text-primary-foreground max-w-[85%] text-sm"
+                >
+                  {m.content}
+                </MessageContent>
+              ) : (() => {
+                const { before, config, after } = parseTournamentAction(m.content);
+                if (config) {
+                  const cs = creationStatus[m.id] || { status: "idle" as const };
+                  return (
+                    <div className="max-w-[85%] space-y-2">
+                      {before && (
+                        <MessageContent markdown className="bg-secondary text-sm">
+                          {before}
+                        </MessageContent>
+                      )}
+                      <TournamentActionCard
+                        config={config}
+                        status={cs.status}
+                        errorMsg={cs.error}
+                        tournamentId={cs.tournamentId}
+                        onCreate={() => createTournament(m.id, config)}
+                      />
+                      {after && (
+                        <MessageContent markdown className="bg-secondary text-sm">
+                          {after}
+                        </MessageContent>
+                      )}
+                    </div>
+                  );
                 }
-              >
-                {m.content}
-              </MessageContent>
+                return (
+                  <MessageContent
+                    markdown
+                    className="bg-secondary max-w-[85%] text-sm"
+                  >
+                    {m.content}
+                  </MessageContent>
+                );
+              })()}
             </Message>
           ))}
 
