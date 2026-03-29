@@ -1,4 +1,5 @@
 import "./globals.css";
+import AiAssistant from "@/components/AiAssistant";
 import Navbar from "@/components/Navbar";
 import StoreProvider from "@/components/StoreProvider";
 import Toaster from "@/components/Toaster";
@@ -34,6 +35,7 @@ export default function RootLayout({
           <Navbar />
           {children}
           <Toaster />
+          <AiAssistant />
         </StoreProvider>
       </body>
     </html>
