@@ -9,7 +9,6 @@ import {
 } from "@/constants/disciplines";
 import {
   LABEL_ADD_TEAM,
-  LABEL_GENERATE_BRACKET,
 } from "@/constants/labels";
 import { useTagInput } from "@/hooks/useTagInput";
 import { apiFetch } from "@/lib/api";
@@ -31,11 +30,13 @@ interface Props {
   onSubmit: (data: QuickTournamentData) => void;
   /** Called on every meaningful state change so the parent can persist the draft */
   onChange?: (data: QuickTournamentData) => void;
+  submitting?: boolean;
+  submitError?: string | null;
 }
 
 const formats = Object.entries(tournamentFormatInfo) as [TournamentFormat, { label: string; description: string }][];
 
-export default function QuickTournamentForm({ initial, onSubmit, onChange }: Props) {
+export default function QuickTournamentForm({ initial, onSubmit, onChange, submitting, submitError }: Props) {
   const [name, setName] = useState(initial?.name ?? "");
   const [disciplineChoice, setDisciplineChoice] = useState(() => {
     const saved = (initial?.discipline ?? (initial as any)?.game ?? "").trim();
@@ -179,291 +180,524 @@ export default function QuickTournamentForm({ initial, onSubmit, onChange }: Pro
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-      {/* Tournament Name – Hero Input */}
-      <Card className="p-4 bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 text-primary">
-            <Trophy className="w-5 h-5" />
-            <Label className="text-base font-semibold">
-              Tournament Name <span className="text-destructive">*</span>
-            </Label>
-          </div>
-          <Input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            placeholder="e.g. Friday Night Showdown"
-            className="text-lg h-12 bg-white/80 border-primary/30"
-          />
+    <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-[1fr_1fr] gap-8 items-start">
+      {/* ═══ LEFT COLUMN — Tournament Details ═══ */}
+      <div className="space-y-5">
+        <div>
+          <h2 className="text-xl font-bold text-foreground">Tournament Details</h2>
+          <p className="text-sm text-muted-foreground">Configure the basic information</p>
         </div>
-      </Card>
 
-      {/* Discipline & Format – 2-column grid */}
-      <div className="grid grid-cols-2 gap-4">
-        <Card className="p-4 hover:shadow-md transition-shadow">
+        {/* Tournament Name – Hero Input */}
+        <Card className="p-4 bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
           <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <Gamepad2 className="w-4 h-4 text-muted-foreground" />
-              <Label className="font-semibold">
-                Discipline <span className="text-destructive">*</span>
+            <div className="flex items-center gap-2 text-primary">
+              <Trophy className="w-5 h-5" />
+              <Label className="text-base font-semibold">
+                Tournament Name <span className="text-destructive">*</span>
               </Label>
             </div>
-            <Select
-              value={disciplineChoice}
-              onValueChange={setDisciplineChoice}
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
               required
-            >
-              <SelectTrigger className="h-11">
-                <SelectValue placeholder="Select discipline…" />
-              </SelectTrigger>
-              <SelectContent>
-                {DISCIPLINE_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.icon} {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {disciplineChoice === CUSTOM_DISCIPLINE_VALUE && (
-              <Input
-                value={customDiscipline}
-                onChange={(e) => setCustomDiscipline(e.target.value)}
-                required
-                placeholder="Enter your own discipline"
-              />
-            )}
+              placeholder="Enter an epic tournament name..."
+              className="text-lg h-12 bg-white/80 border-primary/30"
+            />
           </div>
         </Card>
 
-        <Card className="p-4 hover:shadow-md transition-shadow">
+        {/* Discipline & Format – 2-column grid */}
+        <div className="grid grid-cols-2 gap-4">
+          <Card className="p-4 hover:shadow-md transition-shadow">
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Gamepad2 className="w-4 h-4 text-muted-foreground" />
+                <Label className="font-semibold">
+                  Discipline <span className="text-destructive">*</span>
+                </Label>
+              </div>
+              <Select
+                value={disciplineChoice}
+                onValueChange={setDisciplineChoice}
+                required
+              >
+                <SelectTrigger className="h-11">
+                  <SelectValue placeholder="Choose sport..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {DISCIPLINE_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.icon} {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {disciplineChoice === CUSTOM_DISCIPLINE_VALUE && (
+                <Input
+                  value={customDiscipline}
+                  onChange={(e) => setCustomDiscipline(e.target.value)}
+                  required
+                  placeholder="Enter your own discipline"
+                />
+              )}
+            </div>
+          </Card>
+
+          <Card className="p-4 hover:shadow-md transition-shadow">
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-muted-foreground" />
+                <Label className="font-semibold">
+                  Format <span className="text-destructive">*</span>
+                </Label>
+              </div>
+              <Select
+                value={format}
+                onValueChange={(v) => setFormat(v as TournamentFormat)}
+              >
+                <SelectTrigger className="h-11">
+                  <SelectValue placeholder="Select format..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {formats.map(([key, { label: l }]) => (
+                    <SelectItem key={key} value={key}>
+                      {l}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <TournamentFormatMiniPreview format={format} />
+            </div>
+          </Card>
+        </div>
+
+        {/* Settings */}
+        <Card className="p-4">
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Shield className="w-4 h-4 text-muted-foreground" />
+              <Label className="font-semibold">Settings</Label>
+            </div>
+            <div className="space-y-3">
+              <ToggleRow
+                checked={allowTies}
+                onChange={setAllowTies}
+                label="Allow ties"
+                hint="matches can end in a draw"
+              />
+              <ToggleRow
+                checked={isPrivate}
+                onChange={setIsPrivate}
+                label="Private tournament"
+                hint="only visible to you and participants"
+              />
+              <ToggleRow
+                checked={teamMode}
+                onChange={setTeamMode}
+                label="Team mode"
+                hint="teams compete as brackets"
+              />
+            </div>
+          </div>
+        </Card>
+
+        {/* Description */}
+        <Card className="p-4">
           <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <Users className="w-4 h-4 text-muted-foreground" />
-              <Label className="font-semibold">
-                Format <span className="text-destructive">*</span>
-              </Label>
+              <FileText className="w-4 h-4 text-muted-foreground" />
+              <Label className="font-semibold">Rules &amp; Description</Label>
             </div>
-            <Select
-              value={format}
-              onValueChange={(v) => setFormat(v as TournamentFormat)}
-            >
-              <SelectTrigger className="h-11">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {formats.map(([key, { label: l, description: desc }]) => (
-                  <SelectItem key={key} value={key}>
-                    {l}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <TournamentFormatMiniPreview format={format} />
+            <Textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={4}
+              placeholder="Describe the tournament rules, prize pool, schedule, and any special requirements..."
+              className="resize-none"
+            />
           </div>
         </Card>
       </div>
 
-      {/* Description */}
-      <Card className="p-4">
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <FileText className="w-4 h-4 text-muted-foreground" />
-            <Label className="font-semibold">
-              Description <span className="text-muted-foreground font-normal">(optional)</span>
-            </Label>
-          </div>
-          <Textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={3}
-            placeholder="Describe the format, rules, prizes…"
-            className="resize-none"
-          />
+      {/* ═══ RIGHT COLUMN — Participants ═══ */}
+      <div className="space-y-5">
+        <div>
+          <h2 className="text-xl font-bold text-foreground">Participants</h2>
+          <p className="text-sm text-muted-foreground">Add players or teams</p>
         </div>
-      </Card>
 
-      {/* Settings */}
-      <Card className="p-4">
-        <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <Shield className="w-4 h-4 text-muted-foreground" />
-            <Label className="font-semibold">Settings</Label>
-          </div>
-          <div className="space-y-3">
-            <ToggleRow
-              checked={allowTies}
-              onChange={setAllowTies}
-              label="Allow ties"
-              hint="matches can end in a draw"
-            />
-            <ToggleRow
-              checked={isPrivate}
-              onChange={setIsPrivate}
-              label="Private tournament"
-              hint="only visible to you and participants"
-            />
-            <ToggleRow
-              checked={teamMode}
-              onChange={setTeamMode}
-              label="Team mode"
-              hint="teams are the main competitors in the bracket"
-            />
-          </div>
-        </div>
-      </Card>
-
-      {/* Participants */}
-      <Card className="p-4">
-        <div className="space-y-4">
+        {/* Stats card */}
+        <Card className="p-4 bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <UserPlus className="w-4 h-4 text-muted-foreground" />
-              <Label className="font-semibold">
-                {teamMode ? "Teams" : "Participants"}
-              </Label>
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-white rounded-lg shadow-sm ring-2 ring-primary/20">
+                <Users className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Total Participants</p>
+                <p className="text-2xl font-bold text-primary">{totalCompetitors}</p>
+              </div>
             </div>
-            <span className="text-xs text-muted-foreground font-medium tabular-nums">
-              {totalCompetitors} competitor{totalCompetitors !== 1 ? "s" : ""}
+            <span className="text-sm font-medium text-primary bg-primary/10 px-3 py-1 rounded-full">
+              {totalCompetitors} / ∞
             </span>
           </div>
+        </Card>
 
-          {teamMode ? (
-            /* ── Team mode ── */
-            <div className="space-y-3">
-              {/* Search existing teams */}
-              <div ref={teamSearchRef} className="relative">
-                <Input
-                  value={teamSearch}
-                  onChange={(e) => {
-                    setTeamSearch(e.target.value);
-                    setShowTeamDropdown(true);
-                  }}
-                  onFocus={() => setShowTeamDropdown(true)}
-                  placeholder="Search existing teams…"
-                  className="text-xs"
-                />
-                {showTeamDropdown && teamSearch.trim() && (
-                  <div className="absolute z-20 left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg max-h-56 overflow-y-auto">
-                    {teamSearching ? (
-                      <div className="px-3 py-2 text-xs text-muted-foreground">Searching…</div>
-                    ) : teamResults.length === 0 ? (
-                      <div className="px-3 py-2 text-xs text-muted-foreground">No teams found</div>
-                    ) : (
-                      teamResults.map((t) => (
-                        <button
-                          key={t.id}
-                          type="button"
-                          onClick={() => addExistingTeam(t)}
-                          className="w-full text-left px-3 py-2 hover:bg-accent transition-colors border-b border-border/50 last:border-0"
-                        >
-                          <span className="text-sm font-medium text-foreground">{t.name}</span>
-                          {t.members.length > 0 && (
-                            <span className="block text-[11px] text-muted-foreground truncate">
-                              {t.members.map((m) => m.displayName || m.username).join(", ")}
-                            </span>
-                          )}
-                        </button>
-                      ))
-                    )}
-                  </div>
-                )}
-              </div>
+        {teamMode ? (
+          /* ── Team mode ── */
+          <>
+            {/* Add team */}
+            <Card className="p-4">
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <UserPlus className="w-4 h-4" />
+                  <h3 className="font-semibold">Add Teams</h3>
+                </div>
 
-              <div className="flex flex-col gap-2">
-                {teams.map((team, ti) => (
-                  <TeamCard
-                    key={ti}
-                    team={team}
-                    onUpdateName={(n) =>
-                      setTeams((prev) => prev.map((t, i) => (i === ti ? { ...t, name: n } : t)))
-                    }
-                    onAddMember={(n, type) =>
-                      setTeams((prev) =>
-                        prev.map((t, i) =>
-                          i === ti ? { ...t, members: [...t.members, { name: n, type }] } : t
-                        )
-                      )
-                    }
-                    onRemoveMember={(mi) =>
-                      setTeams((prev) =>
-                        prev.map((t, i) =>
-                          i === ti ? { ...t, members: t.members.filter((_, j) => j !== mi) } : t
-                        )
-                      )
-                    }
-                    onRemoveTeam={() => setTeams((prev) => prev.filter((_, i) => i !== ti))}
+                {/* Search existing teams */}
+                <div ref={teamSearchRef} className="relative">
+                  <Input
+                    value={teamSearch}
+                    onChange={(e) => {
+                      setTeamSearch(e.target.value);
+                      setShowTeamDropdown(true);
+                    }}
+                    onFocus={() => setShowTeamDropdown(true)}
+                    placeholder="Search existing teams…"
                   />
-                ))}
+                  {showTeamDropdown && teamSearch.trim() && (
+                    <div className="absolute z-20 left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg max-h-56 overflow-y-auto">
+                      {teamSearching ? (
+                        <div className="px-3 py-2 text-xs text-muted-foreground">Searching…</div>
+                      ) : teamResults.length === 0 ? (
+                        <div className="px-3 py-2 text-xs text-muted-foreground">No teams found</div>
+                      ) : (
+                        teamResults.map((t) => (
+                          <button
+                            key={t.id}
+                            type="button"
+                            onClick={() => addExistingTeam(t)}
+                            className="w-full text-left px-3 py-2 hover:bg-accent transition-colors border-b border-border/50 last:border-0"
+                          >
+                            <span className="text-sm font-medium text-foreground">{t.name}</span>
+                            {t.members.length > 0 && (
+                              <span className="block text-[11px] text-muted-foreground truncate">
+                                {t.members.map((m) => m.displayName || m.username).join(", ")}
+                              </span>
+                            )}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setTeams((prev) => [...prev, { name: "", members: [] }])}
+                  className="w-full py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:bg-primary/90 transition-colors"
+                >
+                  <UserPlus className="w-4 h-4 inline mr-2" />
+                  {LABEL_ADD_TEAM}
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => setTeams((prev) => [...prev, { name: "", members: [] }])}
-                className="text-sm text-primary hover:text-primary/80 font-medium"
-              >
-                {LABEL_ADD_TEAM}
-              </button>
-            </div>
-          ) : (
-            /* ── Individual mode ── */
-            <div className="space-y-3">
-              <p className="text-xs text-muted-foreground">
-                Search by username — non-matching names added as guests
-              </p>
-              <div className="flex flex-wrap items-center gap-1.5 border border-border rounded-lg px-2 py-1.5 focus-within:ring-2 focus-within:ring-ring min-h-[42px] bg-[var(--input-background)]">
-                {accounts.map((t, i) => (
-                  <span
-                    key={`a-${i}`}
-                    className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-md bg-primary/10 text-primary"
-                  >
-                    {t}
-                    <button
-                      type="button"
-                      onClick={() => removeTag(i, setAccounts)}
-                      className="leading-none text-primary/60 hover:text-primary"
-                    >
-                      ×
-                    </button>
-                  </span>
-                ))}
-                {guests.map((t, i) => (
-                  <span
-                    key={`g-${i}`}
-                    className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-md bg-amber-50 text-amber-700"
-                  >
-                    {t}
-                    <button
-                      type="button"
-                      onClick={() => removeTag(i, setGuests)}
-                      className="leading-none text-amber-400 hover:text-amber-700"
-                    >
-                      ×
-                    </button>
-                  </span>
-                ))}
+            </Card>
+
+            {/* Team list */}
+            <Card className="p-4">
+              <div className="space-y-3">
+                <h3 className="font-semibold flex items-center gap-2">
+                  <Users className="w-4 h-4" />
+                  Team List
+                </h3>
+                <div className="space-y-2 max-h-[500px] overflow-y-auto">
+                  {teams.length === 0 ? (
+                    <div className="text-center py-12 px-4">
+                      <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-muted mb-4">
+                        <Users className="w-8 h-8 text-muted-foreground" />
+                      </div>
+                      <p className="text-muted-foreground font-medium">No teams yet</p>
+                      <p className="text-sm text-muted-foreground mt-1">Add your first team above</p>
+                    </div>
+                  ) : (
+                    teams.map((team, ti) => (
+                      <TeamCard
+                        key={ti}
+                        team={team}
+                        onUpdateName={(n) =>
+                          setTeams((prev) => prev.map((t, i) => (i === ti ? { ...t, name: n } : t)))
+                        }
+                        onAddMember={(n, type) =>
+                          setTeams((prev) =>
+                            prev.map((t, i) =>
+                              i === ti ? { ...t, members: [...t.members, { name: n, type }] } : t
+                            )
+                          )
+                        }
+                        onRemoveMember={(mi) =>
+                          setTeams((prev) =>
+                            prev.map((t, i) =>
+                              i === ti ? { ...t, members: t.members.filter((_, j) => j !== mi) } : t
+                            )
+                          )
+                        }
+                        onRemoveTeam={() => setTeams((prev) => prev.filter((_, i) => i !== ti))}
+                      />
+                    ))
+                  )}
+                </div>
+              </div>
+            </Card>
+          </>
+        ) : (
+          /* ── Individual mode ── */
+          <>
+            {/* Add participant */}
+            <Card className="p-4">
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <UserPlus className="w-4 h-4" />
+                  <h3 className="font-semibold">Add Participant</h3>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Search by username — non-matching names are added as guests
+                </p>
                 <UserSearchInput
                   onSelect={(username) => addTag(username, setAccounts)}
                   onSelectAsGuest={(name) => addTag(name, setGuests)}
-                  placeholder={accounts.length + guests.length === 0 ? "Search username…" : ""}
-                  className="flex-1 min-w-[140px]"
+                  placeholder="Enter participant name"
+                  className="w-full"
                 />
               </div>
-            </div>
-          )}
-        </div>
-      </Card>
+            </Card>
 
-      <div className="text-xs text-muted-foreground">
-        {totalCompetitors} competitor{totalCompetitors !== 1 ? "s" : ""} total — minimum 2 to continue
+            {/* Participant list */}
+            <Card className="p-4">
+              <div className="space-y-3">
+                <h3 className="font-semibold flex items-center gap-2">
+                  <Users className="w-4 h-4" />
+                  Participant List
+                </h3>
+                <div className="space-y-2 max-h-[500px] overflow-y-auto">
+                  {accounts.length + guests.length === 0 ? (
+                    <div className="text-center py-12 px-4">
+                      <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-muted mb-4">
+                        <Users className="w-8 h-8 text-muted-foreground" />
+                      </div>
+                      <p className="text-muted-foreground font-medium">No participants yet</p>
+                      <p className="text-sm text-muted-foreground mt-1">Add your first participant above</p>
+                    </div>
+                  ) : (
+                    <>
+                      {accounts.map((t, i) => (
+                        <div
+                          key={`a-${i}`}
+                          className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg group hover:shadow-md transition-all border border-transparent hover:border-primary/20"
+                        >
+                          <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary/10 text-primary font-semibold flex-shrink-0">
+                            {i + 1}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium truncate">{t}</div>
+                            <div className="text-xs text-muted-foreground">Account</div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeTag(i, setAccounts)}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                      {guests.map((t, i) => (
+                        <div
+                          key={`g-${i}`}
+                          className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg group hover:shadow-md transition-all border border-transparent hover:border-primary/20"
+                        >
+                          <div className="flex items-center justify-center w-10 h-10 rounded-full bg-amber-100 text-amber-700 font-semibold flex-shrink-0">
+                            {accounts.length + i + 1}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium truncate">{t}</div>
+                            <div className="text-xs text-muted-foreground">Guest</div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeTag(i, setGuests)}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </>
+                  )}
+                </div>
+              </div>
+            </Card>
+          </>
+        )}
+
+        <p className="text-xs text-muted-foreground">
+          {totalCompetitors} competitor{totalCompetitors !== 1 ? "s" : ""} total — minimum 2 to continue
+        </p>
       </div>
 
-      <button
-        type="submit"
-        disabled={totalCompetitors < 2}
-        className="mt-2 w-full py-3 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-      >
-        {LABEL_GENERATE_BRACKET}
-      </button>
+      {/* ═══ LIVE PREVIEW (spans both columns) ═══ */}
+      <div className="lg:col-span-2 space-y-5">
+        <div>
+          <h2 className="text-xl font-bold text-foreground">Preview</h2>
+          <p className="text-sm text-muted-foreground">Live preview of your tournament</p>
+        </div>
+
+        {/* Hero Card */}
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-primary/90 to-primary/80 p-8 text-white shadow-lg">
+          {/* Decorative circles */}
+          <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/5 rounded-full" />
+          <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-white/5 rounded-full" />
+
+          {/* Visibility badge */}
+          <span className="absolute top-4 right-4 text-xs font-semibold px-3 py-1 rounded-full bg-white/20 backdrop-blur-sm">
+            {isPrivate ? "\uD83D\uDD12 Private" : "\uD83C\uDF10 Public"}
+          </span>
+
+          {/* Tournament info */}
+          <div className="relative z-10">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                <Trophy className="w-6 h-6" />
+              </div>
+              <h3 className="text-2xl font-bold tracking-tight">
+                {name.trim() || "Untitled Tournament"}
+              </h3>
+            </div>
+
+            <p className="text-sm text-white/60 mb-8 ml-[52px]">
+              Created {new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+            </p>
+
+            {/* Stats row */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 text-center">
+                <p className="text-[11px] uppercase tracking-wider text-white/60 mb-1">Discipline</p>
+                <p className="font-semibold text-sm truncate">{discipline || "\u2014"}</p>
+              </div>
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 text-center">
+                <p className="text-[11px] uppercase tracking-wider text-white/60 mb-1">Format</p>
+                <p className="font-semibold text-sm truncate">{tournamentFormatInfo[format]?.label || "\u2014"}</p>
+              </div>
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 text-center">
+                <p className="text-[11px] uppercase tracking-wider text-white/60 mb-1">Participants</p>
+                <p className="font-semibold text-lg">{totalCompetitors}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Registered Participants */}
+        <Card className="p-6">
+          <h3 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
+            <Users className="w-5 h-5 text-primary" />
+            Registered Participants
+          </h3>
+          {totalCompetitors === 0 ? (
+            <div className="text-center py-10">
+              <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-muted mb-3">
+                <Users className="w-7 h-7 text-muted-foreground" />
+              </div>
+              <p className="text-muted-foreground text-sm">No participants added yet</p>
+              <p className="text-xs text-muted-foreground mt-1">Add participants in the panel above</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {teamMode ? (
+                teams.filter((t) => t.name.trim()).map((team, i) => (
+                  <div
+                    key={`preview-team-${i}`}
+                    className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg"
+                  >
+                    <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary text-sm font-semibold shrink-0">
+                      {i + 1}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm font-medium truncate block">{team.name}</span>
+                      {team.members.length > 0 && (
+                        <span className="text-xs text-muted-foreground truncate block">
+                          {team.members.map((m) => m.name).join(", ")}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                      Team
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <>
+                  {accounts.map((acctName, i) => (
+                    <div
+                      key={`preview-a-${i}`}
+                      className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg"
+                    >
+                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary text-sm font-semibold shrink-0">
+                        {i + 1}
+                      </div>
+                      <span className="text-sm font-medium truncate flex-1">{acctName}</span>
+                      <span className="text-[10px] font-medium uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded">
+                        Account
+                      </span>
+                    </div>
+                  ))}
+                  {guests.map((guestName, i) => (
+                    <div
+                      key={`preview-g-${i}`}
+                      className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg"
+                    >
+                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-amber-100 text-amber-700 text-sm font-semibold shrink-0">
+                        {accounts.length + i + 1}
+                      </div>
+                      <span className="text-sm font-medium truncate flex-1">{guestName}</span>
+                      <span className="text-[10px] font-medium uppercase tracking-wider text-amber-700 bg-amber-50 px-2 py-0.5 rounded">
+                        Guest
+                      </span>
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
+          )}
+        </Card>
+
+        {/* Description preview */}
+        {description.trim() && (
+          <Card className="p-6">
+            <h3 className="text-lg font-bold text-foreground mb-3 flex items-center gap-2">
+              <FileText className="w-5 h-5 text-primary" />
+              Rules & Description
+            </h3>
+            <p className="text-sm text-muted-foreground whitespace-pre-wrap">{description}</p>
+          </Card>
+        )}
+      </div>
+
+      {/* ═══ Full-width submit (spans both columns) ═══ */}
+      <div className="lg:col-span-2 space-y-3">
+        {submitError && (
+          <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm text-destructive text-center">
+            {submitError}
+          </div>
+        )}
+        <button
+          type="submit"
+          disabled={totalCompetitors < 2 || submitting}
+          className="w-full py-3.5 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-md"
+        >
+          {submitting ? "Creating Tournament\u2026" : "Create Tournament \u2192"}
+        </button>
+      </div>
     </form>
   );
 }

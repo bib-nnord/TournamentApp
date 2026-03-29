@@ -79,6 +79,7 @@ export default function CreateTeamPage() {
   };
 
   return (
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60">
     <div className="max-w-xl mx-auto py-10 px-4">
       <h1 className="text-2xl font-bold mb-6">Create a Team</h1>
       <form onSubmit={handleSubmit} className="bg-white rounded-lg border p-6 shadow-sm flex flex-col gap-4">
@@ -159,6 +160,7 @@ export default function CreateTeamPage() {
           {loading ? "Creating…" : "Create Team"}
         </button>
       </form>
+    </div>
     </div>
   );
 }

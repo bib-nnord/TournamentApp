@@ -25,7 +25,7 @@ export default function CreateTournamentPage() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60 flex items-center justify-center">
         <div className="bg-white rounded-2xl border border-gray-200 p-10 max-w-md w-full text-center shadow-sm">
           <div className="text-4xl mb-4">🔒</div>
           <h1 className="text-xl font-bold text-gray-900 mb-2">Sign in to create a tournament</h1>
@@ -41,7 +41,7 @@ export default function CreateTournamentPage() {
             </Link>
             <Link
               href="/login"
-              className="px-8 py-3 text-lg border border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-50"
+              className="px-8 py-3 text-lg border border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60"
             >
               {LABEL_LOG_IN}
             </Link>
@@ -55,7 +55,7 @@ export default function CreateTournamentPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60">
       <div className="max-w-2xl mx-auto px-4 py-10">
         <Link href="/tournaments" className="text-sm text-gray-500 hover:text-gray-700 mb-6 inline-block">
           {LABEL_BACK_TO_TOURNAMENTS}

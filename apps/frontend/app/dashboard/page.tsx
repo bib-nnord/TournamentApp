@@ -51,7 +51,7 @@ export default function DashboardPage() {
   const teamNews = teamNewsData?.news ?? [];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60">
       <div className="max-w-4xl mx-auto px-4 py-10">
 
         {/* Header */}
@@ -71,13 +71,13 @@ export default function DashboardPage() {
           </Link>
           <Link
             href="/tournaments"
-            className="text-sm px-4 py-2 border border-gray-300 bg-white rounded-lg hover:bg-gray-50"
+            className="text-sm px-4 py-2 border border-gray-300 bg-white rounded-lg hover:bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60"
           >
             {LABEL_BROWSE_TOURNAMENTS}
           </Link>
           <Link
             href="/teams"
-            className="text-sm px-4 py-2 border border-gray-300 bg-white rounded-lg hover:bg-gray-50"
+            className="text-sm px-4 py-2 border border-gray-300 bg-white rounded-lg hover:bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60"
           >
             My Teams
           </Link>
@@ -93,7 +93,7 @@ export default function DashboardPage() {
                 <Link
                   key={t.id}
                   href={`/tournaments/view/${t.id}`}
-                  className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gray-50"
+                  className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60"
                 >
                   <span className="text-sm font-medium text-gray-800">{t.name}</span>
                   <span className="text-xs text-gray-400">{t.startDate ? formatDate(t.startDate) : t.game}</span>
@@ -108,7 +108,7 @@ export default function DashboardPage() {
                 <Link
                   key={t.id}
                   href={`/tournaments/view/${t.id}`}
-                  className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gray-50"
+                  className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60"
                 >
                   <span className="text-sm font-medium text-gray-800">{t.name}</span>
                   <span className="text-xs text-gray-400">{t.startDate ? formatDate(t.startDate) : t.game}</span>
@@ -134,7 +134,7 @@ export default function DashboardPage() {
                 <Link
                   key={m.id}
                   href={`/tournaments/view/${m.tournamentId}`}
-                  className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gray-50"
+                  className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60"
                 >
                   <div>
                     <p className="text-sm font-medium text-gray-800">vs {m.opponent}</p>
@@ -157,7 +157,7 @@ export default function DashboardPage() {
                 <Link
                   key={t.id}
                   href={`/tournaments/view/${t.id}`}
-                  className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gray-50"
+                  className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60"
                 >
                   <span className="text-sm font-medium text-gray-800">{t.name}</span>
                   <div className="flex items-center gap-3">

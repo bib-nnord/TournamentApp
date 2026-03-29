@@ -314,7 +314,7 @@ export default function ProfilePage() {
 
   if (profileLoading) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60">
         <div className="max-w-3xl mx-auto px-4 py-10">
           <p className="text-sm text-gray-400">Loading profile…</p>
         </div>
@@ -324,7 +324,7 @@ export default function ProfilePage() {
 
   if (profileError || !profile) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60">
         <div className="max-w-3xl mx-auto px-4 py-10">
           <p className="text-sm text-red-500">{profileError || "Profile not found"}</p>
         </div>
@@ -333,7 +333,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60">
       <div className="max-w-3xl mx-auto px-4 py-10">
 
         {/* Profile header */}
@@ -356,7 +356,7 @@ export default function ProfilePage() {
                 setProfileSaveError(null);
                 setEditingProfile((prev) => !prev);
               }}
-              className="text-sm px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+              className="text-sm px-4 py-2 border border-gray-300 rounded-lg hover:bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60"
             >
               {LABEL_EDIT_PROFILE}
             </button>
@@ -374,7 +374,7 @@ export default function ProfilePage() {
             <button
               onClick={handleRemoveFriend}
               disabled={friendLoading}
-              className="text-sm px-4 py-2 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+              className="text-sm px-4 py-2 border border-gray-300 text-gray-600 rounded-lg hover:bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60 disabled:opacity-50"
             >
               {friendLoading ? "Cancelling…" : "Request Sent"}
             </button>
@@ -391,7 +391,7 @@ export default function ProfilePage() {
               <button
                 onClick={handleDeclineRequest}
                 disabled={friendLoading}
-                className="text-sm px-4 py-2 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                className="text-sm px-4 py-2 border border-gray-300 text-gray-600 rounded-lg hover:bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60 disabled:opacity-50"
               >
                 {friendLoading ? "Declining…" : "Decline"}
               </button>
@@ -416,7 +416,7 @@ export default function ProfilePage() {
                 <button
                   onClick={handleCancelProfileEdit}
                   disabled={profileSaving}
-                  className="text-sm px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-600"
+                  className="text-sm px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60 text-gray-600"
                 >
                   Cancel
                 </button>
@@ -676,7 +676,7 @@ export default function ProfilePage() {
                 <Link
                   key={t.id}
                   href={`/teams/${t.id}`}
-                  className="flex items-center justify-between px-4 py-3 rounded-lg border border-gray-100 hover:bg-gray-50"
+                  className="flex items-center justify-between px-4 py-3 rounded-lg border border-gray-100 hover:bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60"
                 >
                   <div>
                     <span className="text-sm font-medium text-gray-800">{t.name}</span>
@@ -764,7 +764,7 @@ export default function ProfilePage() {
                   <Link
                     key={t.id}
                     href={`/tournaments/view/${t.id}`}
-                    className="flex items-center justify-between px-4 py-3 rounded-lg border border-gray-100 hover:bg-gray-50"
+                    className="flex items-center justify-between px-4 py-3 rounded-lg border border-gray-100 hover:bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60"
                   >
                     <span className="text-sm font-medium text-gray-800">{t.name}</span>
                     <div className="flex items-center gap-2">

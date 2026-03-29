@@ -72,7 +72,7 @@ export default function TeamPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60">
         <div className="max-w-3xl mx-auto px-4 py-10">
           <p className="text-sm text-gray-400">Loading team…</p>
         </div>
@@ -82,7 +82,7 @@ export default function TeamPage() {
 
   if (error || !team) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60">
         <div className="max-w-3xl mx-auto px-4 py-10">
           <Link href="/teams" className="text-sm text-gray-500 hover:text-gray-700 mb-6 inline-block">
             {LABEL_BACK_TO_TEAMS}
@@ -261,7 +261,7 @@ export default function TeamPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60">
       <div className="max-w-3xl mx-auto px-4 py-10">
         <Link href="/teams" className="text-sm text-gray-500 hover:text-gray-700 mb-6 inline-block">
           {LABEL_BACK_TO_TEAMS}
@@ -289,7 +289,7 @@ export default function TeamPage() {
               {currentUserRole !== "none" && (
                 <Link
                   href={`/teams/${team.id}/settings`}
-                  className="text-sm px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-500"
+                  className="text-sm px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60 text-gray-500"
                   title={LABEL_EDIT_TEAM}
                 >
                   {LABEL_EDIT_TEAM}
@@ -389,7 +389,7 @@ export default function TeamPage() {
               <button
                 onClick={handleMarkAllNewsRead}
                 disabled={actionLoading === "news-read-all"}
-                className="text-xs px-2.5 py-1 border border-gray-300 rounded hover:bg-gray-50 text-gray-600 disabled:opacity-60"
+                className="text-xs px-2.5 py-1 border border-gray-300 rounded hover:bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60 text-gray-600 disabled:opacity-60"
               >
                 {actionLoading === "news-read-all" ? "Marking…" : "Mark all as read"}
               </button>
@@ -402,7 +402,7 @@ export default function TeamPage() {
           ) : (
             <div className="mb-5 flex flex-col gap-3">
               {teamNews.map((item) => (
-                <div key={item.id} className={`px-3 py-2 rounded-lg border ${item.read ? "border-gray-100 bg-gray-50" : "border-indigo-100 bg-indigo-50"}`}>
+                <div key={item.id} className={`px-3 py-2 rounded-lg border ${item.read ? "border-gray-100 bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60" : "border-indigo-100 bg-indigo-50"}`}>
                   <p className="text-sm font-medium text-gray-800">{item.subject}</p>
                   <p className="text-xs text-gray-600 mt-0.5">{item.body}</p>
                   <p className="text-[11px] text-gray-400 mt-1">{new Date(item.time).toLocaleString()}</p>
@@ -414,7 +414,7 @@ export default function TeamPage() {
           <h2 className="text-base font-semibold text-gray-800 mb-4">Members ({team.membersCount})</h2>
           <div className="flex flex-col gap-2">
             {team.members.map((member) => (
-              <div key={member.id} className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gray-50">
+              <div key={member.id} className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60">
                 <div className="flex items-center gap-3">
                   <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-600">
                     {getUserInitial(member.username)}

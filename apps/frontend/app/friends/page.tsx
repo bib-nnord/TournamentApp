@@ -169,7 +169,7 @@ export default function FriendsPage() {
 
   return (
     <>
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60">
         <div className="max-w-3xl mx-auto px-4 py-10">
           <h1 className="text-2xl font-bold text-gray-900 mb-6">Friends</h1>
 
@@ -231,7 +231,7 @@ export default function FriendsPage() {
                       <UserListItem
                         key={r.id}
                         username={r.username}
-                        className="bg-gray-50"
+                        className="bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60"
                         actions={
                           <div className="flex gap-2">
                             <button
@@ -263,7 +263,7 @@ export default function FriendsPage() {
                       <UserListItem
                         key={r.id}
                         username={r.username}
-                        className="bg-gray-50"
+                        className="bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60"
                         actions={
                           <button
                             onClick={() => handleCancelOutgoing(r.id)}
@@ -297,7 +297,7 @@ export default function FriendsPage() {
                       className={`px-2.5 py-1 text-xs rounded-lg border font-medium transition-colors ${
                         sort === "asc"
                           ? "bg-blue-600 text-white border-blue-600"
-                          : "border-gray-300 text-gray-600 hover:bg-gray-50"
+                          : "border-gray-300 text-gray-600 hover:bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60"
                       }`}
                       title="Sort A → Z"
                     >
@@ -308,7 +308,7 @@ export default function FriendsPage() {
                       className={`px-2.5 py-1 text-xs rounded-lg border font-medium transition-colors ${
                         sort === "desc"
                           ? "bg-blue-600 text-white border-blue-600"
-                          : "border-gray-300 text-gray-600 hover:bg-gray-50"
+                          : "border-gray-300 text-gray-600 hover:bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60"
                       }`}
                       title="Sort Z → A"
                     >

@@ -372,7 +372,7 @@ export default function MessagesPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60">
         <div className="max-w-2xl mx-auto px-4 py-10">
           <p className="text-sm text-gray-500">Loading messages…</p>
         </div>
@@ -383,7 +383,7 @@ export default function MessagesPage() {
   // --- Compose view ---
   if (composing) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60">
         <div className="max-w-2xl mx-auto px-4 py-10">
           <button
             onClick={() => setComposing(false)}
@@ -442,7 +442,7 @@ export default function MessagesPage() {
               <div className="flex items-center gap-2 justify-end">
                 <button
                   onClick={() => setComposing(false)}
-                  className="text-sm px-4 py-2 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50"
+                  className="text-sm px-4 py-2 border border-gray-300 rounded-lg text-gray-600 hover:bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60"
                 >
                   Cancel
                 </button>
@@ -468,7 +468,7 @@ export default function MessagesPage() {
     const next = filtered[idx + 1] ?? null;
 
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60">
         <div className="max-w-2xl mx-auto px-4 py-10">
 
           {/* Back + navigation */}
@@ -483,14 +483,14 @@ export default function MessagesPage() {
               <button
                 onClick={() => prev && openAndRead(prev.id)}
                 disabled={!prev}
-                className="text-xs px-2 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                className="text-xs px-2 py-1 border border-gray-300 rounded hover:bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60 disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 {LABEL_NEWER}
               </button>
               <button
                 onClick={() => next && openAndRead(next.id)}
                 disabled={!next}
-                className="text-xs px-2 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                className="text-xs px-2 py-1 border border-gray-300 rounded hover:bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60 disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 {LABEL_OLDER}
               </button>
@@ -525,7 +525,7 @@ export default function MessagesPage() {
                     });
                     window.dispatchEvent(new Event("unread-count-changed"));
                   }}
-                  className={`text-xs px-3 py-1.5 border border-gray-300 rounded-lg text-gray-500 hover:bg-gray-50 ${openMessage.folder === "sent" ? "hidden" : ""}`}
+                  className={`text-xs px-3 py-1.5 border border-gray-300 rounded-lg text-gray-500 hover:bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60 ${openMessage.folder === "sent" ? "hidden" : ""}`}
                 >
                   {openMessage.read ? LABEL_MARK_UNREAD : LABEL_MARK_READ}
                 </button>
@@ -586,7 +586,7 @@ export default function MessagesPage() {
                     window.dispatchEvent(new Event("unread-count-changed"));
                     alert("Invite declined.");
                   }}
-                  className="text-sm px-4 py-2 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50"
+                  className="text-sm px-4 py-2 border border-gray-300 rounded-lg text-gray-600 hover:bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60"
                 >
                   Decline
                 </button>
@@ -608,7 +608,7 @@ export default function MessagesPage() {
               <div className="mt-4 pt-4 border-t border-gray-100">
                 <button
                   onClick={() => handleReply(openMessage)}
-                  className="text-sm px-4 py-2 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50"
+                  className="text-sm px-4 py-2 border border-gray-300 rounded-lg text-gray-600 hover:bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60"
                 >
                   Reply
                 </button>
@@ -623,7 +623,7 @@ export default function MessagesPage() {
 
   // --- List view ---
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60">
       <div className="max-w-4xl mx-auto px-4 py-10">
 
         {/* Header */}
@@ -641,7 +641,7 @@ export default function MessagesPage() {
               <button
                 onClick={markAllRead}
                 disabled={unreadCount === 0}
-                className="text-sm px-3 py-1.5 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="text-sm px-3 py-1.5 border border-gray-300 rounded-lg text-gray-600 hover:bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {LABEL_MARK_ALL_AS_READ}
               </button>
@@ -650,7 +650,7 @@ export default function MessagesPage() {
               onClick={handleRefresh}
               disabled={refreshing}
               title="Refresh messages"
-              className="text-sm px-3 py-1.5 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40"
+              className="text-sm px-3 py-1.5 border border-gray-300 rounded-lg text-gray-600 hover:bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60 disabled:opacity-40"
             >
               <span className={refreshing ? "inline-block animate-spin" : ""}>↻</span>
             </button>
@@ -726,13 +726,13 @@ export default function MessagesPage() {
                     <>
                       <button
                         onClick={() => markSelected(true)}
-                        className="text-xs px-3 py-1 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50"
+                        className="text-xs px-3 py-1 border border-gray-300 rounded-lg text-gray-600 hover:bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60"
                       >
                         {LABEL_MARK_READ}
                       </button>
                       <button
                         onClick={() => markSelected(false)}
-                        className="text-xs px-3 py-1 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50"
+                        className="text-xs px-3 py-1 border border-gray-300 rounded-lg text-gray-600 hover:bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60"
                       >
                         {LABEL_MARK_UNREAD}
                       </button>
@@ -775,7 +775,7 @@ export default function MessagesPage() {
                   <div
                     key={m.id}
                     className={`flex items-center gap-3 px-4 py-2.5 transition-colors duration-200 ${
-                      selected.has(m.id) ? "bg-indigo-50" : "hover:bg-gray-50"
+                      selected.has(m.id) ? "bg-indigo-50" : "hover:bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60"
                     }`}
                   >
                     <input

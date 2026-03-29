@@ -267,7 +267,7 @@ export default function TournamentPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60 flex items-center justify-center">
         <div className="text-sm text-gray-400">Loading tournament…</div>
       </div>
     );
@@ -275,7 +275,7 @@ export default function TournamentPage() {
 
   if (error || !tournament) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60">
         <div className="max-w-3xl mx-auto px-4 py-10">
           <Link href="/tournaments" className="text-sm text-gray-500 hover:text-gray-700 mb-6 inline-block">
             {LABEL_BACK_TO_TOURNAMENTS}
@@ -894,7 +894,7 @@ export default function TournamentPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60">
       <div className="max-w-3xl mx-auto px-4 py-10">
         {/* Back */}
         <Link href="/tournaments" className="text-sm text-gray-500 hover:text-gray-700 mb-6 inline-block">
@@ -923,7 +923,7 @@ export default function TournamentPage() {
               <button
                 onClick={() => handleConfirm(false)}
                 disabled={confirming}
-                className="text-sm px-3 py-1.5 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40"
+                className="text-sm px-3 py-1.5 border border-gray-300 rounded-lg text-gray-600 hover:bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60 disabled:opacity-40"
               >
                 Decline
               </button>
@@ -946,7 +946,7 @@ export default function TournamentPage() {
               <button
                 onClick={() => handleRespondInvite(false)}
                 disabled={confirming}
-                className="text-sm px-3 py-1.5 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40"
+                className="text-sm px-3 py-1.5 border border-gray-300 rounded-lg text-gray-600 hover:bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60 disabled:opacity-40"
               >
                 Decline
               </button>
@@ -1003,7 +1003,7 @@ export default function TournamentPage() {
                 <button
                   onClick={handleUnregister}
                   disabled={registering}
-                  className="shrink-0 text-sm px-3 py-1.5 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40"
+                  className="shrink-0 text-sm px-3 py-1.5 border border-gray-300 rounded-lg text-gray-600 hover:bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60 disabled:opacity-40"
                 >
                   {registering ? "Withdrawing…" : "Withdraw"}
                 </button>
@@ -1199,7 +1199,7 @@ export default function TournamentPage() {
             {visibleParticipants.map((p) => (
               <div
                 key={p.seed}
-                className="flex items-start gap-3 px-4 py-3 rounded-lg bg-gray-50"
+                className="flex items-start gap-3 px-4 py-3 rounded-lg bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60"
               >
                 <span className="text-xs text-gray-400 font-mono w-6 shrink-0 text-right mt-0.5">
                   {p.seed}.
@@ -1382,7 +1382,7 @@ className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-b
                     <button
                       onClick={() => handleParticipantDecision(p.seed, "decline")}
                       disabled={decidingParticipant === p.seed}
-                      className="text-[11px] px-2 py-1 rounded border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-40"
+                      className="text-[11px] px-2 py-1 rounded border border-gray-300 text-gray-600 hover:bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60 disabled:opacity-40"
                     >
                       Decline
                     </button>
@@ -1507,7 +1507,7 @@ className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-b
                 <button
                   type="button"
                   onClick={addTeam}
-                  className="text-sm px-3 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+                  className="text-sm px-3 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60 transition-colors"
                 >
                   + Add Team
                 </button>
@@ -1720,7 +1720,7 @@ className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-b
               <button
                 type="button"
                 onClick={openEditSettings}
-                className="text-sm px-4 py-2 rounded-lg font-medium transition-colors border border-gray-300 text-gray-600 hover:bg-gray-50"
+                className="text-sm px-4 py-2 rounded-lg font-medium transition-colors border border-gray-300 text-gray-600 hover:bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60"
               >
                 Edit Settings
               </button>

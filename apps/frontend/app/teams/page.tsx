@@ -106,7 +106,7 @@ export default function TeamsPage() {
   if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60">
       <div className="max-w-3xl mx-auto py-10 px-4">
 
         {/* ── My Teams ── */}
@@ -131,7 +131,7 @@ export default function TeamsPage() {
             <Accordion type="multiple" className="flex flex-col gap-2">
               {myTeams.map((team) => (
                 <AccordionItem key={team.id} value={String(team.id)} className="rounded-lg border border-gray-100">
-                  <AccordionTrigger className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 rounded-lg">
+                  <AccordionTrigger className="flex items-center justify-between px-4 py-3 hover:bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60 rounded-lg">
                     <span className="text-sm font-medium text-gray-800">{team.name}</span>
                     <div className="flex items-center gap-2 ml-2 shrink-0">
                       <span className="text-xs text-gray-400">{team.members} members</span>
@@ -174,7 +174,7 @@ export default function TeamsPage() {
             <Accordion type="multiple" className="flex flex-col gap-2">
               {discoverTeams.map((team) => (
                 <AccordionItem key={team.id} value={String(team.id)} className="rounded-lg border border-gray-100">
-                  <AccordionTrigger className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 rounded-lg">
+                  <AccordionTrigger className="flex items-center justify-between px-4 py-3 hover:bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60 rounded-lg">
                     <span className="text-sm font-medium text-gray-800 truncate">{team.name}</span>
                     <div className="flex items-center gap-2 ml-2 shrink-0">
                       <span className="text-xs text-gray-400">{team.members} members</span>

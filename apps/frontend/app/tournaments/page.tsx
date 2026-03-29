@@ -9,7 +9,7 @@ export default async function TournamentsPage({
 }) {
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60">
       <div className="max-w-5xl mx-auto px-4 py-10">
         <div className="flex items-center justify-between mb-6">
           <div>

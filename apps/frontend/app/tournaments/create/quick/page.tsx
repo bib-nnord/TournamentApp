@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import QuickTournamentForm from "@/components/QuickTournamentForm";
 import type { QuickTournamentData } from "@/components/QuickTournamentForm";
-import TournamentPreview from "@/components/TournamentPreview";
 import {
   LABEL_BACK_TO_TOURNAMENT_TYPE,
   LABEL_DISCARD_DRAFT,
@@ -12,9 +12,10 @@ import {
 } from "@/constants/labels";
 import { useNotify } from "@/hooks/useNotify";
 import { apiFetch } from "@/lib/api";
-import type { Bracket } from "@/lib/generateBracket";
+import { generateBracket } from "@/lib/generateBracket";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Trophy, Save } from "lucide-react";
 import type { SavedDraft } from "./types";
 
 const STORAGE_KEY = "quick-tournament-draft";
@@ -136,17 +137,23 @@ export default function QuickTournamentPage() {
     window.print();
   }
 
-  async function handleConfirm(data: QuickTournamentData, bracket: Bracket) {
+  async function handleSubmit(data: QuickTournamentData) {
     setSubmitting(true);
     setSubmitError(null);
 
     try {
+      const bracket = generateBracket(
+        data.participants.map((p) => p.name),
+        data.format,
+        data.format === "combination" ? { advancersPerGroup: data.advancersPerGroup ?? 2 } : undefined
+      );
+
       const res = await apiFetch("/tournaments", {
         method: "POST",
         body: JSON.stringify({
           name: data.name,
           discipline: data.discipline,
-          game: data.discipline, 
+          game: data.discipline,
           description: data.description || undefined,
           format: data.format,
           isPrivate: data.isPrivate,
@@ -184,15 +191,39 @@ export default function QuickTournamentPage() {
   if (!ready) return null;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60">
       <div className="max-w-6xl mx-auto px-4 py-10">
+        {/* Back link */}
         <Link
           href="/tournaments/create"
-          className="text-sm text-gray-500 hover:text-gray-700 mb-6 inline-block no-print"
+          className="text-sm text-muted-foreground hover:text-foreground mb-6 inline-block no-print"
         >
           {LABEL_BACK_TO_TOURNAMENT_TYPE}
         </Link>
 
+        {/* Hidden file input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".json"
+          onChange={handleLoadJSON}
+          className="hidden"
+        />
+
+        {/* Page header */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <Trophy className="w-8 h-8 text-primary" />
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">Create Tournament</h1>
+              <p className="text-sm text-muted-foreground">
+                Set up your tournament details, add participants, and preview before creating
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Draft banner */}
         {showDraftBanner && (
           <div className="mb-4 flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2.5 text-sm no-print">
             <span className="text-amber-700">Restored from saved draft</span>
@@ -213,60 +244,42 @@ export default function QuickTournamentPage() {
           </div>
         )}
 
-        {/* Hidden file input for JSON loading */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".json"
-          onChange={handleLoadJSON}
-          className="hidden"
-        />
-
         {/* Save / Load / Export toolbar */}
-        <div className="flex items-center gap-2 mb-4 no-print">
+        <div className="flex items-center gap-2 mb-6 no-print">
           <button
             type="button"
             onClick={handleSaveJSON}
             disabled={!formData}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-border rounded-lg text-muted-foreground hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed"
           >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17v3a2 2 0 002 2h14a2 2 0 002-2v-3" /></svg>
+            <Save className="w-3.5 h-3.5" />
             {LABEL_SAVE_AS_FILE}
           </button>
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-border rounded-lg text-muted-foreground hover:bg-muted"
           >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 14V8m0 0l-3 3m3-3l3 3M3 7v-3a2 2 0 012-2h14a2 2 0 012 2v3" /></svg>
             {LABEL_LOAD_FROM_FILE}
           </button>
           <button
             type="button"
             onClick={handleExportPDF}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-border rounded-lg text-muted-foreground hover:bg-muted"
           >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2z" /></svg>
             {LABEL_EXPORT_PDF}
           </button>
         </div>
 
-        {/* Always show preview, allow editing participants in preview */}
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-1 no-print">Review &amp; Confirm</h1>
-          <p className="text-sm text-gray-500 mb-6 no-print">
-            Review the bracket and edit details before starting the tournament.
-          </p>
-          <TournamentPreview
-            key={previewKey}
-            data={formData ?? { name: "", discipline: "", description: "", format: "single_elimination", participants: [], isPrivate: false, teamMode: false, allowTies: true }}
-            onBack={() => {}}
-            onConfirm={handleConfirm}
-            submitting={submitting}
-            submitError={submitError}
-            onChange={saveDraft}
-          />
-        </div>
+        {/* Tournament form with live preview */}
+        <QuickTournamentForm
+          key={previewKey}
+          initial={formData ?? undefined}
+          onSubmit={handleSubmit}
+          onChange={setFormData}
+          submitting={submitting}
+          submitError={submitError}
+        />
       </div>
     </div>
   );
