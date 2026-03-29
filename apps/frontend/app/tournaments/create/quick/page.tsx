@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import QuickTournamentForm from "@/components/QuickTournamentForm";
 import type { QuickTournamentData } from "@/components/QuickTournamentForm";
+import TournamentPreview from "@/components/TournamentPreview";
 import {
   LABEL_BACK_TO_TOURNAMENT_TYPE,
   LABEL_DISCARD_DRAFT,
@@ -12,7 +13,7 @@ import {
 } from "@/constants/labels";
 import { useNotify } from "@/hooks/useNotify";
 import { apiFetch } from "@/lib/api";
-import { generateBracket } from "@/lib/generateBracket";
+import type { Bracket } from "@/lib/generateBracket";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Trophy, Save } from "lucide-react";
@@ -137,17 +138,24 @@ export default function QuickTournamentPage() {
     window.print();
   }
 
-  async function handleSubmit(data: QuickTournamentData) {
+  const [submittedData, setSubmittedData] = useState<QuickTournamentData | null>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
+
+  function handleFormSubmit(data: QuickTournamentData) {
+    setSubmittedData(data);
+    setFormData(data);
+    setTimeout(() => previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+  }
+
+  function handleBackToForm() {
+    setSubmittedData(null);
+  }
+
+  async function handleConfirm(data: QuickTournamentData, bracket: Bracket) {
     setSubmitting(true);
     setSubmitError(null);
 
     try {
-      const bracket = generateBracket(
-        data.participants.map((p) => p.name),
-        data.format,
-        data.format === "combination" ? { advancersPerGroup: data.advancersPerGroup ?? 2 } : undefined
-      );
-
       const res = await apiFetch("/tournaments", {
         method: "POST",
         body: JSON.stringify({
@@ -275,11 +283,28 @@ export default function QuickTournamentPage() {
         <QuickTournamentForm
           key={previewKey}
           initial={formData ?? undefined}
-          onSubmit={handleSubmit}
+          onSubmit={handleFormSubmit}
           onChange={setFormData}
-          submitting={submitting}
-          submitError={submitError}
+          hideSubmit={!!submittedData}
         />
+
+        {/* Full bracket preview */}
+        {submittedData && (
+          <div ref={previewRef} className="mt-10 pt-8 border-t border-border">
+            <h2 className="text-2xl font-bold text-foreground mb-1">Preview</h2>
+            <p className="text-sm text-muted-foreground mb-6">
+              Review the bracket before starting the tournament.
+            </p>
+            <TournamentPreview
+              data={submittedData}
+              onBack={handleBackToForm}
+              onConfirm={handleConfirm}
+              submitting={submitting}
+              submitError={submitError}
+              onChange={saveDraft}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

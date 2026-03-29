@@ -9,6 +9,7 @@ import {
 } from "@/constants/disciplines";
 import {
   LABEL_ADD_TEAM,
+  LABEL_GENERATE_BRACKET,
 } from "@/constants/labels";
 import { useTagInput } from "@/hooks/useTagInput";
 import { apiFetch } from "@/lib/api";
@@ -32,11 +33,12 @@ interface Props {
   onChange?: (data: QuickTournamentData) => void;
   submitting?: boolean;
   submitError?: string | null;
+  hideSubmit?: boolean;
 }
 
 const formats = Object.entries(tournamentFormatInfo) as [TournamentFormat, { label: string; description: string }][];
 
-export default function QuickTournamentForm({ initial, onSubmit, onChange, submitting, submitError }: Props) {
+export default function QuickTournamentForm({ initial, onSubmit, onChange, submitting, submitError, hideSubmit }: Props) {
   const [name, setName] = useState(initial?.name ?? "");
   const [disciplineChoice, setDisciplineChoice] = useState(() => {
     const saved = (initial?.discipline ?? (initial as any)?.game ?? "").trim();
@@ -164,6 +166,7 @@ export default function QuickTournamentForm({ initial, onSubmit, onChange, submi
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!name.trim() || !discipline.trim()) return;
     if (totalCompetitors < 2) return;
     const participants: Participant[] = teamMode
       ? teams.filter((t) => t.name.trim()).map((t) => ({
@@ -546,158 +549,18 @@ export default function QuickTournamentForm({ initial, onSubmit, onChange, submi
         </p>
       </div>
 
-      {/* ═══ LIVE PREVIEW (spans both columns) ═══ */}
-      <div className="lg:col-span-2 space-y-5">
-        <div>
-          <h2 className="text-xl font-bold text-foreground">Preview</h2>
-          <p className="text-sm text-muted-foreground">Live preview of your tournament</p>
-        </div>
-
-        {/* Hero Card */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-primary/90 to-primary/80 p-8 text-white shadow-lg">
-          {/* Decorative circles */}
-          <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/5 rounded-full" />
-          <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-white/5 rounded-full" />
-
-          {/* Visibility badge */}
-          <span className="absolute top-4 right-4 text-xs font-semibold px-3 py-1 rounded-full bg-white/20 backdrop-blur-sm">
-            {isPrivate ? "\uD83D\uDD12 Private" : "\uD83C\uDF10 Public"}
-          </span>
-
-          {/* Tournament info */}
-          <div className="relative z-10">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
-                <Trophy className="w-6 h-6" />
-              </div>
-              <h3 className="text-2xl font-bold tracking-tight">
-                {name.trim() || "Untitled Tournament"}
-              </h3>
-            </div>
-
-            <p className="text-sm text-white/60 mb-8 ml-[52px]">
-              Created {new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
-            </p>
-
-            {/* Stats row */}
-            <div className="grid grid-cols-3 gap-3">
-              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 text-center">
-                <p className="text-[11px] uppercase tracking-wider text-white/60 mb-1">Discipline</p>
-                <p className="font-semibold text-sm truncate">{discipline || "\u2014"}</p>
-              </div>
-              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 text-center">
-                <p className="text-[11px] uppercase tracking-wider text-white/60 mb-1">Format</p>
-                <p className="font-semibold text-sm truncate">{tournamentFormatInfo[format]?.label || "\u2014"}</p>
-              </div>
-              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 text-center">
-                <p className="text-[11px] uppercase tracking-wider text-white/60 mb-1">Participants</p>
-                <p className="font-semibold text-lg">{totalCompetitors}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Registered Participants */}
-        <Card className="p-6">
-          <h3 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
-            <Users className="w-5 h-5 text-primary" />
-            Registered Participants
-          </h3>
-          {totalCompetitors === 0 ? (
-            <div className="text-center py-10">
-              <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-muted mb-3">
-                <Users className="w-7 h-7 text-muted-foreground" />
-              </div>
-              <p className="text-muted-foreground text-sm">No participants added yet</p>
-              <p className="text-xs text-muted-foreground mt-1">Add participants in the panel above</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {teamMode ? (
-                teams.filter((t) => t.name.trim()).map((team, i) => (
-                  <div
-                    key={`preview-team-${i}`}
-                    className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg"
-                  >
-                    <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary text-sm font-semibold shrink-0">
-                      {i + 1}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <span className="text-sm font-medium truncate block">{team.name}</span>
-                      {team.members.length > 0 && (
-                        <span className="text-xs text-muted-foreground truncate block">
-                          {team.members.map((m) => m.name).join(", ")}
-                        </span>
-                      )}
-                    </div>
-                    <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground bg-muted px-2 py-0.5 rounded">
-                      Team
-                    </span>
-                  </div>
-                ))
-              ) : (
-                <>
-                  {accounts.map((acctName, i) => (
-                    <div
-                      key={`preview-a-${i}`}
-                      className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg"
-                    >
-                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary text-sm font-semibold shrink-0">
-                        {i + 1}
-                      </div>
-                      <span className="text-sm font-medium truncate flex-1">{acctName}</span>
-                      <span className="text-[10px] font-medium uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded">
-                        Account
-                      </span>
-                    </div>
-                  ))}
-                  {guests.map((guestName, i) => (
-                    <div
-                      key={`preview-g-${i}`}
-                      className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg"
-                    >
-                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-amber-100 text-amber-700 text-sm font-semibold shrink-0">
-                        {accounts.length + i + 1}
-                      </div>
-                      <span className="text-sm font-medium truncate flex-1">{guestName}</span>
-                      <span className="text-[10px] font-medium uppercase tracking-wider text-amber-700 bg-amber-50 px-2 py-0.5 rounded">
-                        Guest
-                      </span>
-                    </div>
-                  ))}
-                </>
-              )}
-            </div>
-          )}
-        </Card>
-
-        {/* Description preview */}
-        {description.trim() && (
-          <Card className="p-6">
-            <h3 className="text-lg font-bold text-foreground mb-3 flex items-center gap-2">
-              <FileText className="w-5 h-5 text-primary" />
-              Rules & Description
-            </h3>
-            <p className="text-sm text-muted-foreground whitespace-pre-wrap">{description}</p>
-          </Card>
-        )}
-      </div>
-
       {/* ═══ Full-width submit (spans both columns) ═══ */}
-      <div className="lg:col-span-2 space-y-3">
-        {submitError && (
-          <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm text-destructive text-center">
-            {submitError}
-          </div>
-        )}
-        <button
-          type="submit"
-          disabled={totalCompetitors < 2 || submitting}
-          className="w-full py-3.5 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-md"
-        >
-          {submitting ? "Creating Tournament\u2026" : "Create Tournament \u2192"}
-        </button>
-      </div>
+      {!hideSubmit && (
+        <div className="lg:col-span-2">
+          <button
+            type="submit"
+            disabled={totalCompetitors < 2 || !name.trim() || !discipline.trim()}
+            className="w-full py-3.5 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-md"
+          >
+            {LABEL_GENERATE_BRACKET}
+          </button>
+        </div>
+      )}
     </form>
   );
 }
