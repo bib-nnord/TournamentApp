@@ -537,7 +537,7 @@ export default function TournamentPage() {
       if (res.ok) {
         setTournament(await res.json());
         notify.success(
-          tournament.registrationMode === "approval"
+          tournament!.registrationMode === "approval"
             ? "Application submitted. Awaiting organizer approval."
             : "You joined the tournament."
         );

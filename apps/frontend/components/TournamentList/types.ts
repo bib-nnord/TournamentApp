@@ -19,4 +19,5 @@ export interface TournamentSummary {
   matchProgress?: { completed: number; total: number };
   currentRound?: string | null;
   nextMatchAt?: string | null;
+  bracketData?: any;
 }

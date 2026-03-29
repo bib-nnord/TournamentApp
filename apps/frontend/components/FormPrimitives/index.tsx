@@ -5,9 +5,9 @@ import type { ReactNode } from "react";
 // ─── Shared CSS classes ─────────────────────────────────────────────────────
 
 export const inputClass =
-  "w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-400";
+  "w-full border border-border rounded-lg px-3 py-2 text-sm text-foreground bg-[var(--input-background)] focus:outline-none focus:ring-2 focus:ring-ring";
 
-export const labelClass = "block text-xs text-gray-400 uppercase tracking-wide mb-1";
+export const labelClass = "block text-xs text-muted-foreground uppercase tracking-wide mb-1";
 
 // ─── Toggle switch ──────────────────────────────────────────────────────────
 
@@ -16,7 +16,7 @@ interface ToggleSwitchProps {
   onChange: (value: boolean) => void;
   label: string;
   hint?: string;
-  /** Tailwind bg class when checked. Defaults to "bg-indigo-600". */
+  /** Tailwind bg class when checked. Defaults to "bg-primary". */
   activeColor?: string;
 }
 
@@ -25,7 +25,7 @@ export function ToggleSwitch({
   onChange,
   label,
   hint,
-  activeColor = "bg-indigo-600",
+  activeColor = "bg-primary",
 }: ToggleSwitchProps) {
   return (
     <div className="flex items-center gap-3">
@@ -35,7 +35,7 @@ export function ToggleSwitch({
         aria-checked={checked}
         onClick={() => onChange(!checked)}
         className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
-          checked ? activeColor : "bg-gray-200"
+          checked ? activeColor : "bg-muted"
         }`}
       >
         <span
@@ -44,9 +44,9 @@ export function ToggleSwitch({
           }`}
         />
       </button>
-      <span className="text-sm text-gray-700">
+      <span className="text-sm text-foreground">
         {label}
-        {hint && <span className="text-gray-400"> — {hint}</span>}
+        {hint && <span className="text-muted-foreground"> — {hint}</span>}
       </span>
     </div>
   );
@@ -65,7 +65,7 @@ export function FormSection({ label, optional, children }: FormSectionProps) {
     <div>
       <label className={labelClass}>
         {label}
-        {optional && <span className="normal-case text-gray-300"> (optional)</span>}
+        {optional && <span className="normal-case text-muted-foreground/60"> (optional)</span>}
       </label>
       {children}
     </div>
