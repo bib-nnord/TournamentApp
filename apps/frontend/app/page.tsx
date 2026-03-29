@@ -1,5 +1,4 @@
 import AuthButtons from "@/components/AuthButtons";
-import PageScrollSportsBackground from "@/components/PageScrollSportsBackground";
 import TeamList from "@/components/TeamList";
 import TournamentList from "@/components/TournamentList";
 import { LABEL_ALL_TEAMS } from "@/constants/labels";

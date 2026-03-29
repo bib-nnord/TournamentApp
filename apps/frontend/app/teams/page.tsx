@@ -8,6 +8,7 @@ import { apiFetch } from "@/lib/api";
 import { teamRoleColors } from "@/lib/colors";
 import type { TeamRole } from "@/types";
 import Link from "next/link";
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 
 interface MyTeam {
   id: number;
@@ -127,28 +128,35 @@ export default function TeamsPage() {
           ) : myTeams.length === 0 ? (
             <p className="text-gray-500">You are not part of any teams yet.</p>
           ) : (
-            <div className="flex flex-col gap-2">
+            <Accordion type="multiple" className="flex flex-col gap-2">
               {myTeams.map((team) => (
-                <Link
-                  key={team.id}
-                  href={`/teams/${team.id}`}
-                  className="flex items-center justify-between px-4 py-3 rounded-lg border border-gray-100 hover:bg-gray-50"
-                >
-                  <div>
+                <AccordionItem key={team.id} value={String(team.id)} className="rounded-lg border border-gray-100">
+                  <AccordionTrigger className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 rounded-lg">
                     <span className="text-sm font-medium text-gray-800">{team.name}</span>
-                    <span className="text-xs text-gray-400 ml-2">{team.members} members</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${team.open ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
-                      {team.open ? "Open" : "Closed"}
-                    </span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${teamRoleColors[team.role]}`}>
-                      {team.role}
-                    </span>
-                  </div>
-                </Link>
+                    <div className="flex items-center gap-2 ml-2 shrink-0">
+                      <span className="text-xs text-gray-400">{team.members} members</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${team.open ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                        {team.open ? "Open" : "Closed"}
+                      </span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${teamRoleColors[team.role]}`}>
+                        {team.role}
+                      </span>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-4 pb-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-500">{team.members} members · {team.open ? "Open" : "Closed"} · {team.role}</span>
+                      <Link
+                        href={`/teams/${team.id}`}
+                        className="text-xs px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-100 text-gray-600 transition-colors"
+                      >
+                        View
+                      </Link>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
               ))}
-            </div>
+            </Accordion>
           )}
         </div>
 
@@ -163,48 +171,52 @@ export default function TeamsPage() {
           ) : discoverTeams.length === 0 ? (
             <p className="text-gray-500">No other teams to discover right now.</p>
           ) : (
-            <div className="flex flex-col gap-2">
+            <Accordion type="multiple" className="flex flex-col gap-2">
               {discoverTeams.map((team) => (
-                <div
-                  key={team.id}
-                  className="flex items-center justify-between px-4 py-3 rounded-lg border border-gray-100 hover:bg-gray-50"
-                >
-                  <div className="flex items-center gap-2 min-w-0">
+                <AccordionItem key={team.id} value={String(team.id)} className="rounded-lg border border-gray-100">
+                  <AccordionTrigger className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 rounded-lg">
                     <span className="text-sm font-medium text-gray-800 truncate">{team.name}</span>
-                    <span className="text-xs text-gray-400 shrink-0">{team.members} members</span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${team.open ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
-                      {team.open ? "Open" : "Closed"}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 ml-4 shrink-0">
-                    <Link
-                      href={`/teams/${team.id}`}
-                      className="text-xs px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-100 text-gray-600 transition-colors"
-                    >
-                      View
-                    </Link>
-                    {team.open && (
-                      <button
-                        onClick={() => handleJoin(team)}
-                        disabled={joiningId === team.id}
-                        className="text-xs px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
-                      >
-                        {joiningId === team.id ? "Joining…" : "Join"}
-                      </button>
-                    )}
-                    {!team.open && team.allowApplications && (
-                      <button
-                        onClick={() => handleApply(team)}
-                        disabled={applyingId === team.id}
-                        className="text-xs px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
-                      >
-                        {applyingId === team.id ? "Applying…" : "Apply"}
-                      </button>
-                    )}
-                  </div>
-                </div>
+                    <div className="flex items-center gap-2 ml-2 shrink-0">
+                      <span className="text-xs text-gray-400">{team.members} members</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${team.open ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                        {team.open ? "Open" : "Closed"}
+                      </span>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-4 pb-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-500">{team.members} members · {team.open ? "Recruiting" : "Invite only"}</span>
+                      <div className="flex items-center gap-2">
+                        <Link
+                          href={`/teams/${team.id}`}
+                          className="text-xs px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-100 text-gray-600 transition-colors"
+                        >
+                          View
+                        </Link>
+                        {team.open && (
+                          <button
+                            onClick={() => handleJoin(team)}
+                            disabled={joiningId === team.id}
+                            className="text-xs px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                          >
+                            {joiningId === team.id ? "Joining…" : "Join"}
+                          </button>
+                        )}
+                        {!team.open && team.allowApplications && (
+                          <button
+                            onClick={() => handleApply(team)}
+                            disabled={applyingId === team.id}
+                            className="text-xs px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                          >
+                            {applyingId === team.id ? "Applying…" : "Apply"}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
               ))}
-            </div>
+            </Accordion>
           )}
         </div>
 

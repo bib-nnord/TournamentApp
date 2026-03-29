@@ -120,38 +120,39 @@ export default function TeamList({ layout = "grid" }: TeamListProps) {
         <AccordionItem key={t.id} value={String(t.id)}>
           <AccordionTrigger className="flex items-center justify-between px-4 py-3 bg-card border border-border rounded-lg">
             <span className="text-sm font-semibold text-card-foreground">{t.name}</span>
-            <span className={
-              "ml-2 rounded-full px-2 py-0.5 text-xs font-medium " +
-              (t.open
-                ? "bg-emerald-500/15 text-emerald-400"
-                : "bg-muted text-muted-foreground")
-            }>
-              {t.open ? "Open" : "Closed"}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">{t.members} members</span>
+              <span className={
+                "rounded-full px-2 py-0.5 text-xs font-medium " +
+                (t.open
+                  ? "bg-emerald-500/15 text-emerald-400"
+                  : "bg-muted text-muted-foreground")
+              }>
+                {t.open ? "Open" : "Closed"}
+              </span>
+            </div>
           </AccordionTrigger>
           <AccordionContent className="bg-card border-x border-b border-border rounded-b-lg">
             <div className="flex flex-col gap-2 p-3">
               {t.bio && <p className="text-xs text-muted-foreground">{t.bio}</p>}
               <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                <span>{t.members} members</span>
-                <span>{t.open ? "Recruiting now" : "Invite only"}</span>
                 <span>
                   {t.disciplines && t.disciplines.length > 0
                     ? t.disciplines.slice(0, 2).join(", ")
                     : "No discipline set"}
                 </span>
+                <span>{t.open ? "Recruiting now" : "Invite only"}</span>
                 <span>
                   {t.leader
                     ? `Leader: ${t.leader.displayName ?? t.leader.username}`
                     : "Leader not set"}
                 </span>
-                <span className="col-span-2">
+                <span>
                   {t.createdAt
                     ? `Created ${new Date(t.createdAt).toLocaleDateString()}`
                     : "Recently active"}
                 </span>
               </div>
-              <Link href={`/teams/${t.id}`} className="mt-2 text-xs text-primary underline">Open team page</Link>
             </div>
           </AccordionContent>
         </AccordionItem>
