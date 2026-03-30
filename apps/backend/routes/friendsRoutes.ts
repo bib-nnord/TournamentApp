@@ -4,11 +4,13 @@ import * as friendController from '../controllers/friendController';
 
 const router = Router();
 
+// Public: view any user's friends list
+router.get('/user/:username', friendController.listUserFriends);
+
 router.use(authenticate);
 
 router.get('/requests', friendController.listRequests);
 router.get('/status/:username', friendController.getStatus);
-router.get('/user/:username', friendController.listUserFriends);
 
 router.get('/', friendController.listFriends);
 router.post('/request', friendController.sendRequest);

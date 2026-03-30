@@ -13,14 +13,18 @@ export async function apiFetch(path: string, options: RequestInit = {}): Promise
 
   const isAuthRoute = path.startsWith('/auth/');
   if (res.status === 401 && !isAuthRoute) {
-    const result = await store.dispatch(refreshAccessToken());
+    // Only attempt refresh if the user was logged in (has a current user in store)
+    const hasUser = !!store.getState().user?.current;
+    if (hasUser) {
+      const result = await store.dispatch(refreshAccessToken());
 
-    if (refreshAccessToken.fulfilled.match(result)) {
-      res = await fetch(`${API_URL}${path}`, { ...options, headers, credentials: 'include' });
-    } else {
-      store.dispatch(clearAuth());
-      window.location.href = '/login';
-      return res;
+      if (refreshAccessToken.fulfilled.match(result)) {
+        res = await fetch(`${API_URL}${path}`, { ...options, headers, credentials: 'include' });
+      } else {
+        store.dispatch(clearAuth());
+        window.location.href = '/login';
+        return res;
+      }
     }
   }
 

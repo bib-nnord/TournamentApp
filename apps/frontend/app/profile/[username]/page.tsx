@@ -99,7 +99,9 @@ export default function ProfilePage() {
   const [profileSaveError, setProfileSaveError] = useState<string | null>(null);
   const [profileForm, setProfileForm] = useState<ProfileFormState>(emptyProfileForm);
 
-  const friendsUrl = isOwnProfile ? "/friends" : `/friends/user/${username}`;
+  const friendsUrl = isOwnProfile
+    ? (user ? "/friends" : null)
+    : `/friends/user/${username}`;
   const { data: friendsData, loading: friendsLoading } = useFetch<{ friends: Friend[] }>(friendsUrl);
   const [showAllFriends, setShowAllFriends] = useState(false);
   const teamsUrl = isOwnProfile
@@ -110,7 +112,7 @@ export default function ProfilePage() {
   const { data: teamsData, loading: teamsLoading } = useFetch<{ teams: MyTeam[] }>(teamsUrl);
   const { data: tournamentsData, loading: tournamentsLoading } = useFetch<{ tournaments: TournamentSummary[] }>("/tournaments?limit=20");
   const { data: friendStatus, setData: setFriendStatus } = useFetch<FriendStatusData>(
-    !isOwnProfile ? `/friends/status/${username}` : null
+    user && !isOwnProfile ? `/friends/status/${username}` : null
   );
   const [friendLoading, setFriendLoading] = useState(false);
   const myTournaments = (tournamentsData?.tournaments ?? []).filter(
