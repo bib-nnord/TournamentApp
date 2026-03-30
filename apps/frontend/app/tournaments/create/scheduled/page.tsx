@@ -7,6 +7,7 @@ import { useNotify } from "@/hooks/useNotify";
 import { apiFetch } from "@/lib/api";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { CalendarClock } from "lucide-react";
 
 export default function ScheduledTournamentPage() {
   const router = useRouter();
@@ -61,24 +62,27 @@ export default function ScheduledTournamentPage() {
       <div className="max-w-6xl mx-auto px-4 py-10">
         <Link
           href="/tournaments/create"
-          className="text-sm text-gray-500 hover:text-gray-700 mb-6 inline-block"
+          className="text-sm text-muted-foreground hover:text-foreground mb-6 inline-block"
         >
           {LABEL_BACK_TO_TOURNAMENT_TYPE}
         </Link>
 
-        <div className="max-w-2xl">
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
-            <h1 className="text-2xl font-bold text-gray-900 mb-1">Scheduled Tournament</h1>
-            <p className="text-sm text-gray-500 mb-6">
+        {/* Page header */}
+        <div className="flex items-center gap-3 mb-6">
+          <CalendarClock className="w-8 h-8 text-primary" />
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Scheduled Tournament</h1>
+            <p className="text-sm text-muted-foreground">
               Set a future date and open registration. Participants sign up on their own.
             </p>
-            <ScheduledTournamentForm
-              onSubmit={handleSubmit}
-              submitting={submitting}
-              submitError={submitError}
-            />
           </div>
         </div>
+
+        <ScheduledTournamentForm
+          onSubmit={handleSubmit}
+          submitting={submitting}
+          submitError={submitError}
+        />
       </div>
     </div>
   );
