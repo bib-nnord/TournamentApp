@@ -50,7 +50,7 @@ const eslintConfig = [
       'no-unused-expressions': 'off',
       'no-new': 'off',
       'new-cap': 'off',
-      //'max-len': ['warn', { code: 100 }],
+      'max-len': ['warn', { code: 100 }],
       'max-params': 'off',
       'react/prop-types': 'off',
       'react/require-default-props': 'off',

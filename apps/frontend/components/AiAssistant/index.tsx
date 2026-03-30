@@ -1,6 +1,6 @@
 "use client";
 
-import { Bot, Check, AlertCircle, Loader2, Minus, Send, Trash2, Trophy, X } from "lucide-react";
+import { Bot, Check, AlertCircle, Loader2, Minus, Send, Trash2, Trophy, Users, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -23,10 +23,10 @@ import { generateBracket } from "@/lib/generateBracket";
 import type { TournamentFormat } from "@/types";
 
 const SUGGESTIONS = [
-  "How do I create a tournament?",
-  "What formats are available?",
-  "Quick vs Scheduled tournament?",
+  "Help me create an account",
   "Create a tournament for me",
+  "Help me create a team",
+  "What formats are available?",
 ];
 
 const SESSION_KEY = "ai-chat-history";
@@ -49,6 +49,13 @@ interface TournamentConfig {
   startDate?: string;
   registrationMode?: string;
   maxParticipants?: number;
+}
+
+interface TeamConfig {
+  name: string;
+  description?: string;
+  disciplines?: string[];
+  open?: boolean;
 }
 
 const VALID_FORMATS = new Set([
@@ -79,6 +86,34 @@ function parseTournamentAction(content: string): {
     const config = JSON.parse(jsonStr) as TournamentConfig;
     if (!config.name || !config.discipline || !config.format) return { before: content, config: null, after: "" };
     if (!VALID_FORMATS.has(config.format)) return { before: content, config: null, after: "" };
+    return { before, config, after };
+  } catch {
+    return { before: content, config: null, after: "" };
+  }
+}
+
+function parseTeamAction(content: string): {
+  before: string;
+  config: TeamConfig | null;
+  after: string;
+} {
+  const startTag = "[TEAM_ACTION]";
+  const endTag = "[/TEAM_ACTION]";
+
+  const startIdx = content.indexOf(startTag);
+  if (startIdx === -1) return { before: content, config: null, after: "" };
+
+  const jsonStart = startIdx + startTag.length;
+  const endIdx = content.indexOf(endTag, jsonStart);
+  if (endIdx === -1) return { before: content, config: null, after: "" };
+
+  const jsonStr = content.slice(jsonStart, endIdx).trim();
+  const before = content.slice(0, startIdx).trim();
+  const after = content.slice(endIdx + endTag.length).trim();
+
+  try {
+    const config = JSON.parse(jsonStr) as TeamConfig;
+    if (!config.name) return { before: content, config: null, after: "" };
     return { before, config, after };
   } catch {
     return { before: content, config: null, after: "" };
@@ -198,6 +233,80 @@ function TournamentActionCard({
   );
 }
 
+function TeamActionCard({
+  config,
+  status,
+  errorMsg,
+  teamId,
+  onCreate,
+}: {
+  config: TeamConfig;
+  status: "idle" | "creating" | "success" | "error";
+  errorMsg?: string;
+  teamId?: number;
+  onCreate: () => void;
+}) {
+  return (
+    <div className="my-2 max-w-[85%] rounded-lg border bg-card p-3 shadow-sm">
+      <div className="mb-2 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Users className="h-4 w-4 text-primary" />
+          <span className="text-sm font-semibold">Create Team</span>
+        </div>
+        {status === "success" && teamId && (
+          <a
+            href={`/teams/${teamId}`}
+            className="text-xs font-medium text-primary hover:underline"
+          >
+            View Team &rarr;
+          </a>
+        )}
+      </div>
+      <div className="space-y-1 text-xs text-muted-foreground">
+        <p><span className="font-medium text-foreground">Name:</span> {config.name}</p>
+        {config.description && (
+          <p><span className="font-medium text-foreground">Description:</span> {config.description}</p>
+        )}
+        {config.disciplines && config.disciplines.length > 0 && (
+          <p><span className="font-medium text-foreground">Disciplines:</span> {config.disciplines.join(", ")}</p>
+        )}
+        <p><span className="font-medium text-foreground">Open to join:</span> {config.open !== false ? "Yes" : "No"}</p>
+      </div>
+      <div className="mt-3">
+        {status === "idle" && (
+          <Button size="sm" className="w-full text-xs" onClick={onCreate}>
+            <Users className="mr-1 h-3 w-3" />
+            Create Team
+          </Button>
+        )}
+        {status === "creating" && (
+          <Button size="sm" className="w-full text-xs" disabled>
+            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+            Creating...
+          </Button>
+        )}
+        {status === "success" && (
+          <Button size="sm" variant="outline" className="w-full text-xs text-green-600" disabled>
+            <Check className="mr-1 h-3 w-3" />
+            Team Created!
+          </Button>
+        )}
+        {status === "error" && (
+          <div>
+            <div className="mb-1 flex items-center gap-1 text-xs text-destructive">
+              <AlertCircle className="h-3 w-3" />
+              {errorMsg || "Failed to create team. Are you logged in?"}
+            </div>
+            <Button size="sm" className="w-full text-xs" onClick={onCreate}>
+              Retry
+            </Button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function AiAssistant() {
   const [open, setOpen] = useState(false);
   const [minimized, setMinimized] = useState(false);
@@ -208,7 +317,7 @@ export default function AiAssistant() {
   const abortRef = useRef<AbortController | null>(null);
   const initialized = useRef(false);
   const [creationStatus, setCreationStatus] = useState<
-    Record<string, { status: "idle" | "creating" | "success" | "error"; tournamentId?: number; error?: string }>
+    Record<string, { status: "idle" | "creating" | "success" | "error"; tournamentId?: number; teamId?: number; error?: string }>
   >({});
 
   // Load session messages on mount
@@ -347,6 +456,38 @@ export default function AiAssistant() {
     }
   }, []);
 
+  const createTeam = useCallback(async (messageId: string, config: TeamConfig) => {
+    setCreationStatus((prev) => ({ ...prev, [messageId]: { status: "creating" } }));
+
+    try {
+      const res = await apiFetch("/teams", {
+        method: "POST",
+        body: JSON.stringify({
+          name: config.name,
+          description: config.description || "",
+          disciplines: config.disciplines || [],
+          open: config.open !== false,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Failed to create team (${res.status})`);
+      }
+
+      const data = await res.json();
+      setCreationStatus((prev) => ({
+        ...prev,
+        [messageId]: { status: "success", teamId: data.team?.id },
+      }));
+    } catch (err) {
+      setCreationStatus((prev) => ({
+        ...prev,
+        [messageId]: { status: "error", error: (err as Error).message },
+      }));
+    }
+  }, []);
+
   const handleSubmit = useCallback(() => {
     const trimmed = input.trim();
     if (!trimmed || isLoading) return;
@@ -459,7 +600,7 @@ export default function AiAssistant() {
               <div>
                 <p className="text-sm font-medium">Hi! I&apos;m TourneyBot</p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  I can help you understand features and create tournaments.
+                  I can help you create accounts, teams, and tournaments.
                 </p>
               </div>
               <div className="flex flex-wrap justify-center gap-2">
@@ -487,31 +628,58 @@ export default function AiAssistant() {
                   {m.content}
                 </MessageContent>
               ) : (() => {
-                const { before, config, after } = parseTournamentAction(m.content);
-                if (config) {
+                const { before: tBefore, config: tConfig, after: tAfter } = parseTournamentAction(m.content);
+                if (tConfig) {
                   const cs = creationStatus[m.id] || { status: "idle" as const };
                   return (
                     <div className="max-w-[85%] space-y-2">
-                      {before && (
+                      {tBefore && (
                         <MessageContent markdown className="bg-secondary text-sm">
-                          {before}
+                          {tBefore}
                         </MessageContent>
                       )}
                       <TournamentActionCard
-                        config={config}
+                        config={tConfig}
                         status={cs.status}
                         errorMsg={cs.error}
                         tournamentId={cs.tournamentId}
-                        onCreate={() => createTournament(m.id, config)}
+                        onCreate={() => createTournament(m.id, tConfig)}
                       />
-                      {after && (
+                      {tAfter && (
                         <MessageContent markdown className="bg-secondary text-sm">
-                          {after}
+                          {tAfter}
                         </MessageContent>
                       )}
                     </div>
                   );
                 }
+
+                const { before: tmBefore, config: tmConfig, after: tmAfter } = parseTeamAction(m.content);
+                if (tmConfig) {
+                  const cs = creationStatus[m.id] || { status: "idle" as const };
+                  return (
+                    <div className="max-w-[85%] space-y-2">
+                      {tmBefore && (
+                        <MessageContent markdown className="bg-secondary text-sm">
+                          {tmBefore}
+                        </MessageContent>
+                      )}
+                      <TeamActionCard
+                        config={tmConfig}
+                        status={cs.status}
+                        errorMsg={cs.error}
+                        teamId={cs.teamId}
+                        onCreate={() => createTeam(m.id, tmConfig)}
+                      />
+                      {tmAfter && (
+                        <MessageContent markdown className="bg-secondary text-sm">
+                          {tmAfter}
+                        </MessageContent>
+                      )}
+                    </div>
+                  );
+                }
+
                 return (
                   <MessageContent
                     markdown

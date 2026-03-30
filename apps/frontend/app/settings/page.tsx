@@ -149,6 +149,7 @@ export default function SettingsPage() {
 
   function handleLogout() {
     dispatch(logoutAsync());
+    sessionStorage.removeItem("ai-chat-history");
     router.push("/");
   }
 

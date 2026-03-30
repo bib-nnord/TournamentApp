@@ -9,7 +9,7 @@ export default function Home() {
       <div className="badminton-scroll-bg" aria-hidden="true" />
 
       {/* Hero */}
-      <div className="hero-badminton-wrap border-b border-border bg-card/70">
+      <div className="hero-badminton-wrap border-b border-border bg-gradient-to-t from-white to-indigo-200">
         <div className="hero-badminton-scene" aria-hidden="true">
           <div className="hero-badminton-glow" />
           <div className="hero-badminton-court" />
@@ -29,7 +29,7 @@ export default function Home() {
           }
         >
           <h1 className="text-4xl font-bold tracking-tight text-foreground">
-            Host your Tournaments.
+            Host your Tournaments. 
           </h1>
           <p className="max-w-xl text-base text-muted-foreground">
             Create and join tournaments. Track results, manage teams or plan matches.

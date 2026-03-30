@@ -109,6 +109,7 @@ export default function Navbar() {
 
   function handleLogout() {
     dispatch(logoutAsync());
+    sessionStorage.removeItem("ai-chat-history");
     router.push("/");
   }
 
