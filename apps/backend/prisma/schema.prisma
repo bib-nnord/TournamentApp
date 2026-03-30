@@ -35,6 +35,7 @@ model User {
   sent_messages    Message[]       @relation("MessageSender")
   received_messages Message[]      @relation("MessageRecipient")
   refresh_tokens   RefreshToken[]
+  password_reset_tokens PasswordResetToken[]
 
   created_tournaments      Tournament[]              @relation("TournamentCreator")
   tournament_entries       TournamentParticipant[]    @relation("TournamentParticipants")
@@ -70,6 +71,21 @@ model RefreshToken {
 
   @@index([user_id])
   @@map("refresh_token")
+}
+
+// ─── Password Reset Tokens ──────────────────────────────────────────────────
+
+model PasswordResetToken {
+  id         Int      @id @default(autoincrement())
+  token      String   @unique @db.VarChar(64)
+  user_id    Int
+  expires_at DateTime @db.Timestamp(6)
+  created_at DateTime @default(now()) @db.Timestamp(6)
+
+  user User @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@map("password_reset_token")
 }
 
 // ─── Teams ──────────────────────────────────────────────────────────────────

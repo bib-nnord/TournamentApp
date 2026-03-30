@@ -5,6 +5,7 @@ import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import prisma from '../lib/prisma';
+import { sendEmail } from '../lib/email';
 
 function getJwtSecret(): string {
   const secret = process.env.JWT_SECRET;
@@ -237,6 +238,116 @@ export async function logout(req: Request, res: Response) {
     return res.status(200).json({ message: 'Logged out successfully' });
   } catch (err) {
     console.error('[logout]', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+const RESET_TOKEN_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
+
+export async function forgotPassword(req: Request, res: Response) {
+  const { email } = req.body as { email?: string };
+
+  if (!email) {
+    return res.status(400).json({ error: 'Email is required' });
+  }
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { email: email.toLowerCase() },
+    });
+
+    // Always return success to prevent user enumeration
+    if (!user) {
+      return res.status(200).json({ message: 'If that email exists, a reset link has been sent' });
+    }
+
+    // Delete any existing reset tokens for this user
+    await prisma.passwordResetToken.deleteMany({
+      where: { user_id: user.user_id },
+    });
+
+    // Generate token and store its hash
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = hashToken(rawToken);
+
+    await prisma.passwordResetToken.create({
+      data: {
+        token: tokenHash,
+        user_id: user.user_id,
+        expires_at: new Date(Date.now() + RESET_TOKEN_EXPIRY_MS),
+      },
+    });
+
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const resetLink = `${frontendUrl}/forgot-password/${rawToken}`;
+
+    await sendEmail(
+      user.email,
+      'Reset your password',
+      `<p>Hi ${user.display_name || user.username},</p>
+       <p>You requested a password reset. Click the link below to set a new password:</p>
+       <p><a href="${resetLink}">${resetLink}</a></p>
+       <p>This link expires in 1 hour. If you didn't request this, you can ignore this email.</p>`
+    );
+
+    return res.status(200).json({ message: 'If that email exists, a reset link has been sent' });
+  } catch (err) {
+    console.error('[forgotPassword]', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+export async function resetPassword(req: Request, res: Response) {
+  const { token, password } = req.body as { token?: string; password?: string };
+
+  if (!token || !password) {
+    return res.status(400).json({ error: 'Token and password are required' });
+  }
+
+  const passwordErrors: string[] = [];
+  if (password.length < 8) passwordErrors.push('at least 8 characters');
+  if (!/[a-z]/.test(password)) passwordErrors.push('at least one lowercase letter');
+  if (!/[A-Z]/.test(password)) passwordErrors.push('at least one uppercase letter');
+  if (!/[^a-zA-Z0-9]/.test(password)) passwordErrors.push('at least one special character');
+
+  if (passwordErrors.length > 0) {
+    const list = new Intl.ListFormat('en', { type: 'conjunction' }).format(passwordErrors);
+    return res.status(400).json({ error: `Password must contain ${list}` });
+  }
+
+  try {
+    const tokenHash = hashToken(token);
+
+    const stored = await prisma.passwordResetToken.findUnique({
+      where: { token: tokenHash },
+    });
+
+    if (!stored || stored.expires_at < new Date()) {
+      if (stored) {
+        await prisma.passwordResetToken.delete({ where: { id: stored.id } });
+      }
+      return res.status(400).json({ error: 'Invalid or expired reset token' });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 16);
+
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { user_id: stored.user_id },
+        data: { password_hash: passwordHash },
+      }),
+      prisma.passwordResetToken.deleteMany({
+        where: { user_id: stored.user_id },
+      }),
+      // Invalidate all refresh tokens so existing sessions are logged out
+      prisma.refreshToken.deleteMany({
+        where: { user_id: stored.user_id },
+      }),
+    ]);
+
+    return res.status(200).json({ message: 'Password has been reset successfully' });
+  } catch (err) {
+    console.error('[resetPassword]', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 }
