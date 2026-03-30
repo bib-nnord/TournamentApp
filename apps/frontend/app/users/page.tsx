@@ -1,11 +1,11 @@
 "use client";
 
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { apiFetch } from "@/lib/api";
 import { getUserInitial } from "@/lib/helpers";
 import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -21,13 +21,6 @@ interface UserItem {
 }
 
 export default function UsersPage() {
-  const listRef = useRef<HTMLDivElement | null>(null);
-  const dragStateRef = useRef({
-    pointerId: -1,
-    startY: 0,
-    startScrollTop: 0,
-    dragged: false,
-  });
   const [users, setUsers] = useState<UserItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -36,7 +29,6 @@ export default function UsersPage() {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [sort, setSort] = useState<"asc" | "desc">("asc");
-  const [isDraggingList, setIsDraggingList] = useState(false);
 
   // Debounce search input
   useEffect(() => {
@@ -70,43 +62,6 @@ export default function UsersPage() {
   useEffect(() => {
     setPage(1);
   }, [debouncedQuery]);
-
-  function handleListPointerDown(e: React.PointerEvent<HTMLDivElement>) {
-    const target = e.target as HTMLElement;
-    const blockedTarget = target.closest("input, textarea, select, label, a, button");
-    if (blockedTarget || !listRef.current) return;
-
-    dragStateRef.current.pointerId = e.pointerId;
-    dragStateRef.current.startY = e.clientY;
-    dragStateRef.current.startScrollTop = listRef.current.scrollTop;
-    dragStateRef.current.dragged = false;
-    e.currentTarget.setPointerCapture(e.pointerId);
-  }
-
-  function handleListPointerMove(e: React.PointerEvent<HTMLDivElement>) {
-    if (dragStateRef.current.pointerId !== e.pointerId || !listRef.current) return;
-
-    const deltaY = e.clientY - dragStateRef.current.startY;
-    if (!dragStateRef.current.dragged && Math.abs(deltaY) > 4) {
-      dragStateRef.current.dragged = true;
-      setIsDraggingList(true);
-    }
-
-    if (!dragStateRef.current.dragged) return;
-
-    const container = listRef.current;
-    container.scrollTop = dragStateRef.current.startScrollTop - deltaY;
-  }
-
-  function handleListPointerUp(e: React.PointerEvent<HTMLDivElement>) {
-    if (dragStateRef.current.pointerId !== e.pointerId) return;
-    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-    }
-    dragStateRef.current.pointerId = -1;
-    dragStateRef.current.dragged = false;
-    setIsDraggingList(false);
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60">

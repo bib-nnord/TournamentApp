@@ -1,38 +1,34 @@
 "use client";
 
-import { useState, useMemo, useRef, useEffect, type KeyboardEvent } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useSelector } from "react-redux";
 import {
   CUSTOM_DISCIPLINE_VALUE,
-  DISCIPLINE_OPTIONS,
   disciplineValueToLabel,
   labelToDisciplineValue,
 } from "@/constants/disciplines";
 import {
   LABEL_CONFIRM_START,
-  LABEL_SHUFFLE,
-  LABEL_REMOVE_QUESTION,
 } from "@/constants/labels";
 import { generateBracket } from "@/lib/generateBracket";
-import { shuffleArray, generateUniqueName } from "@/lib/helpers";
+
 import type { RootState } from "@/store/store";
-import { tournamentFormatInfo, tournamentStatusLabel, type TournamentFormat, type TournamentStatus } from "@/types";
+import { tournamentFormatInfo, type TournamentFormat, type TournamentStatus } from "@/types";
 import BracketView from "../BracketView";
 import type { QuickTournamentData, Participant } from "../QuickTournamentForm";
-import type { ParticipantMemberType, ParticipantMember } from "../QuickTournamentForm/types";
-import UserSearchInput from "../UserSearchInput";
+
 import type { TournamentPreviewProps } from "./types";
 
 export default function TournamentPreview({ data, onConfirm, submitting, submitError, onChange }: TournamentPreviewProps) {
-  const currentUser = useSelector((state: RootState) => state.user.current);
-  const [name, setName] = useState(data.name);
-  const [disciplineChoice, setDisciplineChoice] = useState(() => {
+  useSelector((state: RootState) => state.user.current);
+  const [name] = useState(data.name);
+  const [disciplineChoice] = useState(() => {
     const saved = (data.discipline ?? (data as any).game ?? "").trim();
     if (!saved) return "";
     const value = labelToDisciplineValue(saved);
     return value ?? CUSTOM_DISCIPLINE_VALUE;
   });
-  const [customDiscipline, setCustomDiscipline] = useState(() => {
+  const [customDiscipline] = useState(() => {
     const saved = (data.discipline ?? (data as any).game ?? "").trim();
     if (!saved) return "";
     const value = labelToDisciplineValue(saved);
@@ -41,10 +37,12 @@ export default function TournamentPreview({ data, onConfirm, submitting, submitE
   const discipline = disciplineChoice === CUSTOM_DISCIPLINE_VALUE
     ? customDiscipline.trim()
     : disciplineValueToLabel(disciplineChoice);
-  const [description, setDescription] = useState(data.description);
-  const [format, setFormat] = useState<TournamentFormat>(data.format);
+  const [description] = useState(data.description);
+  const [format] = useState<TournamentFormat>(data.format);
   const [isPrivate] = useState(data.isPrivate);
-  const [status, setStatus] = useState<TournamentStatus>(data.status ?? "active");
+  const [status] = useState<TournamentStatus>(
+    data.status ?? "active"
+  );
   const [participants, setParticipants] = useState<Participant[]>(data.participants);
 
   // Combination format options
@@ -80,140 +78,6 @@ export default function TournamentPreview({ data, onConfirm, submitting, submitE
   );
 
   // ─── Drag and drop ────────────────────────────────────────────────────────
-  const dragIndex = useRef<number | null>(null);
-  const [dragOver, setDragOver] = useState<number | null>(null);
-
-  function handleDragStart(e: React.DragEvent, index: number) {
-    dragIndex.current = index;
-    e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("text/plain", String(index));
-  }
-
-  function handleDragOver(e: React.DragEvent, index: number) {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-    setDragOver(index);
-  }
-
-  function handleDrop(e: React.DragEvent, index: number) {
-    e.preventDefault();
-    if (dragIndex.current === null || dragIndex.current === index) {
-      setDragOver(null);
-      return;
-    }
-    const updated = [...participants];
-    const [moved] = updated.splice(dragIndex.current, 1);
-    updated.splice(index, 0, moved);
-    setParticipants(updated);
-    dragIndex.current = null;
-    setDragOver(null);
-  }
-
-  function handleDragEnd() {
-    dragIndex.current = null;
-    setDragOver(null);
-  }
-
-  // ─── Reorder helpers ─────────────────────────────────────────────────────
-  function moveUp(index: number) {
-    if (index === 0) return;
-    const updated = [...participants];
-    [updated[index - 1], updated[index]] = [updated[index], updated[index - 1]];
-    setParticipants(updated);
-  }
-
-  function moveDown(index: number) {
-    if (index >= participants.length - 1) return;
-    const updated = [...participants];
-    [updated[index], updated[index + 1]] = [updated[index + 1], updated[index]];
-    setParticipants(updated);
-  }
-
-  function shuffleParticipants() {
-    setParticipants(shuffleArray(participants));
-  }
-
-  // ─── Live add / remove participants ───────────────────────────────────────
-  const [guestInput, setGuestInput] = useState("");
-  const teamMode = data.teamMode;
-  const [teamNameInput, setTeamNameInput] = useState("");
-  const [expandedTeam, setExpandedTeam] = useState<number | null>(null);
-
-  function addParticipant(name: string, type: ParticipantMemberType | "team") {
-    const trimmed = name.trim();
-    if (!trimmed) return;
-
-    // Prevent adding the same account twice
-    if (type === "account") {
-      const alreadyAdded = participants.some(
-        (p) => p.type === "account" && (p.accountName ?? p.name).toLowerCase() === trimmed.toLowerCase()
-      );
-      if (alreadyAdded) return;
-    }
-
-    const finalName = generateUniqueName(trimmed, participantNames);
-    if (!finalName) return;
-    setParticipants((prev) => [...prev, {
-      name: finalName,
-      type,
-      ...(type === "account" ? { accountName: trimmed } : {}),
-      ...(type === "team" ? { members: [] } : {}),
-    }]);
-  }
-
-  const [confirmRemove, setConfirmRemove] = useState<number | null>(null);
-
-  function removeParticipant(index: number) {
-    if (confirmRemove === index) {
-      setParticipants((prev) => prev.filter((_, i) => i !== index));
-      setConfirmRemove(null);
-    } else {
-      setConfirmRemove(index);
-    }
-  }
-
-  function handleAddKeyDown(
-    e: KeyboardEvent<HTMLInputElement>,
-    input: string,
-    setInput: (v: string) => void,
-    type: ParticipantMemberType | "team"
-  ) {
-    if (e.key === "Enter" || e.key === ",") {
-      e.preventDefault();
-      addParticipant(input, type);
-      setInput("");
-    }
-  }
-
-  function handleAddBlur(input: string, setInput: (v: string) => void, type: "account" | "guest" | "team") {
-    if (input.trim()) {
-      addParticipant(input, type);
-      setInput("");
-    }
-  }
-
-  // ─── Team member editing (in preview) ─────────────────────────────────────
-  function addTeamMember(participantIndex: number, memberName: string, memberType: ParticipantMemberType) {
-    const trimmed = memberName.trim();
-    if (!trimmed) return;
-    setParticipants((prev) =>
-      prev.map((p, i) =>
-        i === participantIndex && p.type === "team"
-          ? { ...p, members: [...(p.members ?? []), { name: trimmed, type: memberType }] }
-          : p
-      )
-    );
-  }
-
-  function removeTeamMember(participantIndex: number, memberIndex: number) {
-    setParticipants((prev) =>
-      prev.map((p, i) =>
-        i === participantIndex && p.type === "team"
-          ? { ...p, members: (p.members ?? []).filter((_, mi) => mi !== memberIndex) }
-          : p
-      )
-    );
-  }
 
   // ─── Swap participants (from bracket drag-and-drop) ──────────────────────
   function swapParticipants(nameA: string, nameB: string) {
@@ -231,9 +95,7 @@ export default function TournamentPreview({ data, onConfirm, submitting, submitE
     onConfirm(updatedData, { ...bracket, allowTies: updatedData.allowTies !== false });
   }
 
-  const inputClass =
-    "border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-400";
-  const labelClass = "block text-xs text-gray-400 uppercase tracking-wide mb-1";
+
 
   return (
     <div className="flex flex-col gap-8 print-preview-root">
@@ -334,94 +196,6 @@ export default function TournamentPreview({ data, onConfirm, submitting, submitE
         >
           {submitting ? "Creating…" : LABEL_CONFIRM_START}
         </button>
-      </div>
-    </div>
-  );
-}
-
-// ─── Inline team member editor (shown expanded in seeding list) ─────────────
-
-function TeamMemberEditor({
-  members,
-  onAdd,
-  onRemove,
-}: {
-  members: ParticipantMember[];
-  onAdd: (name: string, type: ParticipantMemberType) => void;
-  onRemove: (memberIndex: number) => void;
-}) {
-  const [input, setInput] = useState("");
-  const [memberType, setMemberType] = useState<ParticipantMemberType>("account");
-
-  function handleKey(e: KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Enter" || e.key === ",") {
-      e.preventDefault();
-      if (input.trim()) {
-        onAdd(input.trim(), memberType);
-        setInput("");
-      }
-    }
-  }
-
-  function handleBlur() {
-    if (input.trim()) {
-      onAdd(input.trim(), memberType);
-      setInput("");
-    }
-  }
-
-  return (
-    <div className="border border-gray-200 border-t-0 rounded-b-lg bg-gray-50 px-4 py-3">
-      <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-2">Team members</p>
-
-      {members.length > 0 && (
-        <div className="flex flex-wrap gap-1 mb-2">
-          {members.map((m, mi) => (
-            <span
-              key={mi}
-              className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-md ${
-                m.type === "account" ? "bg-indigo-50 text-indigo-700" : "bg-amber-50 text-amber-700"
-              }`}
-            >
-              {m.name}
-              <button
-                type="button"
-                onClick={() => onRemove(mi)}
-                className="leading-none text-current opacity-50 hover:opacity-100"
-              >
-                ×
-              </button>
-            </span>
-          ))}
-        </div>
-      )}
-
-      <div className="flex gap-1.5">
-        <select
-          value={memberType}
-          onChange={(e) => setMemberType(e.target.value as ParticipantMemberType)}
-          className="text-xs border border-gray-200 rounded px-1.5 py-1 text-gray-600 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400"
-        >
-          <option value="account">Account</option>
-          <option value="guest">Guest</option>
-        </select>
-        {memberType === "account" ? (
-          <UserSearchInput
-            onSelect={(username) => { onAdd(username, "account"); }}
-            placeholder="Search username…"
-            className="flex-1"
-            size="sm"
-          />
-        ) : (
-          <input
-            value={input}
-            onChange={(e) => setInput(e.target.value.replace(",", ""))}
-            onKeyDown={handleKey}
-            onBlur={handleBlur}
-            placeholder="Display name…"
-            className="flex-1 border border-gray-200 rounded px-2 py-1 text-xs text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400"
-          />
-        )}
       </div>
     </div>
   );

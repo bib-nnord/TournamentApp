@@ -756,7 +756,7 @@ export default function ProfilePage() {
                         }
                       }
                     }
-                  } catch (e) {
+                  } catch {
                     // ignore errors
                   }
                 }

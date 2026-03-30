@@ -52,7 +52,6 @@ Add error handling for guest registration emails
 Add light/dark mode support
 Move declined tournaments to bottom and gray them out
 Add icon for tournament view
-UI/UX & Features
 
 Redesign (general)
 Profile improvements
@@ -73,17 +72,7 @@ other things to manually add:
 
 Tournament display fix date and disciplines. 
 
-tournament fix routes 
-
-users fix sorting and maybe draggable scrolling
-
 Dashboard everything.
-
-Teams collapsible for further details?
-
-search by name in discover teams. 
-
-show who the lead is and discipline in the preview
 
 friend settings 
 

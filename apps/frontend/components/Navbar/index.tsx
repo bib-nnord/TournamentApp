@@ -79,7 +79,6 @@ export default function Navbar() {
   const [unreadCount, setUnreadCount] = useState(0);
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
-  const pathname = usePathname();
   const user = useSelector((state: RootState) => state.user.current);
   const isLoggedIn = !!user;
 
@@ -115,7 +114,6 @@ export default function Navbar() {
 
   const links = isLoggedIn ? [...sharedLinks, ...authedLinks] : [...sharedLinks];
   const effectiveUnread = isLoggedIn ? unreadCount : 0;
-  const messagesActive = pathname === "/messages" || pathname.startsWith("/messages/");
 
   if (collapsed) {
     return (

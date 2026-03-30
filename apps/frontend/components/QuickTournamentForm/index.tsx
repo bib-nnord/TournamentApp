@@ -38,7 +38,7 @@ interface Props {
 
 const formats = Object.entries(tournamentFormatInfo) as [TournamentFormat, { label: string; description: string }][];
 
-export default function QuickTournamentForm({ initial, onSubmit, onChange, submitting, submitError, hideSubmit }: Props) {
+export default function QuickTournamentForm({ initial, onSubmit, onChange, hideSubmit }: Props) {
   const [name, setName] = useState(initial?.name ?? "");
   const [disciplineChoice, setDisciplineChoice] = useState(() => {
     const saved = (initial?.discipline ?? (initial as any)?.game ?? "").trim();
