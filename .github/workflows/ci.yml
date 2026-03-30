@@ -1,0 +1,281 @@
+# =============================================================================
+# GitHub Actions CI Pipeline — TournamentApp
+# =============================================================================
+#
+# WHAT IS THIS FILE?
+# A GitHub Actions "workflow" is a YAML file that lives in .github/workflows/.
+# GitHub detects it automatically — no extra setup needed.
+# Every workflow is made up of "jobs", and every job is made up of "steps".
+#
+# HOW IT RUNS:
+#   Push / PR → GitHub reads this file → spins up virtual machines →
+#   runs every job (in parallel by default, unless you add "needs:") →
+#   reports pass/fail on the PR / commit.
+# =============================================================================
+
+# ── 1. NAME ──────────────────────────────────────────────────────────────────
+# The display name shown in the GitHub Actions tab.
+name: CI Pipeline
+
+# ── 2. TRIGGERS ("on") ──────────────────────────────────────────────────────
+# "on" defines WHEN the workflow runs.
+# Common triggers: push, pull_request, schedule, workflow_dispatch
+on:
+  # Run on every push to these branches
+  push:
+    branches:
+      - main
+      - develop
+
+  # Run on every pull request that targets these branches
+  pull_request:
+    branches:
+      - main
+      - develop
+
+  # workflow_dispatch lets you trigger the pipeline MANUALLY from the
+  # GitHub Actions tab — very handy for debugging.
+  workflow_dispatch:
+
+# ── 3. ENVIRONMENT VARIABLES (workflow-level) ────────────────────────────────
+# Variables declared here are available to ALL jobs and steps.
+# For secrets (API keys, tokens) use ${{ secrets.MY_SECRET }} instead —
+# those are configured in the repo's Settings → Secrets.
+env:
+  NODE_VERSION: "22"          # Pinned Node.js version used everywhere
+  PNPM_VERSION: "10"          # Matches the project's packageManager field
+
+# ── 4. JOBS ──────────────────────────────────────────────────────────────────
+# Jobs run in PARALLEL by default. Use "needs: [job_name]" to run them
+# sequentially (i.e. create dependencies between jobs).
+jobs:
+
+  # ╔═══════════════════════════════════════════════════════════════════════╗
+  # ║  JOB 1 — Install & Cache Dependencies                               ║
+  # ║  Purpose: install once, then share the cache with later jobs.        ║
+  # ╚═══════════════════════════════════════════════════════════════════════╝
+  install:
+    # "runs-on" picks the virtual machine image.
+    # Common choices: ubuntu-latest, macos-latest, windows-latest
+    runs-on: ubuntu-latest
+
+    # Steps are executed TOP-TO-BOTTOM inside the job's VM.
+    steps:
+      # ── Step 1: Checkout the repo ──────────────────────────────────────
+      # "uses" calls a reusable action from the GitHub Marketplace.
+      # actions/checkout@v4 clones your repository into the runner.
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ── Step 2: Install pnpm ──────────────────────────────────────────
+      # pnpm/action-setup installs pnpm. We pin the version to match the
+      # project's packageManager field (see root package.json).
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      # ── Step 3: Set up Node.js + pnpm cache ───────────────────────────
+      # actions/setup-node installs Node.js and can cache the pnpm store.
+      # Caching means subsequent runs skip re-downloading every package.
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "pnpm"               # Automatically caches ~/.pnpm-store
+
+      # ── Step 4: Install packages ───────────────────────────────────────
+      # --frozen-lockfile ensures the lockfile is not modified.
+      # This catches situations where someone forgot to commit pnpm-lock.yaml.
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+  # ╔═══════════════════════════════════════════════════════════════════════╗
+  # ║  JOB 2 — Lint (Frontend)                                            ║
+  # ║  Purpose: catch code-style issues and common bugs early.             ║
+  # ╚═══════════════════════════════════════════════════════════════════════╝
+  lint:
+    runs-on: ubuntu-latest
+
+    # "needs" creates a dependency — this job won't start until "install"
+    # finishes successfully. If "install" fails, this job is skipped.
+    needs: install
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # ── Run the linter ─────────────────────────────────────────────────
+      # "working-directory" changes into a subfolder before running the
+      # command — useful in monorepos.
+      - name: Lint frontend
+        working-directory: apps/frontend
+        run: pnpm lint
+
+  # ╔═══════════════════════════════════════════════════════════════════════╗
+  # ║  JOB 3 — Type-Check (Backend)                                       ║
+  # ║  Purpose: verify TypeScript types compile without errors.            ║
+  # ╚═══════════════════════════════════════════════════════════════════════╝
+  typecheck-backend:
+    runs-on: ubuntu-latest
+    needs: install
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # ── Type-check the backend ─────────────────────────────────────────
+      - name: TypeScript type-check
+        working-directory: apps/backend
+        run: pnpm typecheck
+
+  # ╔═══════════════════════════════════════════════════════════════════════╗
+  # ║  JOB 4 — Build (Frontend)                                           ║
+  # ║  Purpose: make sure the Next.js app compiles successfully.           ║
+  # ║  This also catches TypeScript errors in the frontend.                ║
+  # ╚═══════════════════════════════════════════════════════════════════════╝
+  build-frontend:
+    runs-on: ubuntu-latest
+
+    # This job depends on BOTH lint AND install completing first.
+    needs: [install, lint]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # ── Build the Next.js app ──────────────────────────────────────────
+      - name: Build frontend
+        working-directory: apps/frontend
+        run: pnpm build
+
+      # ── Upload build artifact ──────────────────────────────────────────
+      # "Artifacts" let you save files produced by a job so other jobs
+      # (or you) can download them later.
+      - name: Upload build output
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build        # Name you'll see in the Actions UI
+          path: apps/frontend/.next   # Folder to upload
+          retention-days: 7           # Auto-delete after 7 days
+
+  # ╔═══════════════════════════════════════════════════════════════════════╗
+  # ║  JOB 5 — Docker Build (Backend)                                     ║
+  # ║  Purpose: verify the Docker image builds without errors.             ║
+  # ║  We DON'T push it anywhere — this is just a smoke test.             ║
+  # ╚═══════════════════════════════════════════════════════════════════════╝
+  docker-build:
+    runs-on: ubuntu-latest
+    needs: typecheck-backend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ── Build the Docker image ─────────────────────────────────────────
+      # "run" executes a shell command directly on the runner.
+      # -t tags the image, -f points to the Dockerfile.
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t tournamentapp-backend:ci \
+            -f apps/backend/Dockerfile \
+            .
+
+  # ╔═══════════════════════════════════════════════════════════════════════╗
+  # ║  JOB 6 — Summary / Gate                                             ║
+  # ║  Purpose: a single "green check" that branch-protection rules       ║
+  # ║  can require. It only passes when ALL upstream jobs succeed.         ║
+  # ╚═══════════════════════════════════════════════════════════════════════╝
+  ci-passed:
+    # "if: always()" makes the job run even when upstream jobs fail,
+    # so we can inspect their results and report a clear status.
+    if: always()
+    runs-on: ubuntu-latest
+
+    # Wait for every meaningful job before deciding pass/fail.
+    needs:
+      - lint
+      - typecheck-backend
+      - build-frontend
+      - docker-build
+
+    steps:
+      # ── Check all upstream results ─────────────────────────────────────
+      # "contains()" checks if ANY of the needed jobs failed.
+      # If so, we exit 1 → the whole pipeline is marked as failed.
+      - name: Verify all jobs passed
+        run: |
+          echo "Lint:              ${{ needs.lint.result }}"
+          echo "Typecheck Backend: ${{ needs.typecheck-backend.result }}"
+          echo "Build Frontend:    ${{ needs.build-frontend.result }}"
+          echo "Docker Build:      ${{ needs.docker-build.result }}"
+
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]]; then
+            echo "❌ One or more jobs failed."
+            exit 1
+          fi
+
+          echo "✅ All jobs passed!"
+
+# =============================================================================
+# QUICK REFERENCE — KEY CONCEPTS
+# =============================================================================
+#
+# CONCEPT             | MEANING
+# ------------------- | -------------------------------------------------------
+# workflow            | This entire YAML file. One repo can have many workflows.
+# job                 | A group of steps that run on the same virtual machine.
+# step                | A single command ("run") or reusable action ("uses").
+# action              | A prebuilt, reusable step (e.g. actions/checkout@v4).
+# runner              | The virtual machine that executes a job.
+# artifact            | A file or folder saved from a job for later download.
+# needs               | Declares that one job depends on another.
+# env / secrets       | env = plain variables, secrets = encrypted values.
+# working-directory   | Changes the shell's cwd for a single step.
+# if / always()       | Conditional execution — always() runs even on failure.
+# cache               | Stores downloaded dependencies to speed up future runs.
+# workflow_dispatch   | Adds a "Run workflow" button in the GitHub Actions UI.
+# =============================================================================
