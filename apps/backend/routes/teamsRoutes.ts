@@ -7,6 +7,7 @@ const router = Router();
 router.get('/', teamController.list);
 router.get('/search', teamController.search);
 router.get('/my', authenticate, teamController.myTeams);
+router.get('/my-applications', authenticate, teamController.myApplications);
 router.get('/user/:userId', teamController.userTeams);
 router.get('/news', authenticate, teamController.allNews);
 router.get('/:id/news', authenticate, teamController.news);
@@ -20,6 +21,7 @@ router.delete('/:id', authenticate, teamController.disband);
 
 router.post('/:id/join', authenticate, teamController.join);
 router.post('/:id/apply', authenticate, teamController.apply);
+router.delete('/:id/apply', authenticate, teamController.withdrawApplication);
 router.post('/:id/invite', authenticate, teamController.inviteMember);
 router.post('/:id/leave', authenticate, teamController.leave);
 

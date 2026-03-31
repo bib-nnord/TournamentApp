@@ -106,6 +106,60 @@ export async function myTeams(req: Request, res: Response) {
   }
 }
 
+export async function myApplications(req: Request, res: Response) {
+  try {
+    const sentApps = await prisma.message.findMany({
+      where: {
+        sender_id: req.user.id,
+        category: 'teams',
+        folder: 'sent',
+        subject: 'Team application',
+        reference_id: { not: null },
+      },
+      select: { reference_id: true, created_at: true },
+      orderBy: { created_at: 'desc' },
+    });
+
+    if (sentApps.length === 0) {
+      return res.json({ teams: [] });
+    }
+
+    const teamIds = sentApps.map((a) => a.reference_id!);
+
+    // Exclude teams where the user is already a member (application was accepted)
+    const memberships = await prisma.teamMember.findMany({
+      where: { user_id: req.user.id, team_id: { in: teamIds } },
+      select: { team_id: true },
+    });
+    const memberTeamIds = new Set(memberships.map((m) => m.team_id));
+    const pendingTeamIds = teamIds.filter((id) => !memberTeamIds.has(id));
+
+    if (pendingTeamIds.length === 0) {
+      return res.json({ teams: [] });
+    }
+
+    const teams = await prisma.team.findMany({
+      where: { team_id: { in: pendingTeamIds } },
+      include: { _count: { select: { members: true } } },
+    });
+
+    const appliedAtMap = new Map(sentApps.map((a) => [a.reference_id, a.created_at]));
+
+    return res.json({
+      teams: teams.map((t) => ({
+        id: t.team_id,
+        name: t.name,
+        open: t.is_open,
+        members: t._count.members,
+        appliedAt: appliedAtMap.get(t.team_id)?.toISOString() ?? null,
+      })),
+    });
+  } catch (err) {
+    console.error('[teams/myApplications]', err);
+    res.status(500).json({ error: 'Failed to fetch applications' });
+  }
+}
+
 export async function userTeams(req: Request, res: Response) {
   try {
     const userId = parseInt(String(req.params.userId), 10);
@@ -514,6 +568,44 @@ export async function apply(req: Request, res: Response) {
   } catch (err) {
     console.error('[teams/apply]', err);
     res.status(500).json({ error: 'Failed to submit application' });
+  }
+}
+
+export async function withdrawApplication(req: Request, res: Response) {
+  try {
+    const teamId = parseInt(String(req.params.id), 10);
+    if (isNaN(teamId)) return res.status(400).json({ error: 'Invalid team ID' });
+
+    // Delete the applicant's sent copy
+    const sentCopy = await prisma.message.findFirst({
+      where: {
+        sender_id: req.user.id,
+        category: 'teams',
+        folder: 'sent',
+        subject: 'Team application',
+        reference_id: teamId,
+      },
+      select: { message_id: true },
+    });
+
+    if (!sentCopy) {
+      return res.status(404).json({ error: 'No pending application found for this team' });
+    }
+
+    // Delete all related application messages (inbox copies to approvers + sent copy)
+    await prisma.message.deleteMany({
+      where: {
+        sender_id: req.user.id,
+        category: 'teams',
+        subject: 'Team application',
+        reference_id: teamId,
+      },
+    });
+
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('[teams/withdrawApplication]', err);
+    res.status(500).json({ error: 'Failed to withdraw application' });
   }
 }
 

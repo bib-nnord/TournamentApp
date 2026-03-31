@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useFetch } from "@/hooks/useFetch";
 import { useNotify } from "@/hooks/useNotify";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
@@ -26,6 +26,14 @@ interface PublicTeam {
   members: number;
 }
 
+interface PendingApplication {
+  id: number;
+  name: string;
+  open: boolean;
+  members: number;
+  appliedAt: string | null;
+}
+
 export default function TeamsPage() {
   const user = useRequireAuth();
   const notify = useNotify();
@@ -33,11 +41,30 @@ export default function TeamsPage() {
   const { data: allData, loading: allLoading, setData: setAllData } = useFetch<{ teams: PublicTeam[] }>(
     user ? "/teams?limit=20" : null
   );
+  const {
+    data: appData,
+    loading: appLoading,
+    setData: setAppData,
+  } = useFetch<{ teams: PendingApplication[] }>(user ? "/teams/my-applications" : null);
 
   const [joiningId, setJoiningId] = useState<number | null>(null);
   const [applyingId, setApplyingId] = useState<number | null>(null);
+  const [withdrawingId, setWithdrawingId] = useState<number | null>(null);
   const [appliedIds, setAppliedIds] = useState<Set<number>>(new Set());
   const [joinError, setJoinError] = useState<string | null>(null);
+
+  const pendingApps = appData?.teams ?? [];
+
+  // Seed appliedIds from server data so discover list hides already-applied teams
+  useEffect(() => {
+    if (pendingApps.length > 0) {
+      setAppliedIds((prev) => {
+        const next = new Set(prev);
+        pendingApps.forEach((t) => next.add(t.id));
+        return next;
+      });
+    }
+  }, [pendingApps]);
 
   const myTeams = data?.teams ?? [];
   const myTeamIds = new Set(myTeams.map((t) => t.id));
@@ -103,6 +130,31 @@ export default function TeamsPage() {
     }
   }
 
+  async function handleWithdraw(team: PendingApplication) {
+    setWithdrawingId(team.id);
+    try {
+      const res = await apiFetch(`/teams/${team.id}/apply`, { method: "DELETE" });
+      if (res.ok) {
+        setAppData((prev) =>
+          prev ? { teams: prev.teams.filter((t) => t.id !== team.id) } : prev
+        );
+        setAppliedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(team.id);
+          return next;
+        });
+        notify.success(`Application to ${team.name} withdrawn.`);
+      } else {
+        const body = await res.json().catch(() => ({}));
+        notify.error(body.error ?? "Failed to withdraw application");
+      }
+    } catch {
+      notify.error("Failed to withdraw application");
+    } finally {
+      setWithdrawingId(null);
+    }
+  }
+
   if (!user) return null;
 
   return (
@@ -159,6 +211,58 @@ export default function TeamsPage() {
             </Accordion>
           )}
         </div>
+
+        {/* ── Pending Applications ── */}
+        {(appLoading || pendingApps.length > 0) && (
+          <>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Pending Applications</h2>
+            <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm mb-10">
+              {appLoading ? (
+                <p className="text-sm text-gray-400">Loading applications…</p>
+              ) : (
+                <Accordion type="multiple" className="flex flex-col gap-2">
+                  {pendingApps.map((team) => (
+                    <AccordionItem key={team.id} value={String(team.id)} className="rounded-lg border border-gray-100">
+                      <AccordionTrigger className="flex items-center justify-between px-4 py-3 hover:bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60 rounded-lg">
+                        <span className="text-sm font-medium text-gray-800">{team.name}</span>
+                        <div className="flex items-center gap-2 ml-2 shrink-0">
+                          <span className="text-xs text-gray-400">{team.members} members</span>
+                          <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-yellow-100 text-yellow-700">
+                            Applied
+                          </span>
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="px-4 pb-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-gray-500">
+                            {team.appliedAt
+                              ? `Applied ${new Date(team.appliedAt).toLocaleDateString()}`
+                              : "Application pending"}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <Link
+                              href={`/teams/${team.id}`}
+                              className="text-xs px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-100 text-gray-600 transition-colors"
+                            >
+                              View
+                            </Link>
+                            <button
+                              onClick={() => handleWithdraw(team)}
+                              disabled={withdrawingId === team.id}
+                              className="text-xs px-3 py-1.5 bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 disabled:opacity-50 transition-colors"
+                            >
+                              {withdrawingId === team.id ? "Withdrawing…" : "Withdraw"}
+                            </button>
+                          </div>
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              )}
+            </div>
+          </>
+        )}
 
         {/* ── Discover Teams ── */}
         <h2 className="text-xl font-bold text-gray-900 mb-4">Discover Teams</h2>
