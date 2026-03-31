@@ -16,6 +16,7 @@ export default function RegisterPage() {
   const searchParams = useSearchParams();
   const inviteToken = searchParams.get("invite");
   const { loading, error } = useSelector((state: RootState) => state.auth);
+  const currentUser = useSelector((state: RootState) => state.user.current);
 
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
@@ -102,6 +103,23 @@ export default function RegisterPage() {
   }
 
   const isSubmitting = loading || inviteSubmitting;
+
+  // If user is logged in and there's an invite token, show warning and block registration
+  if (inviteToken && currentUser) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60 flex items-center justify-center px-4">
+        <div className="w-full max-w-sm bg-white rounded-2xl shadow-lg p-8">
+          <h1 className="text-2xl font-bold text-gray-900 mb-1">Already Logged In</h1>
+          <p className="text-sm text-red-600 mb-4">
+            You are already logged in. Please log out before registering with an invite link.
+          </p>
+          <Link href="/" className="text-blue-600 hover:underline text-sm">
+            Go to Home
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60 flex items-center justify-center px-4">
