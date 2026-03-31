@@ -1,11 +1,17 @@
 import type { Request, Response } from 'express';
 
+import crypto from 'crypto';
 import prisma from '../lib/prisma';
+import { sendEmail } from '../lib/email';
 import { notifyUsers, collectAllUserIds } from '../lib/notify';
 import { publishTeamNewsToTeams } from '../lib/teamNews';
 import Tournament from '../models/Tournament';
 import * as tournamentService from '../services/tournamentService';
 import { formatTournament, tournamentCreatorSelect, tournamentParticipantInclude } from './tournamentController';
+
+function hashToken(token: string) {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
 
 export async function create(req: Request, res: Response) {
   const { name, game, discipline, description, format, isPrivate, participants, bracketData, maxParticipants, startDate, status, teamMode } =
@@ -50,6 +56,27 @@ export async function create(req: Request, res: Response) {
 
   if (!isTeamMode && participants.some((participant) => participant?.type === 'team')) {
     return res.status(400).json({ error: 'Regular mode tournaments only allow individual participants (accounts or guests)' });
+  }
+
+  // Pre-validation: check guest emails against existing real users
+  for (let i = 0; i < participants.length; i++) {
+    const p = participants[i];
+    if (p.type === 'guest' && p.email && !p.skipEmailInvite) {
+      const normalizedEmail = p.email.trim().toLowerCase();
+      const existingUser = await prisma.user.findFirst({
+        where: { email: normalizedEmail, site_role: { not: 'guest' } },
+        select: { username: true, display_name: true },
+      });
+      if (existingUser) {
+        return res.status(409).json({
+          error: 'email_exists',
+          email: normalizedEmail,
+          username: existingUser.username,
+          displayName: existingUser.display_name,
+          participantIndex: i,
+        });
+      }
+    }
   }
 
   const participantNames = participants.map((participant) => String(participant.name).trim().toLowerCase());
@@ -139,8 +166,18 @@ export async function create(req: Request, res: Response) {
         participant_type: 'guest',
         guest_name: participant.name,
         registration_status: 'approved',
+        _email: participant.email && !participant.skipEmailInvite ? participant.email.trim().toLowerCase() : null,
       };
     });
+
+    // Extract guest email info before creating records (Prisma won't accept _email)
+    const guestEmails: Map<number, string> = new Map();
+    for (const rec of participantRecords) {
+      if (rec._email) {
+        guestEmails.set(rec.seed, rec._email);
+      }
+      delete rec._email;
+    }
 
     const tournament: any = await prisma.tournament.create({
       data: {
@@ -168,6 +205,62 @@ export async function create(req: Request, res: Response) {
         creator: { select: tournamentCreatorSelect },
       },
     });
+
+    // Create ghost users and send invite emails for guests with email
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    for (const [seed, email] of guestEmails) {
+      const participant = tournament.participants.find((p: any) => p.seed === seed);
+      if (!participant) continue;
+
+      // Check if a ghost user already exists with this email (reuse it)
+      let ghostUser = await prisma.user.findFirst({
+        where: { email, site_role: 'guest' },
+      });
+
+      if (!ghostUser) {
+        const placeholder = `guest_${crypto.randomBytes(8).toString('hex')}`;
+        ghostUser = await prisma.user.create({
+          data: {
+            username: placeholder,
+            email,
+            password_hash: crypto.randomBytes(32).toString('hex'), // unusable hash
+            site_role: 'guest',
+            display_name: participant.display_name,
+          },
+        });
+      }
+
+      // Link the ghost user to the tournament participant
+      await prisma.tournamentParticipant.update({
+        where: { tournament_id_seed: { tournament_id: tournament.tournament_id, seed } },
+        data: { user_id: ghostUser.user_id },
+      });
+
+      // Generate invite token
+      const rawToken = crypto.randomBytes(32).toString('hex');
+      const tokenHash = hashToken(rawToken);
+      await prisma.guestInviteToken.create({
+        data: {
+          token: tokenHash,
+          user_id: ghostUser.user_id,
+          tournament_id: tournament.tournament_id,
+          seed,
+          expires_at: new Date(Date.now() + 14 * 24 * 3600 * 1000), // 2 weeks
+        },
+      });
+
+      // Send invite email
+      const inviteLink = `${frontendUrl}/register?invite=${rawToken}`;
+      sendEmail(
+        email,
+        `You've been invited to a tournament: ${name}`,
+        `<p>Hi,</p>
+         <p>You've been added as a participant in the tournament "<strong>${name}</strong>" (${resolvedDiscipline}).</p>
+         <p>Create an account to manage your participation:</p>
+         <p><a href="${inviteLink}">${inviteLink}</a></p>
+         <p>This invitation expires in 2 weeks.</p>`
+      ).catch(err => console.error('[tournament.create.inviteEmail]', err));
+    }
 
     const recipientIds = collectAllUserIds(tournament.participants).filter((uid: number) => uid !== req.user.id);
     notifyUsers(

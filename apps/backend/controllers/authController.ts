@@ -96,6 +96,7 @@ export async function register(req: Request, res: Response) {
     const existing = await prisma.user.findFirst({
       where: {
         OR: [{ email: normalizedEmail }, { username }],
+        site_role: { not: 'guest' },
       },
     });
 
@@ -105,6 +106,25 @@ export async function register(req: Request, res: Response) {
     }
 
     const password_hash = await bcrypt.hash(password as string, 16);
+
+    // Check if a ghost user exists with this email — clean it up
+    const ghost = await prisma.user.findFirst({
+      where: { email: normalizedEmail, site_role: 'guest' },
+    });
+
+    if (ghost) {
+      // Null out user_id on tournament participants (keep guest entries)
+      await prisma.tournamentParticipant.updateMany({
+        where: { user_id: ghost.user_id },
+        data: { user_id: null },
+      });
+      // Delete ghost's invite tokens (invalidates invite links)
+      await prisma.guestInviteToken.deleteMany({
+        where: { user_id: ghost.user_id },
+      });
+      // Delete the ghost user
+      await prisma.user.delete({ where: { user_id: ghost.user_id } });
+    }
 
     await prisma.user.create({
       data: {
@@ -348,6 +368,162 @@ export async function resetPassword(req: Request, res: Response) {
     return res.status(200).json({ message: 'Password has been reset successfully' });
   } catch (err) {
     console.error('[resetPassword]', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+export async function validateInvite(req: Request, res: Response) {
+  const { token } = req.query as { token?: string };
+
+  if (!token) {
+    return res.status(400).json({ error: 'Token is required' });
+  }
+
+  try {
+    const tokenHash = hashToken(token);
+    const stored = await prisma.guestInviteToken.findUnique({
+      where: { token: tokenHash },
+      include: { user: { select: { email: true, display_name: true } }, tournament: { select: { name: true } } },
+    });
+
+    if (!stored) {
+      return res.status(404).json({ error: 'Invalid invite token' });
+    }
+
+    if (stored.expires_at < new Date()) {
+      return res.status(410).json({ error: 'Invite token has expired' });
+    }
+
+    return res.status(200).json({
+      email: stored.user.email,
+      displayName: stored.user.display_name,
+      tournamentName: stored.tournament.name,
+    });
+  } catch (err) {
+    console.error('[validateInvite]', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+export async function registerInvite(req: Request, res: Response) {
+  const { invite, username, password, display_name, first_name, last_name, date_of_birth } = req.body as {
+    invite?: string;
+    username?: string;
+    password?: string;
+    display_name?: string;
+    first_name?: string;
+    last_name?: string;
+    date_of_birth?: string;
+  };
+
+  if (!invite) {
+    return res.status(400).json({ error: 'Invite token is required' });
+  }
+
+  const requiredFields = { username, password, date_of_birth, display_name, first_name, last_name };
+  const missing = Object.entries(requiredFields)
+    .filter(([, value]) => !value)
+    .map(([key]) => key);
+
+  if (missing.length > 0) {
+    return res.status(400).json({ error: `Missing required fields: ${missing.join(', ')}` });
+  }
+
+  const passwordErrors: string[] = [];
+  if ((password as string).length < 8) passwordErrors.push('at least 8 characters');
+  if (!/[a-z]/.test(password as string)) passwordErrors.push('at least one lowercase letter');
+  if (!/[A-Z]/.test(password as string)) passwordErrors.push('at least one uppercase letter');
+  if (!/[^a-zA-Z0-9]/.test(password as string)) passwordErrors.push('at least one special character');
+
+  if (passwordErrors.length > 0) {
+    const list = new Intl.ListFormat('en', { type: 'conjunction' }).format(passwordErrors);
+    return res.status(400).json({ error: `Password must contain ${list}` });
+  }
+
+  const dob = new Date(date_of_birth as string);
+  if (isNaN(dob.getTime())) {
+    return res.status(400).json({ error: 'Invalid date of birth' });
+  }
+
+  if (dob > new Date()) {
+    return res.status(400).json({ error: 'Date of birth cannot be in the future' });
+  }
+
+  try {
+    const tokenHash = hashToken(invite);
+    const stored = await prisma.guestInviteToken.findUnique({
+      where: { token: tokenHash },
+      include: { user: true },
+    });
+
+    if (!stored) {
+      return res.status(404).json({ error: 'Invalid invite token' });
+    }
+
+    if (stored.expires_at < new Date()) {
+      await prisma.guestInviteToken.delete({ where: { id: stored.id } });
+      return res.status(410).json({ error: 'Invite token has expired' });
+    }
+
+    // Check the ghost user's email hasn't been taken by a real user
+    const ghostEmail = stored.user.email;
+    const realUserWithEmail = await prisma.user.findFirst({
+      where: { email: ghostEmail, site_role: { not: 'guest' } },
+    });
+
+    if (realUserWithEmail) {
+      // Someone registered with this email independently — invalidate token
+      await prisma.guestInviteToken.delete({ where: { id: stored.id } });
+      return res.status(409).json({ error: 'This email has already been registered' });
+    }
+
+    // Check username isn't taken
+    const usernameExists = await prisma.user.findFirst({
+      where: { username, user_id: { not: stored.user.user_id } },
+    });
+
+    if (usernameExists) {
+      return res.status(409).json({ error: 'An account with that username has already been created' });
+    }
+
+    const password_hash = await bcrypt.hash(password as string, 16);
+
+    // Convert ghost user to real user and update participant in a transaction
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { user_id: stored.user.user_id },
+        data: {
+          username: username as string,
+          password_hash,
+          display_name,
+          first_name,
+          last_name,
+          date_of_birth: dob,
+          site_role: 'user',
+        },
+      }),
+      prisma.tournamentParticipant.update({
+        where: {
+          tournament_id_seed: {
+            tournament_id: stored.tournament_id,
+            seed: stored.seed,
+          },
+        },
+        data: {
+          participant_type: 'account',
+          guest_name: null,
+          display_name: display_name as string,
+        },
+      }),
+      // Delete all invite tokens for this ghost user (they may have been added to multiple tournaments)
+      prisma.guestInviteToken.deleteMany({
+        where: { user_id: stored.user.user_id },
+      }),
+    ]);
+
+    return res.status(201).json({ message: 'Account created successfully' });
+  } catch (err) {
+    console.error('[registerInvite]', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 }

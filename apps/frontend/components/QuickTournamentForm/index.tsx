@@ -12,6 +12,7 @@ import {
   LABEL_GENERATE_BRACKET,
 } from "@/constants/labels";
 import { useTagInput } from "@/hooks/useTagInput";
+import { generateUniqueName } from "@/lib/helpers";
 import { apiFetch } from "@/lib/api";
 import { tournamentFormatInfo, type TournamentFormat } from "@/types";
 import TournamentFormatMiniPreview from "../TournamentFormatMiniPreview";
@@ -61,8 +62,8 @@ export default function QuickTournamentForm({ initial, onSubmit, onChange, hideS
   const [accounts, setAccounts] = useState<string[]>(
     () => initial?.participants.filter((p) => p.type === "account").map((p) => p.name) ?? []
   );
-  const [guests, setGuests] = useState<string[]>(
-    () => initial?.participants.filter((p) => p.type === "guest").map((p) => p.name) ?? []
+  const [guests, setGuests] = useState<{ name: string; email?: string }[]>(
+    () => initial?.participants.filter((p) => p.type === "guest").map((p) => ({ name: p.name, email: p.email })) ?? []
   );
 
   // Teams
@@ -137,7 +138,7 @@ export default function QuickTournamentForm({ initial, onSubmit, onChange, hideS
     : accounts.length + guests.length;
   const allNames = teamMode
     ? teams.map((t) => t.name)
-    : [...accounts, ...guests];
+    : [...accounts, ...guests.map((g) => g.name)];
 
   const { addTag, removeTag } = useTagInput(allNames);
   const discipline = disciplineChoice === CUSTOM_DISCIPLINE_VALUE
@@ -157,7 +158,7 @@ export default function QuickTournamentForm({ initial, onSubmit, onChange, hideS
           }))
         : [
             ...accounts.map((n) => ({ name: n, type: "account" as const })),
-            ...guests.map((n) => ({ name: n, type: "guest" as const })),
+            ...guests.map((g) => ({ name: g.name, type: "guest" as const, email: g.email })),
           ];
       onChange({ name, discipline, description, format, participants, isPrivate, teamMode, allowTies });
     }, 500);
@@ -177,7 +178,7 @@ export default function QuickTournamentForm({ initial, onSubmit, onChange, hideS
         }))
       : [
           ...accounts.map((n) => ({ name: n, type: "account" as const })),
-          ...guests.map((n) => ({ name: n, type: "guest" as const })),
+          ...guests.map((g) => ({ name: g.name, type: "guest" as const, email: g.email })),
         ];
     onSubmit({ name, discipline, description, format, participants, isPrivate, teamMode, allowTies });
   }
@@ -469,7 +470,10 @@ export default function QuickTournamentForm({ initial, onSubmit, onChange, hideS
                 </p>
                 <UserSearchInput
                   onSelect={(username) => addTag(username, setAccounts)}
-                  onSelectAsGuest={(name) => addTag(name, setGuests)}
+                  onSelectAsGuest={(name) => {
+                    const finalName = generateUniqueName(name, allNames);
+                    if (finalName) setGuests((prev) => [...prev, { name: finalName }]);
+                  }}
                   placeholder="Enter participant name"
                   className="w-full"
                 />
@@ -515,7 +519,7 @@ export default function QuickTournamentForm({ initial, onSubmit, onChange, hideS
                           </button>
                         </div>
                       ))}
-                      {guests.map((t, i) => (
+                      {guests.map((g, i) => (
                         <div
                           key={`g-${i}`}
                           className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg group hover:shadow-md transition-all border border-transparent hover:border-primary/20"
@@ -524,12 +528,25 @@ export default function QuickTournamentForm({ initial, onSubmit, onChange, hideS
                             {accounts.length + i + 1}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="font-medium truncate">{t}</div>
+                            <div className="font-medium truncate">{g.name}</div>
                             <div className="text-xs text-muted-foreground">Guest</div>
+                            <input
+                              type="email"
+                              value={g.email ?? ""}
+                              onChange={(e) =>
+                                setGuests((prev) =>
+                                  prev.map((item, j) =>
+                                    j === i ? { ...item, email: e.target.value || undefined } : item
+                                  )
+                                )
+                              }
+                              placeholder="Email (optional — sends invite)"
+                              className="mt-1 w-full text-xs border border-gray-200 rounded px-2 py-1 text-gray-700 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                            />
                           </div>
                           <button
                             type="button"
-                            onClick={() => removeTag(i, setGuests)}
+                            onClick={() => setGuests((prev) => prev.filter((_, j) => j !== i))}
                             className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
                           >
                             <X className="w-4 h-4" />

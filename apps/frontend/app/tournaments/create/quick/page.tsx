@@ -139,11 +139,13 @@ export default function QuickTournamentPage() {
   }
 
   const [submittedData, setSubmittedData] = useState<QuickTournamentData | null>(null);
+  const [previewVersion, setPreviewVersion] = useState(0);
   const previewRef = useRef<HTMLDivElement>(null);
 
   function handleFormSubmit(data: QuickTournamentData) {
     setSubmittedData(data);
     setFormData(data);
+    setPreviewVersion((v) => v + 1);
     setTimeout(() => previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
   }
 
@@ -176,6 +178,42 @@ export default function QuickTournamentPage() {
 
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
+
+        // Handle email_exists conflict — ask user what to do
+        if (res.status === 409 && body.error === "email_exists") {
+          const idx = body.participantIndex as number;
+          const guestName = data.participants[idx]?.name ?? "this guest";
+          const choice = window.confirm(
+            `The email "${body.email}" belongs to @${body.username}.\n\nClick OK to invite their account instead, or Cancel to add "${guestName}" as a plain guest (no email invite).`
+          );
+
+          const updatedParticipants = [...data.participants];
+          if (choice) {
+            // Swap guest → account
+            updatedParticipants[idx] = {
+              ...updatedParticipants[idx],
+              type: "account",
+              accountName: body.username,
+              name: body.displayName || body.username,
+              email: undefined,
+            };
+          } else {
+            // Keep as guest but skip email invite
+            updatedParticipants[idx] = {
+              ...updatedParticipants[idx],
+              email: undefined,
+              skipEmailInvite: true,
+            };
+          }
+
+          const updatedData = { ...data, participants: updatedParticipants };
+          setSubmittedData(updatedData);
+          setFormData(updatedData);
+          setSubmitting(false);
+          // Re-submit automatically with updated participants
+          return handleConfirm(updatedData, bracket);
+        }
+
         const message = body.error ?? "Failed to create tournament";
         setSubmitError(message);
         notify.error(message);
@@ -284,7 +322,10 @@ export default function QuickTournamentPage() {
           key={previewKey}
           initial={formData ?? undefined}
           onSubmit={handleFormSubmit}
-          onChange={setFormData}
+          onChange={(data) => {
+            setFormData(data);
+            if (submittedData) setSubmittedData(data);
+          }}
           hideSubmit={!!submittedData}
         />
 
@@ -296,6 +337,7 @@ export default function QuickTournamentPage() {
               Review the bracket before starting the tournament.
             </p>
             <TournamentPreview
+              key={previewVersion}
               data={submittedData}
               onBack={handleBackToForm}
               onConfirm={handleConfirm}

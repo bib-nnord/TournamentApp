@@ -45,6 +45,11 @@ export default function TournamentPreview({ data, onConfirm, submitting, submitE
   );
   const [participants, setParticipants] = useState<Participant[]>(data.participants);
 
+  // Sync participants when the parent passes updated data
+  useEffect(() => {
+    setParticipants(data.participants);
+  }, [data.participants]);
+
   // Combination format options
   const [advancersPerGroup, setAdvancersPerGroup] = useState(data.advancersPerGroup ?? 2);
   const [autoAdvanceGroups, setAutoAdvanceGroups] = useState<string[][]>([]);

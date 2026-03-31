@@ -14,6 +14,7 @@ import teamRoutes from './routes/teamsRoutes';
 import tournamentRoutes from './routes/tournamentsRoutes';
 import userRoutes from './routes/usersRoutes';
 import { optionalAuth } from './middleware/authMiddleware';
+import { cleanupExpiredGhosts } from './lib/cleanup';
 
 
 const app = express();
@@ -56,4 +57,7 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
 });
 
 const PORT = Number(process.env.PORT) || 2000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+  cleanupExpiredGhosts();
+});

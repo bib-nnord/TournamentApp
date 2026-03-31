@@ -21,6 +21,10 @@ export interface Participant {
   existingTeamId?: number;
   /** Original username for account participants (before dedup suffix) */
   accountName?: string;
+  /** Optional email for guest participants (triggers invite flow) */
+  email?: string;
+  /** Skip the email invite (add as plain guest even though email was provided) */
+  skipEmailInvite?: boolean;
 }
 
 export interface TeamSearchResult {

@@ -36,6 +36,7 @@ model User {
   received_messages Message[]      @relation("MessageRecipient")
   refresh_tokens   RefreshToken[]
   password_reset_tokens PasswordResetToken[]
+  guest_invite_tokens   GuestInviteToken[]
 
   created_tournaments      Tournament[]              @relation("TournamentCreator")
   tournament_entries       TournamentParticipant[]    @relation("TournamentParticipants")
@@ -56,6 +57,7 @@ enum SiteRole {
   organizer
   moderator
   admin
+  guest
 }
 
 // ─── Refresh Tokens ─────────────────────────────────────────────────────────
@@ -71,6 +73,24 @@ model RefreshToken {
 
   @@index([user_id])
   @@map("refresh_token")
+}
+
+// ─── Guest Invite Tokens ────────────────────────────────────────────────────
+
+model GuestInviteToken {
+  id            Int      @id @default(autoincrement())
+  token         String   @unique @db.VarChar(64)
+  user_id       Int
+  tournament_id Int
+  seed          Int
+  expires_at    DateTime @db.Timestamp(6)
+  created_at    DateTime @default(now()) @db.Timestamp(6)
+
+  user       User       @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+  tournament Tournament @relation(fields: [tournament_id], references: [tournament_id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@map("guest_invite_token")
 }
 
 // ─── Password Reset Tokens ──────────────────────────────────────────────────
@@ -214,6 +234,7 @@ model Tournament {
   creator      User                    @relation("TournamentCreator", fields: [created_by], references: [user_id])
   participants TournamentParticipant[]
   matches      Match[]
+  guest_invite_tokens GuestInviteToken[]
 
   @@map("tournament")
 }
