@@ -5,6 +5,7 @@ export interface TournamentParticipantData {
   seed: number;
   displayName: string;
   username: string | null;
+  accountDisplayName: string | null;
   guestName: string | null;
   userId: number | null;
   teamId: number | null;

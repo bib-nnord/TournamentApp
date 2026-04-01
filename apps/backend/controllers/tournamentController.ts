@@ -11,7 +11,7 @@ export const tournamentCreatorSelect = { user_id: true, username: true, display_
 export const tournamentParticipantInclude = {
   orderBy: { seed: 'asc' as const },
   include: {
-    user: { select: { username: true } },
+    user: { select: { username: true, display_name: true } },
   },
 } as const;
 
@@ -47,6 +47,7 @@ export function formatTournament(tournament: any) {
           seed: participant.seed,
           displayName: participant.display_name,
           username: participant.user?.username ?? null,
+          accountDisplayName: participant.user?.display_name ?? null,
           guestName: participant.guest_name,
           userId: participant.user_id,
           teamId: participant.team_id,

@@ -115,9 +115,10 @@ export default function ProfilePage() {
     user && !isOwnProfile ? `/friends/status/${username}` : null
   );
   const [friendLoading, setFriendLoading] = useState(false);
-  const myTournaments = (tournamentsData?.tournaments ?? []).filter(
-    (t) => t.creator.username === username
-  );
+  const myTournaments = (tournamentsData?.tournaments ?? []).filter((t) => {
+    if (isOwnProfile) return t.creator.username === username || t.isJoined;
+    return t.creator.username === username;
+  });
 
   useEffect(() => {
     if (!profile) return;

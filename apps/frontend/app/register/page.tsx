@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import FormField from "@/components/FormField";
 import { LABEL_CREATE_ACCOUNT, LABEL_CREATING_ACCOUNT, LABEL_SIGN_IN } from "@/constants/labels";
-import { register } from "@/store/authSlice";
+import { fetchCurrentUser, register } from "@/store/authSlice";
 import { apiFetch } from "@/lib/api";
 import type { AppDispatch, RootState } from "@/store/store";
 import Link from "next/link";
@@ -74,7 +74,9 @@ export default function RegisterPage() {
           }),
         });
         if (res.ok) {
-          router.push('/login');
+          const body = await res.json().catch(() => ({}));
+          await dispatch(fetchCurrentUser());
+          router.push(body.tournamentId ? `/tournaments/view/${body.tournamentId}` : '/dashboard');
         } else {
           const body = await res.json().catch(() => ({}));
           setValidationError(body.error ?? 'Registration failed');

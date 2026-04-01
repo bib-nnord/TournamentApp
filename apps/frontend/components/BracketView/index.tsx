@@ -12,7 +12,38 @@ import type { Bracket, BracketRound, BracketMatch, TiebreakerMatch } from "@/lib
 import Link from "next/link";
 
 const TournamentIdContext = createContext<number | null>(null);
-const HighlightContext = createContext<string | null>(null);
+const HighlightContext = createContext<Set<string> | null>(null);
+const NameAnnotationContext = createContext<Record<string, string> | null>(null);
+
+function normalizeHighlightValue(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function buildHighlightSet(values: Array<string | null | undefined>): Set<string> {
+  return new Set(
+    values
+      .filter((value): value is string => Boolean(value && value.trim()))
+      .map((value) => normalizeHighlightValue(value))
+  );
+}
+
+function isHighlightedName(highlightNames: Set<string> | null, value: string | null | undefined): boolean {
+  if (!highlightNames || !value) return false;
+  return highlightNames.has(normalizeHighlightValue(value));
+}
+
+function resolveAnnotatedName(name: string, annotations: Record<string, string> | null): string {
+  if (!annotations) return name;
+  const realName = annotations[name];
+  if (!realName) return name;
+
+  const trimmed = name.trim();
+  const looksDeduped = /\(\d+\)$/.test(trimmed);
+  if (!looksDeduped) return name;
+
+  if (trimmed.toLowerCase() === realName.trim().toLowerCase()) return name;
+  return `${name} (${realName})`;
+}
 
 type Size = {
   width: number;
@@ -75,10 +106,12 @@ function BracketChrome({
 
 // ─── Main entry point ─────────────────────────────────────────────────────────
 
-export default function BracketView({ bracket, tournamentId, highlightName, onSwapParticipants, advancersPerGroup, onAdvancersChange, autoAdvanceGroups, onAutoAdvanceGroupsChange, onMoveParticipant, onReportResult, onReportTiebreaker, onUndoTiebreaker }: {
+export default function BracketView({ bracket, tournamentId, highlightName, highlightNames, nameAnnotations, onSwapParticipants, advancersPerGroup, onAdvancersChange, autoAdvanceGroups, onAutoAdvanceGroupsChange, onMoveParticipant, onReportResult, onReportTiebreaker, onUndoTiebreaker }: {
   bracket: Bracket;
   tournamentId?: number;
   highlightName?: string;
+  highlightNames?: string[];
+  nameAnnotations?: Record<string, string>;
   onSwapParticipants?: (a: string, b: string) => void;
   advancersPerGroup?: number;
   onAdvancersChange?: (n: number) => void;
@@ -89,6 +122,7 @@ export default function BracketView({ bracket, tournamentId, highlightName, onSw
   onReportTiebreaker?: (matchId: string, winnerName: string) => Promise<void>;
   onUndoTiebreaker?: () => Promise<void>;
 }) {
+  const resolvedHighlightNames = buildHighlightSet([highlightName, ...(highlightNames ?? [])]);
   const allowTies = bracket.allowTies !== false;
   const [isExpanded, setIsExpanded] = useState(false);
   const [zoom, setZoom] = useState(1);
@@ -260,13 +294,15 @@ export default function BracketView({ bracket, tournamentId, highlightName, onSw
   })();
 
   const content = (
-    <HighlightContext.Provider value={highlightName ?? null}>
-      <TournamentIdContext.Provider value={tournamentId ?? null}>
-        {mainContent}
-        {bracket.tiebreaker && (
-          <TiebreakerPanel tiebreaker={bracket.tiebreaker} onReport={onReportTiebreaker} onUndo={onUndoTiebreaker} />
-        )}
-      </TournamentIdContext.Provider>
+    <HighlightContext.Provider value={resolvedHighlightNames.size > 0 ? resolvedHighlightNames : null}>
+      <NameAnnotationContext.Provider value={nameAnnotations ?? null}>
+        <TournamentIdContext.Provider value={tournamentId ?? null}>
+          {mainContent}
+          {bracket.tiebreaker && (
+            <TiebreakerPanel tiebreaker={bracket.tiebreaker} onReport={onReportTiebreaker} onUndo={onUndoTiebreaker} />
+          )}
+        </TournamentIdContext.Provider>
+      </NameAnnotationContext.Provider>
     </HighlightContext.Provider>
   );
 
@@ -715,7 +751,8 @@ function MatchCard({
   allowTies?: boolean;
 }) {
   const tournamentId = useContext(TournamentIdContext);
-  const highlightName = useContext(HighlightContext);
+  const highlightNames = useContext(HighlightContext);
+  const nameAnnotations = useContext(NameAnnotationContext);
   const [dropTarget, setDropTarget] = useState<"a" | "b" | null>(null);
   const [reporting, setReporting] = useState(false);
   const [selectedWinner, setSelectedWinner] = useState<"a" | "b" | "tie" | null>(null);
@@ -777,7 +814,7 @@ function MatchCard({
 
   function renderName(name: string | null | undefined) {
     if (!name || name === "TBD") return <span className="print-hide-tbd text-gray-300 italic">TBD</span>;
-    return <>{name}</>;
+    return <>{resolveAnnotatedName(name, nameAnnotations)}</>;
   }
 
   const canDrag = !!onSwapParticipants;
@@ -790,8 +827,8 @@ function MatchCard({
   const isWinnerA = match.completed && !match.tie && match.winner === match.participantA;
   const isWinnerB = match.completed && !match.tie && match.winner === match.participantB;
   const isTie = match.completed && match.tie;
-  const isMyA = !!highlightName && match.participantA === highlightName;
-  const isMyB = !!highlightName && match.participantB === highlightName;
+  const isMyA = isHighlightedName(highlightNames, match.participantA);
+  const isMyB = isHighlightedName(highlightNames, match.participantB);
 
   function openReporting() {
     if (match.completed) {
@@ -1009,7 +1046,7 @@ function RoundRobinView({
   onReportResult?: (matchId: string, winner: "a" | "b" | "tie", scoreA?: number, scoreB?: number) => Promise<void>;
   allowTies?: boolean;
 }) {
-  const highlightName = useContext(HighlightContext);
+  const highlightNames = useContext(HighlightContext);
   const participantSet = new Set<string>();
   for (const round of rounds) {
     for (const match of round.matches) {
@@ -1083,11 +1120,11 @@ function RoundRobinView({
             {standingRows.map((row) => (
               <div
                 key={row.name}
-                className={`flex items-center gap-3 px-3 py-2 ${row.name === highlightName ? "bg-violet-50" : row.isTied ? "bg-amber-50" : "bg-white"}`}
+                className={`flex items-center gap-3 px-3 py-2 ${isHighlightedName(highlightNames, row.name) ? "bg-violet-50" : row.isTied ? "bg-amber-50" : "bg-white"}`}
               >
                 <span className="text-xs font-mono text-gray-400 w-5 shrink-0">{row.rank}.</span>
-                <span className={`flex-1 flex items-center gap-1 ${row.name === highlightName ? "font-semibold text-violet-700" : row.rank === 1 && !row.isTied ? "font-semibold text-gray-900" : row.isTied && row.rank === 1 ? "font-semibold text-amber-900" : "text-gray-700"}`}>
-                  {row.name === highlightName && <span className="text-[9px] text-violet-500 font-bold">★</span>}
+                <span className={`flex-1 flex items-center gap-1 ${isHighlightedName(highlightNames, row.name) ? "font-semibold text-violet-700" : row.rank === 1 && !row.isTied ? "font-semibold text-gray-900" : row.isTied && row.rank === 1 ? "font-semibold text-amber-900" : "text-gray-700"}`}>
+                  {isHighlightedName(highlightNames, row.name) && <span className="text-[9px] text-violet-500 font-bold">★</span>}
                   {row.name}
                 </span>
                 {row.isTied && (
@@ -1206,7 +1243,8 @@ function MatchRow({
   allowTies?: boolean;
 }) {
   const tournamentId = useContext(TournamentIdContext);
-  const highlightName = useContext(HighlightContext);
+  const highlightNames = useContext(HighlightContext);
+  const nameAnnotations = useContext(NameAnnotationContext);
   const [reporting, setReporting] = useState(false);
   const [selectedWinner, setSelectedWinner] = useState<"a" | "b" | "tie" | null>(null);
   const [scoreA, setScoreA] = useState("0");
@@ -1220,8 +1258,13 @@ function MatchRow({
   const isWinnerA = match.completed && !match.tie && match.winner === match.participantA;
   const isWinnerB = match.completed && !match.tie && match.winner === match.participantB;
   const isTie = match.completed && match.tie;
-  const isMyA = !!highlightName && match.participantA === highlightName;
-  const isMyB = !!highlightName && match.participantB === highlightName;
+  const isMyA = isHighlightedName(highlightNames, match.participantA);
+  const isMyB = isHighlightedName(highlightNames, match.participantB);
+
+  function renderName(name: string | null | undefined) {
+    if (!name || name === "TBD") return <span className="text-gray-300 italic print-hide-tbd">TBD</span>;
+    return <>{resolveAnnotatedName(name, nameAnnotations)}</>;
+  }
 
   async function handleSubmit() {
     if (!selectedWinner || !onReportResult) return;
@@ -1275,14 +1318,14 @@ function MatchRow({
           {isWinnerA && <span className="text-[9px] font-bold mr-1">W</span>}
           {isTie && <span className="text-[9px] font-bold mr-1 text-emerald-600">T</span>}
           {isMyA && !isWinnerA && !isTie && <span className="text-[9px] font-bold mr-1">★</span>}
-          {!match.participantA || match.participantA === "TBD" ? <span className="text-gray-300 italic print-hide-tbd">TBD</span> : match.participantA}
+          {renderName(match.participantA)}
           {match.completed && match.scoreA != null && <span className="ml-1 text-emerald-600">{match.scoreA}</span>}
         </span>
         <span className="px-2 text-gray-400">vs</span>
         <span className={`flex-1 px-2.5 py-1.5 truncate text-right ${isWinnerB || isTie ? "bg-emerald-50 text-emerald-700 font-semibold" : isMyB ? "bg-violet-50 text-violet-700 font-semibold" : "text-gray-800"} ${!match.participantB || match.participantB === "TBD" ? "print-tbd-row" : ""}`}>
           {isTie && <span className="text-[9px] font-bold ml-1 text-emerald-600">T</span>}
           {isMyB && !isWinnerB && !isTie && <span className="text-[9px] font-bold ml-1">★</span>}
-          {!match.participantB || match.participantB === "TBD" ? <span className="text-gray-300 italic print-hide-tbd">TBD</span> : match.participantB}
+          {renderName(match.participantB)}
           {match.completed && match.scoreB != null && <span className="ml-1 text-emerald-600">{match.scoreB}</span>}
           {isWinnerB && <span className="text-[9px] font-bold ml-1">W</span>}
         </span>

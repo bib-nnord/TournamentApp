@@ -6,6 +6,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import prisma from '../lib/prisma';
 import { sendEmail } from '../lib/email';
+import type { BracketData } from '../models/Tournament';
 
 function getJwtSecret(): string {
   const secret = process.env.JWT_SECRET;
@@ -44,6 +45,31 @@ function clearAuthCookies(res: Response): void {
 
 function hashToken(token: string) {
   return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+async function createAuthSession(
+  res: Response,
+  user: { user_id: number; username: string | null; email: string; site_role: string },
+) {
+  const accessToken = jwt.sign(
+    { sub: user.user_id, username: user.username, email: user.email, role: user.site_role },
+    JWT_SECRET,
+    { expiresIn: '15m' }
+  );
+
+  const refreshToken = crypto.randomBytes(32).toString('hex');
+  const expiresAt = new Date(Date.now() + 7 * 24 * 3600 * 1000);
+
+  await prisma.refreshToken.create({
+    data: {
+      token: hashToken(refreshToken),
+      user_id: user.user_id,
+      expires_at: expiresAt,
+    },
+  });
+
+  res.cookie(ACCESS_TOKEN_COOKIE, accessToken, authCookieOptions(15 * 60 * 1000));
+  res.cookie(REFRESH_TOKEN_COOKIE, refreshToken, authCookieOptions(7 * 24 * 60 * 60 * 1000));
 }
 
 export async function register(req: Request, res: Response) {
@@ -166,25 +192,7 @@ export async function login(req: Request, res: Response) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    const accessToken = jwt.sign(
-      { sub: user.user_id, username: user.username, email: user.email, role: user.site_role },
-      JWT_SECRET,
-      { expiresIn: '15m' }
-    );
-
-    const refreshToken = crypto.randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + 7 * 24 * 3600 * 1000);
-
-    await prisma.refreshToken.create({
-      data: {
-        token: hashToken(refreshToken),
-        user_id: user.user_id,
-        expires_at: expiresAt,
-      },
-    });
-
-    res.cookie(ACCESS_TOKEN_COOKIE, accessToken, authCookieOptions(15 * 60 * 1000));
-    res.cookie(REFRESH_TOKEN_COOKIE, refreshToken, authCookieOptions(7 * 24 * 60 * 60 * 1000));
+    await createAuthSession(res, user);
 
     return res.status(200).json({
       user: {
@@ -487,43 +495,159 @@ export async function registerInvite(req: Request, res: Response) {
     }
 
     const password_hash = await bcrypt.hash(password as string, 16);
+    const newName = display_name as string;
+    const ghostUserId = stored.user.user_id;
 
-    // Convert ghost user to real user and update participant in a transaction
+    const linkedParticipants = await prisma.tournamentParticipant.findMany({
+      where: { user_id: ghostUserId },
+      select: {
+        tournament_id: true,
+        seed: true,
+        display_name: true,
+      },
+    });
+
     await prisma.$transaction([
       prisma.user.update({
-        where: { user_id: stored.user.user_id },
+        where: { user_id: ghostUserId },
         data: {
           username: username as string,
           password_hash,
-          display_name,
+          display_name: newName,
           first_name,
           last_name,
           date_of_birth: dob,
           site_role: 'user',
         },
       }),
-      prisma.tournamentParticipant.update({
-        where: {
-          tournament_id_seed: {
-            tournament_id: stored.tournament_id,
-            seed: stored.seed,
-          },
-        },
+      prisma.tournamentParticipant.updateMany({
+        where: { user_id: ghostUserId },
         data: {
           participant_type: 'account',
+          user_id: ghostUserId,
           guest_name: null,
-          display_name: display_name as string,
+          display_name: newName,
+          confirmed: true,
+          declined: false,
+          registration_status: 'approved',
         },
       }),
-      // Delete all invite tokens for this ghost user (they may have been added to multiple tournaments)
       prisma.guestInviteToken.deleteMany({
-        where: { user_id: stored.user.user_id },
+        where: { user_id: ghostUserId },
       }),
     ]);
 
-    return res.status(201).json({ message: 'Account created successfully' });
+    const tournamentsToUpdate = [...new Set(linkedParticipants.map((participant) => participant.tournament_id))];
+    if (tournamentsToUpdate.length > 0) {
+      const tournaments = await prisma.tournament.findMany({
+        where: { tournament_id: { in: tournamentsToUpdate } },
+        select: {
+          tournament_id: true,
+          bracket_data: true,
+          preview_bracket_data: true,
+        },
+      });
+
+      for (const tournament of tournaments) {
+        const namesToReplace = linkedParticipants
+          .filter((participant) => participant.tournament_id === tournament.tournament_id)
+          .map((participant) => participant.display_name)
+          .filter((name): name is string => Boolean(name) && name !== newName);
+
+        if (namesToReplace.length === 0) continue;
+
+        let updatedBracket = tournament.bracket_data as unknown as BracketData | null;
+        let updatedPreviewBracket = tournament.preview_bracket_data as unknown as BracketData | null;
+
+        for (const oldName of namesToReplace) {
+          if (updatedBracket) {
+            updatedBracket = replaceBracketName(updatedBracket, oldName, newName);
+          }
+          if (updatedPreviewBracket) {
+            updatedPreviewBracket = replaceBracketName(updatedPreviewBracket, oldName, newName);
+          }
+        }
+
+        await prisma.tournament.update({
+          where: { tournament_id: tournament.tournament_id },
+          data: {
+            bracket_data: updatedBracket as any,
+            preview_bracket_data: updatedPreviewBracket as any,
+          },
+        });
+      }
+    }
+
+    const currentTournament = await prisma.tournament.findUnique({
+      where: { tournament_id: stored.tournament_id },
+      select: { name: true, game: true },
+    });
+
+    if (currentTournament) {
+      await prisma.message.create({
+        data: {
+          recipient_id: ghostUserId,
+          recipient_name: newName,
+          sender_id: null,
+          category: 'tournaments',
+          subject: `Welcome! You're in ${currentTournament.name}`,
+          body: `Your account has been created and you've been added to the tournament "${currentTournament.name}" (${currentTournament.game}). Head to the tournament page to see the bracket and your upcoming matches.`,
+          reference_id: stored.tournament_id,
+        },
+      });
+    }
+
+    await createAuthSession(res, {
+      user_id: ghostUserId,
+      username: username as string,
+      email: stored.user.email,
+      site_role: 'user',
+    });
+
+    return res.status(201).json({
+      message: 'Account created successfully',
+      tournamentId: stored.tournament_id,
+      user: {
+        id: ghostUserId,
+        username: username as string,
+        email: stored.user.email,
+      },
+    });
   } catch (err) {
     console.error('[registerInvite]', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
+}
+
+/** Replace a participant name across all sections of bracket data. */
+function replaceBracketName(bracket: BracketData, oldName: string, newName: string): BracketData {
+  const updated = structuredClone(bracket);
+
+  function replaceInRounds(rounds: BracketData['rounds']) {
+    for (const round of rounds) {
+      for (const match of round.matches) {
+        if (match.participantA === oldName) match.participantA = newName;
+        if (match.participantB === oldName) match.participantB = newName;
+        if (match.winner === oldName) match.winner = newName;
+      }
+    }
+  }
+
+  if (updated.rounds) replaceInRounds(updated.rounds);
+  if (updated.losersRounds) replaceInRounds(updated.losersRounds);
+  if (updated.knockoutRounds) replaceInRounds(updated.knockoutRounds);
+
+  if (updated.groups) {
+    for (const group of updated.groups) {
+      group.participants = group.participants.map((p) => (p === oldName ? newName : p));
+      if (group.rounds) replaceInRounds(group.rounds);
+    }
+  }
+
+  if (updated.tiebreaker) {
+    updated.tiebreaker.participants = updated.tiebreaker.participants.map((p) => (p === oldName ? newName : p));
+    if (updated.tiebreaker.winner === oldName) updated.tiebreaker.winner = newName;
+  }
+
+  return updated;
 }

@@ -155,7 +155,7 @@ export async function create(req: Request, res: Response) {
           ...base,
           participant_type: 'account',
           user_id: resolved?.user_id || null,
-          display_name: resolved ? resolved.display_name || resolved.username : participant.name,
+          display_name: participant.name,
           confirmed: resolved?.user_id === req.user.id,
           registration_status: resolved?.user_id === req.user.id ? 'approved' : 'invited',
         };

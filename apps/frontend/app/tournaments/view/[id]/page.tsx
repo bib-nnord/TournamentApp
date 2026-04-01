@@ -311,6 +311,28 @@ export default function TournamentPage() {
       )?.name ?? undefined)
     : (myParticipant?.displayName ?? undefined);
 
+  const myHighlightNames = tournament.teamMode
+    ? (myHighlightName ? [myHighlightName] : [])
+    : [
+        myParticipant?.displayName,
+        myParticipant?.guestName,
+        currentUser?.displayName,
+        currentUser?.username,
+      ].filter((value): value is string => Boolean(value && value.trim()));
+
+  const participantNameAnnotations = Object.fromEntries(
+    tournament.participants
+      .filter((participant) => participant.type === "account")
+      .map((participant) => {
+        const realName = (participant.accountDisplayName ?? participant.username ?? "").trim();
+        if (!realName) return null;
+        if (!/\(\d+\)$/.test(participant.displayName.trim())) return null;
+        if (participant.displayName.trim().toLowerCase() === realName.toLowerCase()) return null;
+        return [participant.displayName, realName] as const;
+      })
+      .filter((entry): entry is readonly [string, string] => entry != null)
+  );
+
   const isUnconfirmedParticipant = myParticipant != null && !myParticipant.confirmed && !myParticipant.declined;
 
   async function handleConfirm(accept: boolean) {
@@ -1575,6 +1597,8 @@ className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-b
                     bracket={editablePreviewBracket ?? tournament.previewBracketData}
                     tournamentId={tournament.id}
                     highlightName={myHighlightName}
+                    highlightNames={myHighlightNames}
+                    nameAnnotations={participantNameAnnotations}
                     onSwapParticipants={swapPreviewParticipants}
                     advancersPerGroup={previewAdvancersPerGroup}
                     onAdvancersChange={(value) => {
@@ -1627,6 +1651,8 @@ className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-b
               bracket={tournament.bracketData}
               tournamentId={tournament.id}
               highlightName={myHighlightName}
+              highlightNames={myHighlightNames}
+              nameAnnotations={participantNameAnnotations}
               onReportResult={isCreator && tournament.status === "active" ? handleReportResult : undefined}
               onReportTiebreaker={isCreator && tournament.status === "active" ? handleReportTiebreaker : undefined}
               onUndoTiebreaker={isCreator && tournament.status === "active" ? handleUndoTiebreaker : undefined}

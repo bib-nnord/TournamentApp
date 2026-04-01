@@ -11,19 +11,24 @@ import {
   LABEL_ADD_TEAM,
   LABEL_GENERATE_BRACKET,
 } from "@/constants/labels";
-import { useTagInput } from "@/hooks/useTagInput";
-import { generateUniqueName } from "@/lib/helpers";
 import { apiFetch } from "@/lib/api";
+import { generateUniqueName } from "@/lib/helpers";
 import { tournamentFormatInfo, type TournamentFormat } from "@/types";
+import { FileText, Gamepad2, Shield, Trophy, UserPlus, Users, X } from "lucide-react";
 import TournamentFormatMiniPreview from "../TournamentFormatMiniPreview";
-import UserSearchInput from "../UserSearchInput";
 import { Card } from "../ui/card";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
-import { Textarea } from "../ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
-import { Trophy, Gamepad2, Users, Shield, FileText, UserPlus, X } from "lucide-react";
-import type { Participant, ParticipantMemberType, TournamentTeam, TeamSearchResult, QuickTournamentData } from "./types";
+import { Textarea } from "../ui/textarea";
+import UserSearchInput from "../UserSearchInput";
+import type {
+  Participant,
+  ParticipantMemberType,
+  QuickTournamentData,
+  TeamSearchResult,
+  TournamentTeam,
+} from "./types";
 
 export type { Participant, QuickTournamentData };
 
@@ -38,6 +43,11 @@ interface Props {
 }
 
 const formats = Object.entries(tournamentFormatInfo) as [TournamentFormat, { label: string; description: string }][];
+
+type AccountParticipant = {
+  name: string;
+  accountName: string;
+};
 
 export default function QuickTournamentForm({ initial, onSubmit, onChange, hideSubmit }: Props) {
   const [name, setName] = useState(initial?.name ?? "");
@@ -59,8 +69,11 @@ export default function QuickTournamentForm({ initial, onSubmit, onChange, hideS
   const [teamMode, setTeamMode] = useState(initial?.teamMode ?? false);
   const [allowTies, setAllowTies] = useState(initial?.allowTies !== false);
 
-  const [accounts, setAccounts] = useState<string[]>(
-    () => initial?.participants.filter((p) => p.type === "account").map((p) => p.name) ?? []
+  const [accounts, setAccounts] = useState<AccountParticipant[]>(
+    () =>
+      initial?.participants
+        .filter((p) => p.type === "account")
+        .map((p) => ({ name: p.name, accountName: p.accountName ?? p.name })) ?? []
   );
   const [guests, setGuests] = useState<{ name: string; email?: string }[]>(
     () => initial?.participants.filter((p) => p.type === "guest").map((p) => ({ name: p.name, email: p.email })) ?? []
@@ -138,12 +151,24 @@ export default function QuickTournamentForm({ initial, onSubmit, onChange, hideS
     : accounts.length + guests.length;
   const allNames = teamMode
     ? teams.map((t) => t.name)
-    : [...accounts, ...guests.map((g) => g.name)];
-
-  const { addTag, removeTag } = useTagInput(allNames);
+    : [...accounts.map((account) => account.name), ...guests.map((g) => g.name)];
   const discipline = disciplineChoice === CUSTOM_DISCIPLINE_VALUE
     ? customDiscipline.trim()
     : disciplineValueToLabel(disciplineChoice);
+
+  function addAccount(accountName: string) {
+    const trimmed = accountName.trim();
+    if (!trimmed) return;
+
+    const finalName = generateUniqueName(trimmed, allNames);
+    if (!finalName) return;
+
+    setAccounts((prev) => [...prev, { name: finalName, accountName: trimmed }]);
+  }
+
+  function removeAccount(index: number) {
+    setAccounts((prev) => prev.filter((_, i) => i !== index));
+  }
 
   // ─── Auto-save draft (debounced) ──────────────────────────────────────
   useEffect(() => {
@@ -157,7 +182,11 @@ export default function QuickTournamentForm({ initial, onSubmit, onChange, hideS
             existingTeamId: t.existingTeamId,
           }))
         : [
-            ...accounts.map((n) => ({ name: n, type: "account" as const })),
+            ...accounts.map((account) => ({
+              name: account.name,
+              type: "account" as const,
+              accountName: account.accountName,
+            })),
             ...guests.map((g) => ({ name: g.name, type: "guest" as const, email: g.email })),
           ];
       onChange({ name, discipline, description, format, participants, isPrivate, teamMode, allowTies });
@@ -177,7 +206,11 @@ export default function QuickTournamentForm({ initial, onSubmit, onChange, hideS
           existingTeamId: t.existingTeamId,
         }))
       : [
-          ...accounts.map((n) => ({ name: n, type: "account" as const })),
+          ...accounts.map((account) => ({
+            name: account.name,
+            type: "account" as const,
+            accountName: account.accountName,
+          })),
           ...guests.map((g) => ({ name: g.name, type: "guest" as const, email: g.email })),
         ];
     onSubmit({ name, discipline, description, format, participants, isPrivate, teamMode, allowTies });
@@ -469,7 +502,7 @@ export default function QuickTournamentForm({ initial, onSubmit, onChange, hideS
                   Search by username — non-matching names are added as guests
                 </p>
                 <UserSearchInput
-                  onSelect={(username) => addTag(username, setAccounts)}
+                  onSelect={addAccount}
                   onSelectAsGuest={(name) => {
                     const finalName = generateUniqueName(name, allNames);
                     if (finalName) setGuests((prev) => [...prev, { name: finalName }]);
@@ -507,12 +540,12 @@ export default function QuickTournamentForm({ initial, onSubmit, onChange, hideS
                             {i + 1}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="font-medium truncate">{t}</div>
+                            <div className="font-medium truncate">{t.name}</div>
                             <div className="text-xs text-muted-foreground">Account</div>
                           </div>
                           <button
                             type="button"
-                            onClick={() => removeTag(i, setAccounts)}
+                            onClick={() => removeAccount(i)}
                             className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
                           >
                             <X className="w-4 h-4" />
