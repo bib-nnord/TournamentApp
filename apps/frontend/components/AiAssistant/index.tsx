@@ -1,7 +1,9 @@
 "use client";
 
-import { Bot, Check, AlertCircle, Loader2, Minus, Send, Trash2, Trophy, Users, X } from "lucide-react";
+import { Bot, Check, AlertCircle, Loader2, Mic, MicOff, Minus, Send, Trash2, Trophy, Users, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+
+import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -320,6 +322,15 @@ export default function AiAssistant() {
     Record<string, { status: "idle" | "creating" | "success" | "error"; tournamentId?: number; teamId?: number; error?: string }>
   >({});
 
+  const { isSupported: speechSupported, isListening, transcript, interimTranscript, toggle: toggleMic, stop: stopMic } = useSpeechRecognition();
+
+  // Append finalized speech transcript into the input field
+  useEffect(() => {
+    if (transcript) {
+      setInput((prev) => (prev ? prev + " " : "") + transcript);
+    }
+  }, [transcript]);
+
   // Load session messages on mount
   useEffect(() => {
     if (!initialized.current) {
@@ -491,6 +502,8 @@ export default function AiAssistant() {
   const handleSubmit = useCallback(() => {
     const trimmed = input.trim();
     if (!trimmed || isLoading) return;
+
+    if (isListening) stopMic();
 
     const userMsg: ChatMessage = { id: genId(), role: "user", content: trimmed };
     const newMessages = [...messages, userMsg];
@@ -724,10 +737,27 @@ export default function AiAssistant() {
           className="rounded-2xl"
         >
           <PromptInputTextarea
-            placeholder="Ask about tournaments..."
+            placeholder={isListening ? "Listening..." : "Ask about tournaments..."}
             className="min-h-[36px] text-sm"
           />
-          <PromptInputActions className="justify-end">
+          {interimTranscript && (
+            <p className="px-3 pb-1 text-xs italic text-muted-foreground">
+              {interimTranscript}
+            </p>
+          )}
+          <PromptInputActions className="justify-end gap-1">
+            {speechSupported && (
+              <Button
+                size="sm"
+                variant={isListening ? "destructive" : "ghost"}
+                className={`h-8 w-8 rounded-full ${isListening ? "animate-pulse" : ""}`}
+                onClick={toggleMic}
+                aria-label={isListening ? "Stop recording" : "Start voice input"}
+                title={isListening ? "Stop recording" : "Voice input"}
+              >
+                {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+              </Button>
+            )}
             <Button
               size="sm"
               className="h-8 w-8 rounded-full"
