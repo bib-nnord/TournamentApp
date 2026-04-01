@@ -14,6 +14,7 @@ import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/
 interface TeamCard {
   id: number;
   name: string;
+  description?: string | null;
   bio?: string | null;
   open: boolean;
   members: number;
@@ -33,6 +34,7 @@ interface TeamListProps {
 export default function TeamList({ layout = "grid" }: TeamListProps) {
   const { data, loading, error } = useFetch<{ teams: TeamCard[] }>("/teams?limit=4");
   const teams = data?.teams ?? [];
+  const getTeamDescription = (team: TeamCard) => team.description ?? team.bio ?? null;
 
   if (loading) {
     return <p className="text-sm text-muted-foreground">Loading…</p>;
@@ -53,7 +55,9 @@ export default function TeamList({ layout = "grid" }: TeamListProps) {
         className="w-full px-10"
       >
         <CarouselContent>
-          {teams.map((t) => (
+          {teams.map((t) => {
+            const teamDescription = getTeamDescription(t);
+            return (
             <CarouselItem
               key={t.id}
               className="basis-full sm:basis-1/2 lg:basis-1/3"
@@ -79,8 +83,8 @@ export default function TeamList({ layout = "grid" }: TeamListProps) {
                   </span>
                 </div>
 
-                {t.bio && (
-                  <p className="line-clamp-2 text-xs text-muted-foreground">{t.bio}</p>
+                {teamDescription && (
+                  <p className="text-xs text-muted-foreground whitespace-pre-wrap [overflow-wrap:anywhere]">{teamDescription}</p>
                 )}
 
                 <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-muted-foreground">
@@ -106,7 +110,8 @@ export default function TeamList({ layout = "grid" }: TeamListProps) {
                 <span className="mt-auto text-[11px] text-muted-foreground">Open team page</span>
               </Link>
             </CarouselItem>
-          ))}
+            );
+          })}
         </CarouselContent>
         <CarouselPrevious className="left-0" />
         <CarouselNext className="right-0" />
@@ -116,7 +121,9 @@ export default function TeamList({ layout = "grid" }: TeamListProps) {
 
   return (
     <Accordion type="multiple" className="space-y-2">
-      {teams.map((t) => (
+      {teams.map((t) => {
+        const teamDescription = getTeamDescription(t);
+        return (
         <AccordionItem key={t.id} value={String(t.id)}>
           <AccordionTrigger className="flex items-center justify-between px-4 py-3 bg-card border border-border rounded-lg">
             <span className="text-sm font-semibold text-card-foreground">{t.name}</span>
@@ -134,7 +141,7 @@ export default function TeamList({ layout = "grid" }: TeamListProps) {
           </AccordionTrigger>
           <AccordionContent className="bg-card border-x border-b border-border rounded-b-lg">
             <div className="flex flex-col gap-2 p-3">
-              {t.bio && <p className="text-xs text-muted-foreground">{t.bio}</p>}
+              {teamDescription && <p className="text-xs text-muted-foreground whitespace-pre-wrap [overflow-wrap:anywhere]">{teamDescription}</p>}
               <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-muted-foreground">
                 <span>
                   {t.disciplines && t.disciplines.length > 0
@@ -156,7 +163,8 @@ export default function TeamList({ layout = "grid" }: TeamListProps) {
             </div>
           </AccordionContent>
         </AccordionItem>
-      ))}
+        );
+      })}
     </Accordion>
   );
 }

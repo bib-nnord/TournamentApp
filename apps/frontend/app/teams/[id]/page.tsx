@@ -275,9 +275,9 @@ export default function TeamPage() {
 
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 mb-6">
           <div className="flex items-start justify-between mb-4">
-            <div>
+            <div className="min-w-0 flex-1 pr-3">
               <h1 className="text-2xl font-bold text-gray-900">{team.name}</h1>
-              <p className="text-sm text-gray-500 mt-1">{team.description || "No description yet."}</p>
+              <p className="text-sm text-gray-500 mt-1 whitespace-pre-wrap [overflow-wrap:anywhere]">{team.description || "No description yet."}</p>
             </div>
 
             <div className="flex items-center gap-2">

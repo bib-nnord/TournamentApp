@@ -575,7 +575,7 @@ export default function ProfilePage() {
                       <span className="ml-1 text-xs text-gray-400">(private)</span>
                     )}
                   </p>
-                  <p className={`text-sm text-gray-700 leading-6 ${!profile.bio ? "italic text-gray-400" : ""}`}>
+                  <p className={`text-sm text-gray-700 leading-6 whitespace-pre-wrap [overflow-wrap:anywhere] ${!profile.bio ? "italic text-gray-400" : ""}`}>
                     {profile.bio || (isOwnProfile ? "No bio yet." : "No bio provided.")}
                   </p>
                 </div>
@@ -589,7 +589,7 @@ export default function ProfilePage() {
                         <span className="ml-1 text-xs text-gray-400">(private)</span>
                       )}
                     </p>
-                    <p className={`text-sm font-medium text-gray-700 ${!profile.country ? "italic text-gray-400" : ""}`}>
+                    <p className={`text-sm font-medium text-gray-700 [overflow-wrap:anywhere] ${!profile.country ? "italic text-gray-400" : ""}`}>
                       {profile.country || (isOwnProfile ? "No country set." : "No country provided.")}
                     </p>
                   </div>

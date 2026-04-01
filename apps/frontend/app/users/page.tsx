@@ -58,11 +58,6 @@ export default function UsersPage() {
     fetchUsers();
   }, [fetchUsers]);
 
-  // Reset to page 1 when search or sort changes
-  useEffect(() => {
-    setPage(1);
-  }, [debouncedQuery]);
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60">
       <div className="max-w-5xl mx-auto px-4 py-10">
@@ -84,7 +79,10 @@ export default function UsersPage() {
           <Input
             type="text"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setPage(1);
+            }}
             placeholder="Search by username or display name…"
             className="flex-1 bg-white"
           />
@@ -122,7 +120,7 @@ export default function UsersPage() {
                 <Link
                   key={u.id}
                   href={`/profile/${u.username}`}
-                  className="flex items-center gap-4 px-4 py-3 hover:bg-accent transition-colors"
+                  className="flex items-start gap-4 px-4 py-3 hover:bg-accent transition-colors"
                 >
                   <Avatar className="h-9 w-9">
                     {u.avatarUrl ? (
@@ -137,11 +135,11 @@ export default function UsersPage() {
                       <span className="text-xs text-muted-foreground">@{u.username}</span>
                     </div>
                     {u.bio && (
-                      <p className="text-xs text-muted-foreground truncate">{u.bio}</p>
+                      <p className="text-xs text-muted-foreground whitespace-pre-wrap [overflow-wrap:anywhere]">{u.bio}</p>
                     )}
                   </div>
                   {u.location && (
-                    <span className="text-xs text-muted-foreground shrink-0">{u.location}</span>
+                    <span className="text-xs text-muted-foreground max-w-40 text-right [overflow-wrap:anywhere]">{u.location}</span>
                   )}
                 </Link>
               ))}
