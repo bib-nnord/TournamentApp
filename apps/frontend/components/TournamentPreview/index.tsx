@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, startTransition } from "react";
 import { useSelector } from "react-redux";
 import {
   CUSTOM_DISCIPLINE_VALUE,
@@ -19,7 +19,13 @@ import type { QuickTournamentData, Participant } from "../QuickTournamentForm";
 
 import type { TournamentPreviewProps } from "./types";
 
-export default function TournamentPreview({ data, onConfirm, submitting, submitError, onChange }: TournamentPreviewProps) {
+export default function TournamentPreview({
+  data,
+  onConfirm,
+  submitting,
+  submitError,
+  onChange,
+}: TournamentPreviewProps) {
   useSelector((state: RootState) => state.user.current);
   const [name] = useState(data.name);
   const [disciplineChoice] = useState(() => {
@@ -47,7 +53,9 @@ export default function TournamentPreview({ data, onConfirm, submitting, submitE
 
   // Sync participants when the parent passes updated data
   useEffect(() => {
-    setParticipants(data.participants);
+    startTransition(() => {
+      setParticipants(data.participants);
+    });
   }, [data.participants]);
 
   // Combination format options
