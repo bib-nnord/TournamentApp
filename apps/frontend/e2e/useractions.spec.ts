@@ -10,7 +10,6 @@ const userB: User = { username: "diegovarela", password: "diegovarela" };
 async function logout(page: Page) {
   await page.locator("header button[aria-haspopup='menu']").click();
   await page.getByRole("menuitem", { name: "Logout" }).click();
-  await page.waitForURL("/");
 }
 
 
@@ -55,10 +54,10 @@ test("add friend, accept, message, unfriend", async ({ page }) => {
   await login(page, userA);
   await page.goto("/messages");
 
-  await expect(page.getByText("Hallo")).toBeVisible();
+  await expect(page.getByText("Hallo", { exact: true })).toBeVisible();
 
   // a deletes
-  await page.getByText("Hallo").click();
+  await page.getByText("Hallo").first().click();
   page.once("dialog", (d) => d.accept());
   await page.getByRole("button", { name: "Delete" }).click();
   await expect(page.getByText("Hallo")).not.toBeVisible();
@@ -70,9 +69,9 @@ test("add friend, accept, message, unfriend", async ({ page }) => {
   page.once("dialog", (d) => d.accept());
   await page.getByRole("button", { name: "Remove" }).click();
   await page.goto("/messages");
-  await page.getByText("Sent").click();
-  await expect(page.getByText("Hallo")).toBeVisible();
-  await page.getByText("Hallo").click();
+  await page.getByText("Sent").first().click();
+  await expect(page.getByText("Hallo", { exact: true })).toBeVisible();
+  await page.getByText("Hallo").first().click();
   page.once("dialog", (d) => d.accept());
   await page.getByRole("button", { name: "Delete" }).click();
   await expect(page.getByText("Hallo")).not.toBeVisible();
