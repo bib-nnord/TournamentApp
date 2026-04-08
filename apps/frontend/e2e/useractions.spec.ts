@@ -1,8 +1,6 @@
-import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 
 type User = { username: string; password: string };
-
-const API = process.env.PLAYWRIGHT_API_URL ?? "http://localhost:2000";
 
 const userA: User = { username: "hannahfox", password: "hannahfox" };
 const userB: User = { username: "diegovarela", password: "diegovarela" };
@@ -26,46 +24,63 @@ async function login(page: Page, user: User) {
   await page.waitForURL("**/dashboard");
 }
 
-/** Clean up any existing friendship/request between userA and userB, and leftover test messages. */
-async function cleanupState(request: APIRequestContext) {
+/** Clean up any existing friendship/request and leftover test messages via the UI. */
+async function cleanupViaUI(page: Page) {
   for (const user of [userA, userB]) {
-    // Log in via API
-    await request.post(`${API}/auth/login`, {
-      data: { username: user.username, password: user.password },
-    });
+    await login(page, user);
 
-    // Remove friendship / pending request if it exists
-    const statusRes = await request.get(
-      `${API}/friends/status/${user === userA ? userB.username : userA.username}`
-    );
-    if (statusRes.ok()) {
-      const { status, friendshipId } = await statusRes.json();
-      if (friendshipId && status !== "none" && status !== "self") {
-        await request.delete(`${API}/friends/${friendshipId}`);
+    // Clean up friend state
+    await page.goto("/friends");
+    await page.waitForLoadState("networkidle");
+
+    // Remove accepted friendship (opens a confirmation modal)
+    const removeBtn = page.getByRole("button", { name: "Remove" }).first();
+    if (await removeBtn.isVisible().catch(() => false)) {
+      await removeBtn.click();
+      // Confirm in the modal
+      await page.locator("[class*='bg-red-600']").getByText("Remove").click();
+      await page.waitForLoadState("networkidle");
+    }
+
+    // Reload to get fresh state after possible removal
+    await page.goto("/friends");
+    await page.waitForLoadState("networkidle");
+
+    // Cancel outgoing pending request (button is in the "Pending" section, not a modal)
+    const cancelBtn = page.getByRole("button", { name: "Cancel" }).first();
+    if (await cancelBtn.isVisible().catch(() => false)) {
+      await cancelBtn.click();
+      await page.waitForLoadState("networkidle");
+    }
+
+    // Decline incoming pending request
+    const declineBtn = page.getByRole("button", { name: "Decline" }).first();
+    if (await declineBtn.isVisible().catch(() => false)) {
+      await declineBtn.click();
+      await page.waitForLoadState("networkidle");
+    }
+
+    // Clean up test messages in inbox and sent
+    for (const folder of ["Inbox", "Sent"]) {
+      await page.goto("/messages");
+      if (folder === "Sent") {
+        const sentTab = page.getByText("Sent").first();
+        if (await sentTab.isVisible().catch(() => false)) await sentTab.click();
+      }
+      while (await page.getByText("Hallo", { exact: true }).isVisible().catch(() => false)) {
+        await page.getByText("Hallo", { exact: true }).first().click();
+        await page.getByRole("button", { name: "Delete" }).click();
       }
     }
 
-    // Delete any "Hallo" test messages (inbox + sent)
-    for (const folder of ["inbox", "sent"]) {
-      const msgRes = await request.get(`${API}/messages?folder=${folder}&limit=50`);
-      if (msgRes.ok()) {
-        const { messages } = await msgRes.json();
-        for (const msg of messages) {
-          if (msg.subject === "Hallo") {
-            await request.delete(`${API}/messages/${msg.id}`);
-          }
-        }
-      }
-    }
-
-    await request.post(`${API}/auth/logout`);
+    await logout(page);
   }
 }
 
 test.describe.configure({ mode: "serial" });
 
-test.beforeEach(async ({ request }) => {
-  await cleanupState(request);
+test.beforeEach(async ({ page }) => {
+  await cleanupViaUI(page);
 });
 
 test("add friend, accept, message, unfriend", async ({ page }) => {
