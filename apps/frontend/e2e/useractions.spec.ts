@@ -1,81 +1,80 @@
 import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
 
-type User = {
-  username: string;
-  password: string;
-};
+type User = { username: string; password: string };
 
-const API_URL = process.env.PLAYWRIGHT_API_URL ?? "http://localhost:2000";
+const API = process.env.PLAYWRIGHT_API_URL ?? "http://localhost:2000";
 
-function testUsers(): { userA: User; userB: User } {
-  return {
-    userA: { username: "hannahfox", password: "hannahfox" },
-    userB: { username: "diegovarela", password: "diegovarela" },
-  };
+const userA: User = { username: "hannahfox", password: "hannahfox" };
+const userB: User = { username: "diegovarela", password: "diegovarela" };
+
+async function logout(page: Page) {
+  await page.locator("header button[aria-haspopup='menu']").click();
+  await page.getByRole("menuitem", { name: "Logout" }).click();
+  await page.waitForURL("/");
 }
 
-async function loginUser(request: APIRequestContext, user: User) {
-  const res = await request.post(`${API_URL}/auth/login`, {
-    data: {
-      username: user.username,
-      password: user.password,
-    },
-  });
-  expect(res.ok()).toBeTruthy();
-}
 
-async function logout(request: APIRequestContext) {
-  await request.post(`${API_URL}/auth/logout`);
+async function login(page: Page, user: User) {
+  await page.goto("/login");
+  await page.getByLabel("Username or email").fill(user.username);
+  await page.getByLabel("Password").fill(user.password);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.waitForURL("**/dashboard");
 }
 
 test.describe.configure({ mode: "serial" });
 
-test("add friend", async ({ page }) => {
-  const { userA, userB } = testUsers();
+test("add friend, accept, message, unfriend", async ({ page }) => {
 
-  await loginUser(page.request, userA);
+
+  // a requests b then logs out
+  await login(page, userA);
   await page.goto("/friends");
-
   await page.getByPlaceholder("Search users...").fill(userB.username);
-  await page.waitForTimeout(50);
-
+  await page.getByText(userB.username).click();
   await page.getByRole("button", { name: "Send request" }).click();
-
-  await expect(page.getByText(`Friend request sent to ${userB.username}.`)).toBeVisible();
-
-  await logout(page.request);
-  await loginUser(page.request, userB);
-
+  await expect(page.getByText(`Friend request sent to ${userB.username}`)).toBeVisible();
+  await logout(page);
+  // b logs in and accepts
+  await login(page, userB);
   await page.goto("/friends");
-
-  await page.getByText("Accept").first().click();
-
-  await expect(page.getByText("accepted")).toBeVisible();
-});
-
-test("send message", async ({ page }) => {
-  const { userA, userB } = testUsers();
-
-  await loginUser(page.request, userA);
+  await page.getByText("Incoming requests");
+  await page.getByRole("button", { name: "Accept" }).click();
+  await expect(page.getByText(`You are now friends with ${userA.username}`)).toBeVisible();
+  // b sends message to a
   await page.goto("/messages");
-
-  await page.getByText("new message").click();
-  await page.getByPlaceholder("Search users...").fill(userB.username);
-  await page.waitForTimeout(50);
-
-  await page.getByText(userB.username).first().click();
-
-
-  const messageText = "Hello";
-  await page.getByPlaceholder("Write your message…").fill(messageText);
+  await page.getByText("New message").click();
+  await page.getByPlaceholder("Search for a user…").fill(userA.username);
+  await page.getByText(userA.username).click();
+  await page.getByPlaceholder("Subject").fill("Hallo");
+  await page.getByPlaceholder("Write your message…").fill("Hallo 2");
   await page.getByRole("button", { name: "Send" }).click();
+  await logout(page)
 
-  await expect(page.getByText(messageText)).toBeVisible();
-
-  await logout(page.request);
-  await loginUser(page.request, userB);
-
+  // a checks for the message
+  await login(page, userA);
   await page.goto("/messages");
 
-  await expect(page.getByText(messageText)).toBeVisible();
+  await expect(page.getByText("Hallo")).toBeVisible();
+
+  // a deletes
+  await page.getByText("Hallo").click();
+  page.once("dialog", (d) => d.accept());
+  await page.getByRole("button", { name: "Delete" }).click();
+  await expect(page.getByText("Hallo")).not.toBeVisible();
+
+  // change to b and unfriend
+  await logout(page);
+  await login(page, userB);
+  await page.goto("/friends");
+  page.once("dialog", (d) => d.accept());
+  await page.getByRole("button", { name: "Remove" }).click();
+  await page.goto("/messages");
+  await page.getByText("Sent").click();
+  await expect(page.getByText("Hallo")).toBeVisible();
+  await page.getByText("Hallo").click();
+  page.once("dialog", (d) => d.accept());
+  await page.getByRole("button", { name: "Delete" }).click();
+  await expect(page.getByText("Hallo")).not.toBeVisible();
+  await logout(page);
 });
